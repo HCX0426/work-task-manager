@@ -102,7 +102,7 @@ function getRangeTasks(){
 }
 function renderPreview(){
   const t=getRangeTasks();
-  $('#previewCount').textContent='（范围内 '+t.length+' 条'+(skipExportedChecked()?'，已隐藏已追加':'');
+  $('#previewCount').textContent='（范围内 '+t.length+' 条'+(skipExportedChecked()?'，已隐藏已追加':'')+'）';
   const wrap=$('#previewTable');
   if(!t.length){wrap.innerHTML='<p class="muted">该时间范围内没有任务。</p>';return;}
   let headers, valOf;
