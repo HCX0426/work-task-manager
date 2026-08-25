@@ -100,8 +100,8 @@ function renderEntry(prefill){
     const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
     if(el) el.addEventListener('change',validateDates);
   });
-  $('#saveEntry').textContent = editingId ? '保存修改' : '保存任务';
-  $('#cancelEdit').style.display = editingId ? 'inline-block' : 'none';
+  $('#saveEntry').textContent = (editingId && prefill) ? '保存修改' : '保存任务';
+  $('#cancelEdit').style.display = (editingId && prefill) ? 'inline-block' : 'none';
 }
 
 /* C. 字段级校验 */

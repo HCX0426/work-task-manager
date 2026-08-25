@@ -99,9 +99,13 @@ $('#saveColCfg').onclick=()=>{
   if(ns.some(c=>!c.name)){toast('列名不能为空');return;}
   const kept=ns.map(c=>c.name);
   Object.keys(dropdowns).forEach(k=>{ if(!kept.includes(k)) delete dropdowns[k]; });
-  schema=ns; save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns); renderEntry(null); toast('列配置已保存');
+  schema=ns; save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
+  // 保持编辑上下文：如果正在编辑任务，重新加载任务数据
+  if(editingId){ const tk=tasks.find(x=>x.id===editingId); if(tk)renderEntry({...tk.values, entryDate:tk.entryDate}); else renderEntry(null); }
+  else renderEntry(null);
+  toast('列配置已保存');
 };
-$('#resetColCfg').onclick=()=>{ if(confirm('恢复默认15列表结构？当前列配置会被覆盖。')){schema=DEFAULT_SCHEMA.map(c=>({...c}));save(LS_SCHEMA,schema);renderConfig();renderEntry(null);toast('已恢复');} };
+$('#resetColCfg').onclick=()=>{ if(confirm('恢复默认15列表结构？当前列配置会被覆盖。')){schema=DEFAULT_SCHEMA.map(c=>({...c}));save(LS_SCHEMA,schema);renderConfig();if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}else renderEntry(null);toast('已恢复');} };
 $('#exportCfg').onclick=()=>{ downloadJSON({schema,dropdowns},'周报配置备份.json'); markBackup(); toast('配置已备份'); };
 $('#importCfg').onclick=()=>$('#importCfgFile').click();
 $('#importCfgFile').onchange=e=>{
@@ -126,7 +130,10 @@ $('#importCfgFile').onchange=e=>{
       }
       schema=validSchema;dropdowns=validDropdowns;
       save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);
-      renderConfig();renderEntry(null);toast('配置已导入');
+      renderConfig();
+      if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}
+      else renderEntry(null);
+      toast('配置已导入');
     }catch(err){toast('导入失败：'+err.message);}
   };
   r.readAsText(f);e.target.value='';
