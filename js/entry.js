@@ -38,7 +38,23 @@ function renderEntry(prefill){
         const v=(prompt('为「'+name+'」新增选项：')||'').trim();
         if(!v)return;
         if(!arr.includes(v)){ arr.push(v); save(LS_DROPDOWNS,dropdowns); }
+        // 保存当前表单数据，避免重新渲染时丢失用户已填内容
+        const currentVals={};
+        schema.forEach(c=>{
+          if(c.type==='auto')return;
+          const inp=$('#entryForm').querySelector(`[name="${CSS.escape(c.name)}"]`);
+          if(inp) currentVals[c.name]=inp.value;
+        });
+        const currentDate=$('#entryDate').value;
+        // 重新渲染
         renderEntry(prefill);
+        // 恢复用户之前填写的数据
+        Object.keys(currentVals).forEach(nm=>{
+          const inp=$('#entryForm').querySelector(`[name="${CSS.escape(nm)}"]`);
+          if(inp) inp.value=currentVals[nm];
+        });
+        $('#entryDate').value=currentDate;
+        // 设置新添加的选项为选中值
         const sel=$('#entryForm').querySelector(`[name="${CSS.escape(name)}"]`);
         if(sel)sel.value=v;
       };

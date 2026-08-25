@@ -66,9 +66,16 @@ function renderConfig(){
     });
     const add=document.createElement('span');add.className='dd-add';add.textContent='+ 加选项';
     itemsBox.appendChild(add);
-    box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{ dropdowns[x.dataset.k].splice(+x.dataset.idx,1); save(LS_DROPDOWNS,dropdowns); renderConfig(); });
-    box.querySelectorAll('.dd-chip input').forEach(inp=>inp.onchange=()=>{ dropdowns[inp.dataset.k][+inp.dataset.idx]=inp.value; save(LS_DROPDOWNS,dropdowns); });
-    add.onclick=()=>{ dropdowns[k]=dropdowns[k]||[]; dropdowns[k].push('新选项'); save(LS_DROPDOWNS,dropdowns); renderConfig(); };
+    const refreshDropdown=()=>{ renderConfig(); }; // 删除/修改后重新渲染，避免索引错位
+    box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{
+      const k=dropdowns[x.dataset.k];
+      if(k){ k.splice(parseInt(x.dataset.idx),1); save(LS_DROPDOWNS,dropdowns); refreshDropdown(); }
+    });
+    box.querySelectorAll('.dd-chip input').forEach(inp=>inp.onchange=()=>{
+      const k=dropdowns[inp.dataset.k];
+      if(k){ k[parseInt(inp.dataset.idx)]=inp.value; save(LS_DROPDOWNS,dropdowns); }
+    });
+    add.onclick=()=>{ dropdowns[k]=dropdowns[k]||[]; dropdowns[k].push('新选项'); save(LS_DROPDOWNS,dropdowns); refreshDropdown(); };
     box.querySelector('.dd-del').onclick=()=>{ delete dropdowns[k]; save(LS_DROPDOWNS,dropdowns); renderConfig(); };
     box.querySelector('.dd-sort').onclick=()=>{
       const arr=[...new Set((dropdowns[k]||[]).map(s=>s.trim()).filter(Boolean))];
