@@ -1,0 +1,7 @@
+# 排除示例文件（不必发给部门）
+追加效果示例.xlsx
+*.xlsx
+
+# 系统文件
+.DS_Store
+Thumbs.db

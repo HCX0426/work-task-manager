@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作任务管理</title>
+<script src="exceljs.min.js"></script>
+<style>
+  :root{ --blue:#2f6fed; --bg:#f5f6f8; --card:#fff; --line:#e3e6eb; --txt:#222; --mut:#7a828c; --ok:#1aa260; --warn:#e08a00; --del:#d8453a; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+  header h1{font-size:18px;margin:0}
+  header .sub{color:var(--mut);font-size:12px}
+  nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  nav button{background:#eef1f5;border:1px solid transparent;color:#333;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+  nav button.active{background:var(--blue);color:#fff}
+  main{max-width:1080px;margin:18px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 14px;font-size:15px}
+  .card h3{margin:18px 0 8px;font-size:13px;color:var(--mut)}
+  label{display:block;margin-bottom:10px}
+  label .lab{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;font-family:inherit}
+  textarea{min-height:60px;resize:vertical}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .btn{display:inline-block;background:var(--blue);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:14px}
+  .btn.sec{background:#eef1f5;color:#333}
+  .btn.warn{background:var(--warn);color:#fff}
+  .btn.del{background:var(--del);color:#fff}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .row > *{margin-bottom:0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+  th{background:#f0f3f7;font-weight:600}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:10px;opacity:0;transition:.25s;z-index:20;pointer-events:none;font-size:13px}
+  .toast.show{opacity:.96}
+  .muted{color:var(--mut);font-size:12px}
+  .hint{border-left:3px solid var(--blue);background:#f3f7ff;padding:8px 12px;border-radius:6px;font-size:12px;color:#3a4a63;margin:10px 0}
+  .badge{font-size:11px;padding:1px 7px;border-radius:6px;background:#e8eefc;color:#2f6fed;margin-left:6px}
+  .hidden{display:none}
+  .inline-check{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--txt)}
+  .inline-check input{width:auto;margin:0}
+  .field{display:block;margin-bottom:10px}
+  .dd-inline{display:flex;gap:6px}
+  .dd-inline select{flex:1}
+  .dd-inline .btn{flex:0 0 auto;white-space:nowrap}
+  .field-err{display:none;color:var(--del);font-size:12px;margin-top:4px}
+  .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--del)}
+  .field.invalid .field-err{display:block}
+  @media (max-width:600px){
+    .grid{grid-template-columns:1fr}
+    .range-grid{grid-template-columns:1fr}
+    .col-grid-head,.col-grid{grid-template-columns:1fr;gap:6px}
+    .col-grid-head{display:none}
+    .task-list{grid-template-columns:1fr}
+    main{padding:0 8px}
+    nav{width:100%;justify-content:flex-start}
+    header{flex-wrap:wrap}
+  }
+
+  /* ============ 配置中心：列定义网格对齐 ============ */
+  .col-grid-head, .col-grid{
+    display:grid;
+    grid-template-columns: 28px 1.4fr 1fr 1.4fr 92px 104px;
+    gap:8px; align-items:center;
+  }
+  .col-grid-head{padding:0 4px 6px;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line);margin-bottom:8px}
+  .col-grid-head span:last-child,.col-grid .col-del-wrap{text-align:center}
+  .col-grid{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#fafbfc}
+  .col-grid .idx{color:var(--mut);font-size:12px;text-align:center}
+  .col-grid input,.col-grid select{padding:6px 8px;font-size:13px}
+  .col-grid .today-cell{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:#555;white-space:nowrap}
+  .col-grid .today-cell input{width:auto;margin:0}
+  .col-del-wrap{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+  .col-del-wrap .btn{padding:4px 6px;font-size:11px}
+
+  /* ============ 任务列表：卡片美化 ============ */
+  .task-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+  .task-card{position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;transition:box-shadow .15s,border-color .15s}
+  .task-card:hover{box-shadow:0 4px 14px rgba(47,111,237,.12);border-color:#c5d4f5}
+  .task-card.done{border-left:4px solid var(--ok)}
+  .task-card .tc-date{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--blue);background:#eef3ff;padding:2px 9px;border-radius:999px;margin-bottom:8px}
+  .task-card .tc-exported{font-size:11px;color:var(--mut);margin-left:8px}
+  .task-card .tc-fields{display:flex;flex-direction:column;gap:5px}
+  .task-card .tc-row{display:flex;gap:8px;font-size:13px;line-height:1.45}
+  .task-card .tc-k{flex:0 0 76px;color:var(--mut);text-align:right}
+  .task-card .tc-v{flex:1;color:var(--txt);word-break:break-word;white-space:pre-wrap}
+  .task-card .tc-v.empty{color:#b9bfc7}
+  .task-card .tc-actions{position:absolute;top:10px;right:10px;display:flex;gap:6px}
+  .task-card .tc-actions .btn{box-shadow:none}
+  .tcheck-wrap{position:absolute;left:12px;top:12px}
+  .list-batch .task-card{padding-left:36px}
+
+  /* ============ 统计看板 ============ */
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
+  .stat{background:#f3f7ff;border:1px solid #dbe6fb;border-radius:10px;padding:8px 14px;min-width:92px}
+  .stat .num{font-size:20px;font-weight:700;color:var(--blue);line-height:1.15}
+  .stat .lab{font-size:12px;color:var(--mut)}
+  .stat.warn{background:#fdf3f0;border-color:#f3c4bc}
+  .stat.warn .num{color:var(--del)}
+  .cust-stats{margin:0 0 12px;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .cust-title{font-size:12px;margin-bottom:8px}
+  .cust-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px}
+  .cust-row:last-child{margin-bottom:0}
+  .cust-name{flex:0 0 90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cust-bar{flex:1;height:8px;background:#eef1f5;border-radius:999px;overflow:hidden}
+  .cust-bar i{display:block;height:100%;background:var(--blue);border-radius:999px}
+  .cust-rate{flex:0 0 40px;text-align:right;font-weight:600}
+  .cust-n{flex:0 0 52px;text-align:right}
+
+  /* ============ 批量工具条 ============ */
+  .batch-bar{margin:0 0 12px;background:#f3f7ff;border:1px solid #dbe6fb;border-radius:10px;padding:10px}
+  .batch-bar input,.batch-bar select{width:auto;flex:0 0 auto}
+  #batchToggle.active{background:var(--blue);color:#fff}
+
+  /* ============ 回收站 ============ */
+  #trashPanel{border-top:1px dashed var(--line);margin-top:14px;padding-top:12px}
+
+  /* ============ 配置中心：下拉选项 chip 样式 ============ */
+  .dd-block{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafbfc}
+  .dd-block .dd-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .dd-block .dd-name{font-size:13px;font-weight:600;color:var(--txt)}
+  .dd-block .dd-name::after{content:" 列";color:var(--mut);font-weight:400;font-size:11px}
+  .dd-block .dd-head .btn{margin-left:auto}
+  .dd-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .dd-chip{display:inline-flex;align-items:center;gap:4px;background:#eef3ff;color:#2f6fed;border:1px solid #d8e2fb;border-radius:999px;padding:3px 8px 3px 10px;font-size:13px}
+  .dd-chip input{border:none;background:transparent;padding:0;width:90px;font-size:13px;color:#2f6fed}
+  .dd-chip input:focus{outline:none}
+  .dd-chip .x{cursor:pointer;color:#9bb0e0;font-weight:700;line-height:1;padding:0 2px}
+  .dd-chip .x:hover{color:var(--del)}
+  .dd-add{display:inline-flex;align-items:center;border:1px dashed var(--line);background:#fff;color:#6b7686;border-radius:999px;padding:3px 12px;font-size:13px;cursor:pointer}
+  .dd-add:hover{border-color:var(--blue);color:var(--blue)}
+
+  /* ============ 导出追加：整行可点击上传区 ============ */
+  .file-drop{border:1.5px dashed var(--line);border-radius:10px;background:#fafbfc;padding:16px;cursor:pointer;transition:border-color .15s,background .15s}
+  .file-drop:hover{border-color:var(--blue);background:#f3f7ff}
+  .fd-inner{display:flex;align-items:center;gap:12px}
+  .fd-icon{font-size:24px;line-height:1}
+  .fd-text{font-size:13px;line-height:1.5}
+  .fd-name{margin-left:auto;font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ============ 导出追加：时间范围对齐网格 ============ */
+  .range-grid{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end}
+  .rg-field{display:flex;flex-direction:column;gap:4px}
+  .rg-field input{width:100%}
+  .rg-btn{height:38px;white-space:nowrap}
+
+  /* ============ 导出追加：列名映射 ============ */
+  .col-map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:8px}
+  .cm-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .cm-row .cm-src{font-size:12px;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cm-row select{font-size:12px;padding:5px 6px}
+  .cm-row.mapped{background:#f0f8f2}
+  .cm-row.unmatched{background:#fdf3f0}
+
+  /* ============ 周报段落预览 ============ */
+  .weekly-preview{white-space:pre-wrap;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;line-height:1.7;font-family:inherit}
+
+  /* ============ 导出追加：结构校验报告 ============ */
+  .val-report{border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;margin-top:12px}
+  .val-report.hidden{display:none}
+  .val-report.ok{background:#f0f8f2;border:1px solid #bfe3c9;color:#1a7a44}
+  .val-report.has-err{background:#fdf3f0;border:1px solid #f3c4bc;color:#a8352b}
+  .val-report.has-warn{background:#fef6e8;border:1px solid #f5d89a;color:#8a5a00}
+  .val-report .val-sec{margin:6px 0}
+  .val-report .val-sec b{display:block;margin-bottom:4px}
+  .val-report ul{margin:4px 0 0;padding-left:20px}
+  .val-report li{margin:3px 0}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>工作任务管理</h1>
+    <div class="sub">本地工具 · 数据存浏览器 · 列结构可配置抗格式变化</div>
+  </div>
+  <nav>
+    <button data-tab="entry" class="">每日录入</button>
+    <button data-tab="list" class="">任务列表</button>
+    <button data-tab="export" class="">导出追加</button>
+    <button data-tab="monthly" class="active">月报汇总</button>
+    <button data-tab="config" class="">配置中心</button>
+  </nav>
+</header>
+
+<main>
+  <!-- 每日录入 -->
+  <section id="tab-entry" class="card hidden">
+    <h2>每日录入</h2>
+    <div class="hint">录入日期默认今天，可改成历史日期<b>补录</b>；一天可录多条（每条独立保存）。带 <span class="badge">预填</span> 的字段是默认带出的，<b>都可改、可清空</b>。测试/结案日期默认留空，可留到任务列表里补。<br>快捷键：在输入框按 <b>回车</b> 保存；多行框内 <b>Ctrl+回车</b> 保存。</div>
+    <form id="entryForm" class="grid"><label><span class="lab">厂区 <span class="badge">预填</span></span><input type="text" name="厂区" value="东莞"></label><label><span class="lab">提出日期 <span class="badge">预填</span></span><input type="date" name="提出日期" value="2026-08-25"></label><label><span class="lab">提出部门 <span class="badge">预填</span></span><input type="text" name="提出部门" value="仓库"></label><div class="field"><span class="lab">客户</span><div class="dd-inline"><select name="客户"><option value="">请选择</option><option>所有</option><option>N客户</option><option>太白山</option><option>其他</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「客户」新增选项">+ 新增</button></div></div><label><span class="lab">专案名称</span><input type="text" name="专案名称" value=""></label><label><span class="lab">需求说明</span><input type="text" name="需求说明" value=""></label><label><span class="lab">负责人 <span class="badge">预填</span></span><input type="text" name="负责人" value="黄崇璇"></label><label><span class="lab">开发进度</span><textarea name="开发进度" placeholder="可多行，如：08/20 完成，等待测试"></textarea><div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」，多行可用换行</div></label><div class="field"><span class="lab">完成状态</span><div class="dd-inline"><select name="完成状态"><option value="">请选择</option><option>Ongoing</option><option>Closed</option><option>planning</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「完成状态」新增选项">+ 新增</button></div></div><label><span class="lab">开发日期 <span class="badge">预填</span></span><input type="date" name="开发日期" value="2026-08-25"></label><label><span class="lab">测试日期</span><input type="date" name="测试日期" value=""></label><label><span class="lab">开发天数 <span class="badge">预填</span></span><input type="text" name="开发天数" value="1天"></label><label><span class="lab">结案日期</span><input type="date" name="结案日期" value=""></label><label><span class="lab">备注</span><input type="text" name="备注" value=""></label></form>
+    <div class="row" style="margin-top:14px;align-items:flex-end">
+      <div style="flex:0 0 210px"><span class="lab muted">录入日期（可改，用于补录）</span><input type="date" id="entryDate"></div>
+      <button class="btn" id="saveEntry">保存任务</button>
+      <button class="btn sec" id="cancelEdit" style="display:none">取消编辑</button>
+      <button class="btn sec" id="cloneLast">克隆上条</button>
+      <button class="btn sec" id="toggleBulk">批量录入 ▾</button>
+    </div>
+    <span class="muted" id="entryDateLabel">新增任务（录入日期如上，可改）</span>
+
+    <div id="bulkPanel" class="hidden" style="margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:12px;background:#fafbfc">
+      <div class="lab">批量录入：每行一条任务，其他字段用默认值（东莞/黄崇璇/仓库/1天等）。行内可用「<b>|</b>」分隔「专案名称 | 需求说明」。录入日期统一为上方所选日期。</div>
+      <textarea id="bulkText" style="min-height:120px" placeholder="例：
+点数机接口 | 新增xx功能
+N客户中间库 | 对接中间表
+WE01出货单查询"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="bulkSave">批量保存</button>
+        <span class="muted" id="bulkMsg"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 任务列表 -->
+  <section id="tab-list" class="card hidden">
+    <h2>任务列表 <span class="muted" id="listCount">（共 0 条）</span></h2>
+    <div class="hint">可「编辑」把任务调回录入页改（补测试/结案日期），「删除」会移入回收站（可恢复）。搜索框可按关键字/客户筛选。支持批量模式多选删除/补录。</div>
+    <div id="statsStrip" class="stats">
+    <div class="stat"><div class="num">0</div><div class="lab">任务总数</div></div>
+    <div class="stat"><div class="num">0</div><div class="lab">本月任务</div></div>
+    <div class="stat"><div class="num">0%</div><div class="lab">本月完成率</div></div>
+    <div class="stat"><div class="num">0</div><div class="lab">逾期未完成</div></div>
+    <div class="stat"><div class="num">0</div><div class="lab">已追加</div></div>
+    <div class="stat"><div class="num">0</div><div class="lab">回收站</div></div></div>
+    <div id="custStats" class="cust-stats"></div>
+    <div class="row" style="margin-bottom:10px;gap:10px">
+      <input type="text" id="listSearch" placeholder="搜索（专案/需求/客户…）" style="flex:1;min-width:180px">
+      <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
+      <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option></select>
+    </div>
+    <div class="row" style="margin-bottom:10px">
+      <button class="btn sec sm" id="batchToggle">批量模式</button>
+      <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
+      <button class="btn sec sm" id="exportTasks">导出任务库(备份)</button>
+      <button class="btn sec sm" id="importTasks">导入任务库</button>
+      <button class="btn sec sm" id="undoExported">撤销已追加</button>
+      <input type="file" id="importTasksFile" accept=".json" class="hidden">
+      <button class="btn del sm" id="clearTasks">清空任务库</button>
+    </div>
+    <div id="batchBar" class="row batch-bar hidden">
+      <button class="btn sec sm" id="batchAll">全选</button>
+      <button class="btn del sm" id="batchDelete">批量删除(移回收站)</button>
+      <span class="muted">补录：</span>
+      <input type="date" id="batchTest" title="测试日期">
+      <input type="date" id="batchClose" title="结案日期">
+      <select id="batchStatus"><option value="">不改状态</option><option value="Closed">Closed</option><option value="Ongoing">Ongoing</option><option value="planning">planning</option></select>
+      <button class="btn sec sm" id="batchApply">应用到选中</button>
+    </div>
+    <div id="taskTableWrap"><p class="muted">没有任务（去「每日录入」添加）。</p></div>
+    <div id="trashPanel" class="hidden">
+      <h3>回收站（可恢复）</h3>
+      <p class="muted" style="margin:4px 0 10px">回收站最多保留 50 条，超出自动清理最旧记录。</p>
+      <div id="trashList"></div>
+    </div>
+  </section>
+
+  <!-- 配置中心 -->
+  <section id="tab-config" class="card hidden">
+    <h2>配置中心</h2>
+    <div class="hint">列结构在这里配置：每一列有 <b>列名 / 类型 / 默认值</b> 三栏。默认值留空=不预填；日期列可勾选「默认今天」；固定默认直接填（如厂区=东莞）。表头改了/加列了，改这里即可。用 ▲▼ 调整列顺序。</div>
+
+    <h3>列定义（可增删、可排序）</h3>
+    <div id="colCfgList"><div class="col-grid-head"><span>序</span><span>列名</span><span>类型</span><span>默认值</span><span>默认今天</span><span>操作</span></div><div class="col-grid">
+      <span class="idx">1</span>
+      <input class="cname" value="项次" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto" selected="">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">2</span>
+      <input class="cname" value="厂区" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="东莞">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">3</span>
+      <input class="cname" value="提出日期" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date" selected="">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="" disabled="">
+      <span class="today-cell"><input type="checkbox" class="ctoday" checked=""></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">4</span>
+      <input class="cname" value="提出部门" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="仓库">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">5</span>
+      <input class="cname" value="客户" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown" selected="">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">6</span>
+      <input class="cname" value="专案名称" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">7</span>
+      <input class="cname" value="需求说明" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">8</span>
+      <input class="cname" value="负责人" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="黄崇璇">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">9</span>
+      <input class="cname" value="开发进度" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea" selected="">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">10</span>
+      <input class="cname" value="完成状态" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown" selected="">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">11</span>
+      <input class="cname" value="开发日期" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date" selected="">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="" disabled="">
+      <span class="today-cell"><input type="checkbox" class="ctoday" checked=""></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">12</span>
+      <input class="cname" value="测试日期" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date" selected="">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><input type="checkbox" class="ctoday"></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">13</span>
+      <input class="cname" value="开发天数" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="1天">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">14</span>
+      <input class="cname" value="结案日期" placeholder="列名">
+      <select class="ctype">
+        <option value="text">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date" selected="">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><input type="checkbox" class="ctoday"></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div><div class="col-grid">
+      <span class="idx">15</span>
+      <input class="cname" value="备注" placeholder="列名">
+      <select class="ctype">
+        <option value="text" selected="">文本</option>
+        <option value="dropdown">下拉</option>
+        <option value="date">日期</option>
+        <option value="textarea">多行</option>
+        <option value="auto">续号</option>
+      </select>
+      <input class="cdef" placeholder="默认值(可空)" value="">
+      <span class="today-cell"><span class="muted">—</span></span>
+      <span class="col-del-wrap">
+        <button class="btn sec sm col-up" title="上移">▲</button>
+        <button class="btn sec sm col-down" title="下移">▼</button>
+        <button class="btn del sm cdel">删除</button>
+      </span></div></div>
+    <button class="btn sec sm" id="addCol">+ 新增列</button>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sec sm" id="saveColCfg">保存列配置</button>
+      <button class="btn sec sm" id="resetColCfg">恢复默认列配置</button>
+      <button class="btn sec sm" id="exportCfg">导出配置(备份)</button>
+      <button class="btn sec sm" id="importCfg">导入配置</button>
+      <input type="file" id="importCfgFile" accept=".json" class="hidden">
+    </div>
+
+    <h3>下拉选项（按列名管理，可增删、可去重排序）</h3>
+    <div id="dropdownCfg"><div class="dd-block"><div class="dd-head">
+        <span class="dd-name">客户</span>
+        <button class="btn sec sm dd-sort">去重排序</button>
+        <button class="btn del sm dd-del">删除该下拉</button>
+      </div>
+      <div class="dd-chips" data-items=""><span class="dd-chip"><input value="所有" data-k="客户" data-idx="0"><span class="x" data-k="客户" data-idx="0">×</span></span><span class="dd-chip"><input value="N客户" data-k="客户" data-idx="1"><span class="x" data-k="客户" data-idx="1">×</span></span><span class="dd-chip"><input value="太白山" data-k="客户" data-idx="2"><span class="x" data-k="客户" data-idx="2">×</span></span><span class="dd-chip"><input value="其他" data-k="客户" data-idx="3"><span class="x" data-k="客户" data-idx="3">×</span></span><span class="dd-add">+ 加选项</span></div></div><div class="dd-block"><div class="dd-head">
+        <span class="dd-name">完成状态</span>
+        <button class="btn sec sm dd-sort">去重排序</button>
+        <button class="btn del sm dd-del">删除该下拉</button>
+      </div>
+      <div class="dd-chips" data-items=""><span class="dd-chip"><input value="Ongoing" data-k="完成状态" data-idx="0"><span class="x" data-k="完成状态" data-idx="0">×</span></span><span class="dd-chip"><input value="Closed" data-k="完成状态" data-idx="1"><span class="x" data-k="完成状态" data-idx="1">×</span></span><span class="dd-chip"><input value="planning" data-k="完成状态" data-idx="2"><span class="x" data-k="完成状态" data-idx="2">×</span></span><span class="dd-add">+ 加选项</span></div></div></div>
+  </section>
+
+  <!-- 导出追加 -->
+  <section id="tab-export" class="card hidden">
+    <h2>导出追加</h2>
+    <div class="hint">上传你的周报 excel → 自动识别表头并<b>可手动校正列名映射</b> → 选时间范围（默认本周）→ 预览将写入的内容 → 追加到表最后一行 → 另存新文件（原名加「_已追加」），不覆盖原文件。映射会记住，下次同结构文件自动套用。</div>
+
+    <div class="file-drop" id="excelDrop">
+      <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden">
+      <div class="fd-inner">
+        <span class="fd-icon">📄</span>
+        <span class="fd-text"><b>点击选择周报 excel 文件</b><br><span class="muted">本行任意位置均可点击 · 支持 .xlsx / .xls</span></span>
+        <span class="fd-name muted" id="excelName"></span>
+      </div>
+    </div>
+    <div id="excelInfo" class="muted"></div>
+    <div id="colMap"></div>
+
+    <div class="lab" style="margin-top:14px">2. 时间范围（只追加该范围内录入日期的任务）</div>
+    <div class="range-grid">
+      <div class="rg-field"><span class="lab muted">起始</span><input type="date" id="rangeStart"></div>
+      <div class="rg-field"><span class="lab muted">结束</span><input type="date" id="rangeEnd"></div>
+      <button class="btn sec rg-btn" id="thisWeek">本周(周一~周五)</button>
+      <button class="btn sec rg-btn" id="thisWeekToToday">本周至今天</button>
+    </div>
+    <label class="inline-check" style="margin-top:10px"><input type="checkbox" id="skipExported" checked=""> 跳过已追加过的任务（防重复）</label>
+
+    <h3>待追加任务预览（按 excel 实际列） <span class="muted" id="previewCount">（范围内 0 条，已隐藏已追加</span></h3>
+    <div id="previewTable"><p class="muted">该时间范围内没有任务。</p></div>
+
+    <div id="validateReport" class="val-report hidden"></div>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="doExport">生成并下载追加后的 excel</button>
+      <button class="btn sec" id="validateBtn">校验结构</button>
+      <button class="btn sec" id="genNew">生成新周报（新建文件）</button>
+      <span class="muted" id="exportMsg"></span>
+    </div>
+    <p class="muted" style="margin-top:6px">「生成新周报」按配置中心的列顺序新建一份 xlsx（不依赖模板），含项次自动续号、日期格式化、进度列自动换行；内容与上方预览一致。已生成范围内的任务会标记为「已追加」防重复。</p>
+    <span class="muted" id="genNewMsg"></span>
+
+  </section>
+
+  <!-- 月报汇总 -->
+  <section id="tab-monthly" class="card">
+    <h2>月报汇总</h2>
+
+    <div class="hint">从已录任务中，按「月份」筛选当月任务，再按「专案名称」去重（保留首次出现），按录入日期升序排列。可选附带客户/负责人/状态，导出纯文本或 Excel。</div>
+
+    <div class="row">
+      <div style="flex:0 0 200px"><span class="lab muted">选择月份</span><input type="month" id="monthPick"></div>
+      <button class="btn sec" id="monthThis" style="align-self: flex-end">本月</button>
+      <span class="muted" id="monthCount" style="margin-left: 0px; margin-right: auto; align-self: center">（该月共 0 条任务）</span>
+    </div>
+
+    <div class="row" style="flex-wrap:wrap;gap:16px;margin-top:12px">
+      <span class="muted">汇总包含字段：</span>
+      <label class="inline-check"><input type="checkbox" id="mf_name" checked="" disabled=""> 专案名称</label>
+      <label class="inline-check"><input type="checkbox" id="mf_cust"> 客户</label>
+      <label class="inline-check"><input type="checkbox" id="mf_owner"> 负责人</label>
+      <label class="inline-check"><input type="checkbox" id="mf_status"> 完成状态</label>
+    </div>
+
+    <h3>去重汇总 <span class="muted" id="monthListCount">（去重后 0 个）</span></h3>
+    <div id="monthResult" style="white-space:pre-wrap;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;line-height:1.7">该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。</div>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="exportMonthly">导出纯文本</button>
+      <button class="btn sec" id="exportMonthlyXlsx">导出Excel</button>
+      <span class="muted">纯文本可直接粘到月报模板</span>
+    </div>
+
+    <div class="hint" style="margin-top:18px">周报段落：把指定范围内本人负责的本周/本月任务，拼成可直接粘进周报正文的段落。</div>
+    <div class="row" style="margin-bottom: 10px">
+      <div style="flex:0 0 150px"><span class="lab muted">起始</span><input type="date" id="wpStart"></div>
+      <div style="flex:0 0 150px"><span class="lab muted">结束</span><input type="date" id="wpEnd"></div>
+      <button class="btn sec" id="wpThisWeek" style="align-self: flex-end;">本周</button>
+      <button class="btn sec" id="wpThisMonth" style="align-self: flex-end;">本月</button>
+    </div>
+    <textarea id="wpText" class="weekly-preview" style="min-height: 150px; width: 755px; height: 137px; position: relative;" readonly="" placeholder="点击上方范围后自动生成周报段落"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="wpCopy">复制</button>
+      <button class="btn sec" id="wpPrint">打印</button>
+      <span class="muted">生成后可直接复制或打印</span>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast">首次使用，建议到「任务列表」导出任务库备份</div>
+
+<!-- 模块按依赖顺序加载（经典 script，file:// 双击可用） -->
+<script src="js/store.js"></script>
+<script src="js/entry.js"></script>
+<script src="js/list.js"></script>
+<script src="js/config.js"></script>
+<script src="js/export.js"></script>
+<script src="js/monthly.js"></script>
+<script src="js/app.js"></script>
+
+
+</body></html>
