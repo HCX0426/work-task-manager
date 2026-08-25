@@ -93,7 +93,8 @@ function skipExportedChecked(){const el=$('#skipExported');return el&&el.checked
 function getRangeTasks(){
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
   if(!s||!e)return [];
-  const st=new Date(s+'T00:00:00'),en=new Date(e+'T23:59:59');
+  const st=parseDateAny(s); if(st)st.setHours(0,0,0,0);
+  const en=parseDateAny(e); if(en)en.setHours(23,59,59,999);
   return tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d>=st&&d<=en && (!skipExportedChecked()||!t.exported);});
 }
 function renderPreview(){

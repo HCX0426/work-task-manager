@@ -106,6 +106,28 @@ $('#exportCfg').onclick=()=>{ downloadJSON({schema,dropdowns},'周报配置备�
 $('#importCfg').onclick=()=>$('#importCfgFile').click();
 $('#importCfgFile').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.schema){schema=d.schema.map(c=>({...c,def:c.def||''}));dropdowns=d.dropdowns||{};save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);renderConfig();renderEntry(null);toast('配置已导入');}}catch(err){toast('导入失败：'+err.message);}};
+  const r=new FileReader();r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d.schema || !Array.isArray(d.schema)) throw new Error('缺少有效的 schema 数组');
+      // 验证 schema 结构
+      const validSchema = d.schema.map(c=>{
+        if(typeof c!=='object' || !c.name) throw new Error('列配置项缺少 name 字段');
+        const validTypes=['text','dropdown','date','textarea','auto'];
+        const type=validTypes.includes(c.type)?c.type:'text';
+        return {name:String(c.name).trim(), type, def:String(c.def||'')};
+      });
+      // 验证 dropdowns 结构
+      let validDropdowns={};
+      if(d.dropdowns && typeof d.dropdowns==='object'){
+        Object.entries(d.dropdowns).forEach(([k,v])=>{
+          if(Array.isArray(v)) validDropdowns[String(k)]=v.map(String).filter(Boolean);
+        });
+      }
+      schema=validSchema;dropdowns=validDropdowns;
+      save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);
+      renderConfig();renderEntry(null);toast('配置已导入');
+    }catch(err){toast('导入失败：'+err.message);}
+  };
   r.readAsText(f);e.target.value='';
 };

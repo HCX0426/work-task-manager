@@ -174,7 +174,7 @@ function renderTrash(){
 $('#listSearch').oninput=renderList;
 $('#listCustFilter').onchange=renderList;
 $('#listStatusFilter').onchange=renderList;
-$('#clearTasks').onclick=()=>{ if(confirm('确定清空全部任务库？建议先导出备份。')){tasks=[];save(LS_TASKS,tasks);renderList();toast('已清空');} };
+$('#clearTasks').onclick=()=>{ if(confirm('确定清空全部任务库和回收站？建议先导出备份。')){tasks=[];trash=[];save(LS_TASKS,tasks);save(LS_TRASH,trash);renderList();toast('已清空');} };
 $('#undoExported').onclick=()=>{
   const n=tasks.filter(t=>t.exported).length;
   if(!n){toast('当前没有已标记「已追加」的任务');return;}
@@ -186,6 +186,29 @@ $('#exportTasks').onclick=()=>{ downloadJSON({tasks},'周报任务库备份.json
 $('#importTasks').onclick=()=>$('#importTasksFile').click();
 $('#importTasksFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.tasks){tasks=d.tasks.map(t=>({...t,exported:t.exported||false}));save(LS_TASKS,tasks);renderList();toast('任务库已导入');}}catch(err){toast('导入失败：'+err.message);}};
+  const r=new FileReader();r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d.tasks || !Array.isArray(d.tasks)) throw new Error('缺少有效的 tasks 数组');
+      // 验证每个任务的结构
+      const validTasks = d.tasks.map(t=>{
+        if(typeof t!=='object' || !t.id) throw new Error('任务缺少 id 字段');
+        if(typeof t!=='object' || !t.entryDate) throw new Error('任务缺少 entryDate 字段');
+        const values={};
+        if(t.values && typeof t.values==='object'){
+          Object.entries(t.values).forEach(([k,v])=>{
+            values[String(k)]=String(v||'');
+          });
+        }
+        return {
+          id:String(t.id),
+          entryDate:String(t.entryDate),
+          values,
+          exported:!!t.exported
+        };
+      });
+      tasks=validTasks;save(LS_TASKS,tasks);renderList();toast('任务库已导入');
+    }catch(err){toast('导入失败：'+err.message);}
+  };
   r.readAsText(f);e.target.value='';
 };
