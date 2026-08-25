@@ -1,22 +1,31 @@
 /* ============ 导出追加（export.js，基于 ExcelJS 写样式） ============ */
 /* 样式：等线 11 字体；进度列含换行时自动换行（SheetJS 社区版不写样式，故换 ExcelJS） */
+let excelFileName = ''; // 保存上传的文件名
+
 function styleCell(cell, wrap){
   cell.font=EXCEL_FONT;
   cell.alignment = wrap ? {wrapText:true,vertical:'top',horizontal:'left'} : {vertical:'top'};
 }
 
 $('#excelDrop').onclick=()=>{$('#excelFile').click();};
-$('#excelDrop').onclick && document.getElementById('excelDrop').addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();});
-document.getElementById('excelDrop').addEventListener('drop',e=>{
-  e.preventDefault();e.stopPropagation();
-  if(e.dataTransfer.files.length){
-    const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);
-    const el=$('#excelFile');el.files=dt.files;el.dispatchEvent(new Event('change'));
-  }
-});
+const dropEl=document.getElementById('excelDrop');
+if(dropEl){
+  dropEl.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();dropEl.style.borderColor='var(--blue)';});
+  dropEl.addEventListener('dragleave',()=>{dropEl.style.borderColor='';});
+  dropEl.addEventListener('drop',e=>{
+    e.preventDefault();e.stopPropagation();
+    dropEl.style.borderColor='';
+    if(e.dataTransfer.files.length){
+      const el=$('#excelFile');
+      el.files=e.dataTransfer.files;
+      el.dispatchEvent(new Event('change'));
+    }
+  });
+}
 
 $('#excelFile').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
+  excelFileName = f.name;
   $('#excelName').textContent=f.name;
   try{
     const buf=await f.arrayBuffer();
@@ -243,7 +252,7 @@ async function doExportInner(){
     nextR++;
   });
   const out=await excelBook.xlsx.writeBuffer();
-  const base=$('#excelFile').files[0].name.replace(/\.xlsx?$/i,'');
+  const base=(excelFileName||'周报').replace(/\.xlsx?$/i,'');
   downloadBlob(new Blob([out],{type:'application/octet-stream'}), base+'_已追加.xlsx');
   t.forEach(x=>{x.exported=true;}); save(LS_TASKS,tasks);
   $('#exportMsg').textContent=`已追加 ${t.length} 条，另存为「${base}_已追加.xlsx」（已标记防重复）`;
