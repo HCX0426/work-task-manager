@@ -96,8 +96,9 @@ function skipExportedChecked(){const el=$('#skipExported');return el&&el.checked
 function getRangeTasks(){
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
   if(!s||!e)return [];
-  const st=parseDateAny(s); if(st)st.setHours(0,0,0,0);
-  const en=parseDateAny(e); if(en)en.setHours(23,59,59,999);
+  const st=parseDateAny(s), en=parseDateAny(e);
+  if(!st||!en){ toast('日期格式无效'); return []; }
+  st.setHours(0,0,0,0); en.setHours(23,59,59,999);
   return tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d>=st&&d<=en && (!skipExportedChecked()||!t.exported);});
 }
 function renderPreview(){
