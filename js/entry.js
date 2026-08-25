@@ -4,7 +4,7 @@ function renderEntry(prefill){
   const t=todayStr();
   const useDate = prefill ? prefill.entryDate : t;
   $('#entryDate').value = toInputDate(useDate)||t;
-  $('#entryDateLabel').textContent = editingId ? ('正在编辑（原录入于 '+prefill.entryDate+'）') : '新增任务（录入日期如上，可改）';
+  $('#entryDateLabel').textContent = (editingId && prefill) ? ('正在编辑（原录入于 '+prefill.entryDate+'）') : '新增任务（录入日期如上，可改）';
   schema.forEach(col=>{
     if(col.type==='auto')return;
     const wrap=document.createElement('div');

@@ -16,8 +16,10 @@ if(dropEl){
     e.preventDefault();e.stopPropagation();
     dropEl.style.borderColor='';
     if(e.dataTransfer.files.length){
+      const dt=new DataTransfer();
+      for(const file of e.dataTransfer.files) dt.items.add(file);
       const el=$('#excelFile');
-      el.files=e.dataTransfer.files;
+      el.files=dt.files;
       el.dispatchEvent(new Event('change'));
     }
   });
@@ -33,8 +35,9 @@ $('#excelFile').onchange=async e=>{
     await wb.xlsx.load(buf);
     const ws=wb.getWorksheet(1);
     // 找表头行：首个非空单元格>=3 的行（1-based）
-    let hr=1;
-    for(;hr<=ws.rowCount;hr++){ let n=0; ws.getRow(hr).eachCell(()=>{n++;}); if(n>=3) break; }
+    let hr=1; let foundHeader=false;
+    for(;hr<=ws.rowCount;hr++){ let n=0; ws.getRow(hr).eachCell(()=>{n++;}); if(n>=3){foundHeader=true;break;} }
+    if(!foundHeader){ toast('未能识别表头行（需至少3个非空单元格）'); return; }
     excelHeaderRow=hr;
     excelBook=wb; excelSheet=ws; excelSheetName=ws.name;
     const maxCol=Math.max(ws.getRow(hr).cellCount||0, ws.columnCount||0);
