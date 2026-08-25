@@ -90,6 +90,7 @@ function renderEntry(prefill){
     ];
     checks.forEach(([later,earlier,msg])=>{
       const L=map[later],E=map[earlier];
+      if(!L||!L.field)return;
       const bad=(L&&L.val&&E&&E.val&&L.val<E.val);
       L.field.classList.toggle('invalid',!!bad);
       const err=L.field.querySelector('.field-err');
@@ -134,8 +135,8 @@ $('#saveEntry').onclick=()=>{
   if(!v.ok){ if(v.msg)toast(v.msg); return; }
   if(editingId){
     const tk=tasks.find(x=>x.id===editingId);
-    if(tk){ tk.values=values; tk.entryDate=ed; }
-    save(LS_TASKS,tasks); editingId=null; toast('已更新任务');
+    if(tk){ tk.values=values; tk.entryDate=ed; save(LS_TASKS,tasks); editingId=null; toast('已更新任务'); }
+    else { editingId=null; toast('原任务已被删除，已作为新任务保存'); tasks.push({id:uid(),entryDate:ed,values,exported:false}); save(LS_TASKS,tasks); }
   }else{
     tasks.push({id:uid(),entryDate:ed,values,exported:false});
     save(LS_TASKS,tasks); toast('已保存，可在「任务列表」查看');

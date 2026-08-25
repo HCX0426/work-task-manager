@@ -91,8 +91,9 @@ $('#exportMonthlyXlsx').onclick=async ()=>{
 function genWeekly(){
   const s=$('#wpStart').value,e=$('#wpEnd').value;
   if(!s||!e){$('#wpText').value='';return;}
-  const st=parseDateAny(s); if(st)st.setHours(0,0,0,0);
-  const en=parseDateAny(e); if(en)en.setHours(23,59,59,999);
+  const st=parseDateAny(s), en=parseDateAny(e);
+  if(!st||!en){ $('#wpText').value='日期格式无效'; return; }
+  st.setHours(0,0,0,0); en.setHours(23,59,59,999);
   const list=tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d>=st&&d<=en;}).sort((a,b)=>a.entryDate.localeCompare(b.entryDate));
   if(!list.length){$('#wpText').value='该范围内没有任务。';return;}
   let out='本周工作小结（'+s+' ~ '+e+'）：\n';
