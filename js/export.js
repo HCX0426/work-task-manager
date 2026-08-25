@@ -5,6 +5,16 @@ function styleCell(cell, wrap){
   cell.alignment = wrap ? {wrapText:true,vertical:'top',horizontal:'left'} : {vertical:'top'};
 }
 
+$('#excelDrop').onclick=()=>{$('#excelFile').click();};
+$('#excelDrop').onclick && document.getElementById('excelDrop').addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();});
+document.getElementById('excelDrop').addEventListener('drop',e=>{
+  e.preventDefault();e.stopPropagation();
+  if(e.dataTransfer.files.length){
+    const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);
+    const el=$('#excelFile');el.files=dt.files;el.dispatchEvent(new Event('change'));
+  }
+});
+
 $('#excelFile').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   $('#excelName').textContent=f.name;
