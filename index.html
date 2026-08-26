@@ -48,16 +48,6 @@
   .field-err{display:none;color:var(--del);font-size:12px;margin-top:4px}
   .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--del)}
   .field.invalid .field-err{display:block}
-  @media (max-width:600px){
-    .grid{grid-template-columns:1fr}
-    .range-grid{grid-template-columns:1fr}
-    .col-grid-head,.col-grid{grid-template-columns:1fr;gap:6px}
-    .col-grid-head{display:none}
-    .task-list{grid-template-columns:1fr}
-    main{padding:0 8px}
-    nav{width:100%;justify-content:flex-start}
-    header{flex-wrap:wrap}
-  }
 
   /* ============ 配置中心：列定义网格对齐 ============ */
   .col-grid-head, .col-grid{
@@ -167,6 +157,19 @@
   .val-report .val-sec b{display:block;margin-bottom:4px}
   .val-report ul{margin:4px 0 0;padding-left:20px}
   .val-report li{margin:3px 0}
+
+  /* 窄屏适配：放在所有基础样式之后，确保覆盖生效 */
+  @media (max-width:600px){
+    .grid{grid-template-columns:1fr}
+    .range-grid{grid-template-columns:1fr}
+    .col-grid-head,.col-grid{grid-template-columns:1fr;gap:6px}
+    .col-grid-head{display:none}
+    .task-list{grid-template-columns:1fr}
+    .cm-row{grid-template-columns:1fr}
+    main{padding:0 8px}
+    nav{width:100%;justify-content:flex-start}
+    header{flex-wrap:wrap}
+  }
 </style>
 </head>
 <body>
