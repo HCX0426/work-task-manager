@@ -124,7 +124,7 @@ $('#batchToggle').onclick=()=>{
   renderList();
 };
 $('#batchAll').onclick=()=>{
-  const on=$('#batchAll').textContent.includes('全选');
+  const on=$('#batchAll').textContent==='全选';
   document.querySelectorAll('.tcheck').forEach(c=>{c.checked=on;c.onchange();});
   $('#batchAll').textContent = on?'取消全选':'全选';
 };
