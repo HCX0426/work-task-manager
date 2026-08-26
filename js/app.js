@@ -24,3 +24,12 @@ document.querySelectorAll('nav button').forEach(b=>{
 /* 初始化 */
 renderEntry(null);
 checkBackupReminder();
+/* 逾期提醒：打开页面时若有逾期未完成，提示 */
+(function(){
+  const overdue=tasks.filter(t=>{
+    if(String(t.values['完成状态']||'')==='Closed')return false;
+    const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
+    return d && todayStr()>toInputDate(d);
+  }).length;
+  if(overdue>0) setTimeout(()=>toast(`有 ${overdue} 条任务逾期未完成，可到「任务列表」查看处理`),1500);
+})();

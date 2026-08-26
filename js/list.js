@@ -56,6 +56,15 @@ function renderStats(){
   // 同步顶部「回收站 (N)」按钮计数（删除/恢复后立即刷新，无需展开面板）
   $('#trashCount').textContent=trash.length;
   $('#custStats').innerHTML = custRows?`<div class="cust-title muted">按客户完成率</div>${custRows}`:'';
+  // 状态分布条
+  const dist={};
+  tasks.forEach(t=>{ const s=String(t.values['完成状态']||'').trim()||'未填'; dist[s]=(dist[s]||0)+1; });
+  const distTotal=tasks.length||1;
+  const distHtml=Object.keys(dist).map(s=>{
+    const n=dist[s], pct=Math.round(n/distTotal*100);
+    return `<div class="dist-row"><span class="dist-name">${esc(s)}</span><div class="dist-bar"><i style="width:${pct}%"></i></div><span class="dist-n">${n}（${pct}%）</span></div>`;
+  }).join('');
+  $('#statusDist').innerHTML = tasks.length?`<div class="cust-title muted">按完成状态分布</div>${distHtml}`:'';
 }
 
 function renderList(){
@@ -137,6 +146,30 @@ $('#batchAll').onclick=()=>{
   const on=$('#batchAll').textContent==='全选';
   document.querySelectorAll('.tcheck').forEach(c=>{c.checked=on;c.onchange();});
   $('#batchAll').textContent = on?'取消全选':'全选';
+};
+/* 批量导出选中任务为 Excel（按配置中心列顺序） */
+$('#batchExport').onclick=async ()=>{
+  const ids=[...document.querySelectorAll('.tcheck:checked')].map(c=>c.dataset.id);
+  if(!ids.length){toast('请先勾选任务');return;}
+  const sel=tasks.filter(t=>ids.includes(t.id));
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('选中任务');
+  const cols=schema;
+  const hrow=ws.getRow(1);
+  cols.forEach((c,i)=>{ const cell=hrow.getCell(i+1); cell.value=c.name; styleCell(cell); });
+  sel.forEach(t=>{
+    const values=cols.map(c=>{
+      if(c.type==='auto') return '';
+      let v=t.values[c.name]||'';
+      if(c.type==='date'){ const dt=parseDateAny(v); v=dt?fmtDateCN(dt):v; }
+      return v;
+    });
+    const row=ws.addRow(values);
+    row.eachCell(cell=>{ styleCell(cell); });
+  });
+  const out=await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([out],{type:'application/octet-stream'}),'选中任务_'+todayStr()+'.xlsx');
+  toast('已导出选中 '+sel.length+' 条');
 };
 $('#batchDelete').onclick=()=>{
   const ids=[...document.querySelectorAll('.tcheck:checked')].map(c=>c.dataset.id);

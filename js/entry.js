@@ -163,6 +163,12 @@ $('#saveEntry').onclick=()=>{
   if(firstErr){ firstErr.focus(); firstErr.scrollIntoView({behavior:'smooth',block:'center'}); toast('请先修正标红的字段'); return; }
   const v=validateEntry(values, ed);
   if(!v.ok){ if(v.msg)toast(v.msg); return; }
+  // 重复专案检测：与已有任务同名（排除当前编辑的）时提示，防重复录入
+  const pn=String(values['专案名称']||'').trim();
+  if(pn){
+    const dupCount=tasks.filter(t=>t.id!==editingId && String(t.values['专案名称']||'').trim()===pn).length;
+    if(dupCount>0 && !confirm(`「${pn}」已存在 ${dupCount} 条记录，可能是同名不同任务，仍要保存吗？`)) return;
+  }
   if(editingId){
     const tk=tasks.find(x=>x.id===editingId);
     if(tk){ tk.values=values; tk.entryDate=ed; save(LS_TASKS,tasks); editingId=null; toast('已更新任务'); }
@@ -194,6 +200,11 @@ $('#bulkSave').onclick=()=>{
   let noName=0;
   lines.forEach(line=>{ const i=line.indexOf('|'); if(i<0 || !line.slice(0,i).trim()) noName++; });
   if(noName>0 && !confirm(`有 ${noName} 行缺少「专案名称」（月报汇总依赖它，缺了将无法在月报中统计）。\n仍要保存吗？`)){ return; }
+  // 重复专案检测：本次新增中与现有任务同名的行数
+  const existing=new Set(tasks.map(t=>String(t.values['专案名称']||'').trim()).filter(Boolean));
+  let dupCount=0;
+  lines.forEach(line=>{ const i=line.indexOf('|'); const nm=(i>=0?line.slice(0,i):'').trim(); if(nm && existing.has(nm)) dupCount++; });
+  if(dupCount>0 && !confirm(`有 ${dupCount} 行专案名称与现有任务重复（可能同名不同任务）。\n仍要保存吗？`)){ return; }
   const d=$('#entryDate').value||todayStr();
   let n=0;
   lines.forEach(line=>{

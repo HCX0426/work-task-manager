@@ -99,6 +99,14 @@
   .cust-rate{flex:0 0 40px;text-align:right;font-weight:600}
   .cust-n{flex:0 0 52px;text-align:right}
 
+  /* 状态分布条 */
+  .dist-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px}
+  .dist-row:last-child{margin-bottom:0}
+  .dist-name{flex:0 0 80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dist-bar{flex:1;height:8px;background:#eef1f5;border-radius:999px;overflow:hidden}
+  .dist-bar i{display:block;height:100%;background:var(--blue);border-radius:999px}
+  .dist-n{flex:0 0 72px;text-align:right;color:var(--mut)}
+
   /* ============ 批量工具条 ============ */
   .batch-bar{margin:0 0 12px;background:#f3f7ff;border:1px solid #dbe6fb;border-radius:10px;padding:10px}
   .batch-bar input,.batch-bar select{width:auto;flex:0 0 auto}
@@ -218,7 +226,7 @@ WE01出货单查询"></textarea>
   <!-- 任务列表 -->
   <section id="tab-list" class="card hidden">
     <h2>任务列表 <span class="muted" id="listCount">（共 0 条）</span></h2>
-    <div class="hint">可「编辑」把任务调回录入页改（补测试/结案日期），「删除」会移入回收站（可恢复）。搜索框可按关键字/客户筛选。支持批量模式多选删除/补录。</div>
+    <div class="hint">「编辑」可回录入页补日期，「删除」移入回收站（可恢复）。支持搜索/筛选/排序、批量模式、按客户/状态分布统计。「全量备份」含任务+配置+设置，换机迁移一次搞定。</div>
     <div id="statsStrip" class="stats">
     <div class="stat"><div class="num">0</div><div class="lab">任务总数</div></div>
     <div class="stat"><div class="num">0</div><div class="lab">本月任务</div></div>
@@ -227,6 +235,7 @@ WE01出货单查询"></textarea>
     <div class="stat"><div class="num">0</div><div class="lab">已追加</div></div>
     <div class="stat"><div class="num">0</div><div class="lab">回收站</div></div></div>
     <div id="custStats" class="cust-stats"></div>
+    <div id="statusDist" class="cust-stats"></div>
     <div class="row" style="margin-bottom:10px;gap:10px">
       <input type="text" id="listSearch" placeholder="搜索（专案/需求/客户…）" style="flex:1;min-width:180px">
       <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
@@ -235,9 +244,13 @@ WE01出货单查询"></textarea>
       <select id="listSortBy" style="flex:0 0 120px"><option value="date">录入时间</option><option value="status">完成状态</option><option value="cust">客户</option><option value="devDate" selected="">开发日期</option></select>
       <select id="listSortDir" style="flex:0 0 120px"><option value="desc" selected="">降序</option><option value="asc">升序</option></select>
     </div>
-    <div class="row" style="margin-bottom:10px">
+    <div class="row" style="margin-bottom:8px">
       <button class="btn sec sm" id="batchToggle">批量模式</button>
       <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
+      <button class="btn sec sm" id="undoLastExport">撤销本次追加</button>
+      <button class="btn sec sm" id="undoExported">撤销已追加</button>
+    </div>
+    <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" id="exportAll">全量备份</button>
       <button class="btn sec sm" id="importAll">全量恢复</button>
       <input type="file" id="importAllFile" accept=".json" class="hidden">
@@ -245,13 +258,12 @@ WE01出货单查询"></textarea>
       <button class="btn sec sm" id="exportCsv">导出CSV</button>
       <button class="btn sec sm" id="importTasks">覆盖导入</button>
       <button class="btn sec sm" id="mergeTasks">合并导入</button>
-      <button class="btn sec sm" id="undoLastExport">撤销本次追加</button>
-      <button class="btn sec sm" id="undoExported">撤销已追加</button>
       <input type="file" id="importTasksFile" accept=".json" class="hidden">
       <button class="btn del sm" id="clearTasks">清空任务库</button>
     </div>
     <div id="batchBar" class="row batch-bar hidden">
       <button class="btn sec sm" id="batchAll">全选</button>
+      <button class="btn sec sm" id="batchExport">导出选中</button>
       <button class="btn del sm" id="batchDelete">批量删除(移回收站)</button>
       <span class="muted">补录：</span>
       <input type="date" id="batchTest" title="测试日期">
@@ -659,7 +671,7 @@ WE01出货单查询"></textarea>
   <section id="tab-monthly" class="card hidden">
     <h2>月报汇总</h2>
 
-    <div class="hint">从已录任务中，按「月份」筛选当月任务，再按「专案名称」去重（保留首次出现），按录入日期升序排列。可选附带客户/负责人/状态，导出纯文本或 Excel。</div>
+    <div class="hint">从已录任务中，按「月份」筛选当月任务；默认按「专案名称」去重（可取消勾选保留同名多条），可选附带客户/负责人/状态，导出纯文本或 Excel。下方可按日期范围生成周报段落。</div>
 
     <div class="row">
       <div style="flex:0 0 200px"><span class="lab muted">选择月份</span><input type="month" id="monthPick"></div>
