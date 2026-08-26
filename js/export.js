@@ -306,16 +306,16 @@ function insertGrouped(ws, t, lastDataRow){
   const stHd=excelHeaders.find(h=>effMap(h)==='完成状态');
   if(!stHd) return; // 校验阶段已拦截
   const stCol=excelHeaders.indexOf(stHd)+1;
-  // 扫描数据区，记录每个状态值「最后一条」所在行号
+  // 扫描数据区，记录每个状态值「最后一条」所在行号（大小写不敏感）
   const lastRowOf={};
   for(let r=excelHeaderRow+1;r<=lastDataRow;r++){
     const cell=ws.getRow(r).getCell(stCol);
-    const v=(cell.value!=null)?String(cell.value).trim():'';
+    const v=(cell.value!=null)?String(cell.value).trim().toLowerCase():'';
     lastRowOf[v]=r;
   }
   // 计算每个任务的插入锚点：模板有该状态→用该状态最后行；否则用表格末尾
   const items=t.map(task=>{
-    const st=String(task.values['完成状态']||'').trim();
+    const st=String(task.values['完成状态']||'').trim().toLowerCase();
     return {task, anchor:(lastRowOf[st]!=null?lastRowOf[st]:lastDataRow)};
   });
   // 按锚点降序稳定排序（从下往上插：下方插入不影响上方锚点行号；同锚点保持录入顺序）
