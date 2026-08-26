@@ -228,12 +228,15 @@ WE01出货单查询"></textarea>
       <input type="text" id="listSearch" placeholder="搜索（专案/需求/客户…）" style="flex:1;min-width:180px">
       <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
       <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option></select>
+      <select id="listExportFilter" style="flex:0 0 150px"><option value="">全部(含已追加)</option><option value="not_exported">未追加</option><option value="exported">已追加</option></select>
     </div>
     <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" id="batchToggle">批量模式</button>
       <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
       <button class="btn sec sm" id="exportTasks">导出任务库(备份)</button>
-      <button class="btn sec sm" id="importTasks">导入任务库</button>
+      <button class="btn sec sm" id="exportCsv">导出CSV</button>
+      <button class="btn sec sm" id="importTasks">覆盖导入</button>
+      <button class="btn sec sm" id="mergeTasks">合并导入</button>
       <button class="btn sec sm" id="undoExported">撤销已追加</button>
       <input type="file" id="importTasksFile" accept=".json" class="hidden">
       <button class="btn del sm" id="clearTasks">清空任务库</button>

@@ -63,12 +63,15 @@ function renderList(){
   const q=$('#listSearch').value.trim().toLowerCase();
   const cf=$('#listCustFilter').value;
   const sf=$('#listStatusFilter').value;
+  const ef=$('#listExportFilter').value;
   let list=tasks.slice().reverse();
   if(q)list=list.filter(t=>Object.values(t.values).some(v=>String(v).toLowerCase().includes(q)));
   if(cf)list=list.filter(t=>(t.values['客户']||'')===cf);
   if(sf==='__not_closed')list=list.filter(t=>String(t.values['完成状态']||'')!=='Closed');
   else if(sf)list=list.filter(t=>(t.values['完成状态']||'')===sf);
-  $('#listCount').textContent='（共 '+tasks.length+' 条'+( (q||cf||sf)?'，筛选后 '+list.length+' 条':'')+'）';
+  if(ef==='exported')list=list.filter(t=>t.exported);
+  else if(ef==='not_exported')list=list.filter(t=>!t.exported);
+  $('#listCount').textContent='（共 '+tasks.length+' 条'+( (q||cf||sf||ef)?'，筛选后 '+list.length+' 条':'')+'）';
   const wrap=$('#taskTableWrap');
   const batchOn = $('#batchToggle') && $('#batchToggle').classList.contains('active');
   if(!list.length){wrap.innerHTML='<p class="muted">没有任务（'+(tasks.length?'没有匹配的':'去「每日录入」添加')+'）。</p>';return;}
@@ -174,6 +177,7 @@ function renderTrash(){
 $('#listSearch').oninput=renderList;
 $('#listCustFilter').onchange=renderList;
 $('#listStatusFilter').onchange=renderList;
+$('#listExportFilter').onchange=renderList;
 $('#clearTasks').onclick=()=>{ if(confirm('确定清空全部任务库和回收站？建议先导出备份。')){tasks=[];trash=[];save(LS_TASKS,tasks);save(LS_TRASH,trash);renderList();toast('已清空');} };
 $('#undoExported').onclick=()=>{
   const n=tasks.filter(t=>t.exported).length;
@@ -183,7 +187,20 @@ $('#undoExported').onclick=()=>{
   save(LS_TASKS,tasks); renderList(); toast('已撤销 '+n+' 条「已追加」标记');
 };
 $('#exportTasks').onclick=()=>{ downloadJSON({tasks},'周报任务库备份.json'); markBackup(); toast('任务库已备份'); };
-$('#importTasks').onclick=()=>$('#importTasksFile').click();
+/* 导出 CSV：带表头 + BOM（防中文乱码），Excel/WPS 可直接打开 */
+$('#exportCsv').onclick=()=>{
+  if(!tasks.length){toast('没有任务可导出');return;}
+  const cols=schema.filter(c=>c.type!=='auto').map(c=>c.name);
+  const escCsv=s=>{ s=String(s==null?'':s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const rows=[['录入日期',...cols].join(',')];
+  tasks.forEach(t=>{ rows.push([escCsv(t.entryDate),...cols.map(c=>escCsv(t.values[c]||''))].join(',')); });
+  const blob=new Blob(['\ufeff'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  downloadBlob(blob,'周报任务库_'+todayStr()+'.csv');
+  toast('已导出CSV');
+};
+let importMode='overwrite';
+$('#importTasks').onclick=()=>{ importMode='overwrite'; $('#importTasksFile').click(); };
+$('#mergeTasks').onclick=()=>{ importMode='merge'; $('#importTasksFile').click(); };
 $('#importTasksFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
   const r=new FileReader();r.onload=()=>{
@@ -207,8 +224,16 @@ $('#importTasksFile').onchange=e=>{
           exported:!!t.exported
         };
       });
-      if(confirm(`导入将覆盖当前全部 ${tasks.length} 条任务数据，且不可撤销。\n建议先「导出任务库(备份)」。\n仍要导入？`)){
-        tasks=validTasks;save(LS_TASKS,tasks);renderList();toast('任务库已导入');
+      if(importMode==='merge'){
+        // 合并：备份中有而本地没有的任务加入；两边都有的保留本地
+        const map=new Map(tasks.map(t=>[t.id,t]));
+        validTasks.forEach(t=>{ if(!map.has(t.id)) map.set(t.id,t); });
+        tasks=[...map.values()];
+        save(LS_TASKS,tasks);renderList();toast('合并导入完成，现有 '+tasks.length+' 条');
+      }else{
+        if(confirm(`导入将覆盖当前全部 ${tasks.length} 条任务数据，且不可撤销。\n建议先「导出任务库(备份)」。\n仍要导入？`)){
+          tasks=validTasks;save(LS_TASKS,tasks);renderList();toast('任务库已导入');
+        }
       }
     }catch(err){toast('导入失败：'+err.message);}
   };

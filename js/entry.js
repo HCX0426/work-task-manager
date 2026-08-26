@@ -1,4 +1,16 @@
 /* ============ 每日录入（entry.js） ============ */
+/* 自动计算开发天数：开发日期~结案日期（含首尾）；两个日期任一为空则不动 */
+function autoFillDays(){
+  const dev=$('#entryForm').querySelector('[name="开发日期"]');
+  const close=$('#entryForm').querySelector('[name="结案日期"]');
+  const days=$('#entryForm').querySelector('[name="开发天数"]');
+  if(!dev||!close||!days)return;
+  const d1=parseDateAny(dev.value), d2=parseDateAny(close.value);
+  if(d1&&d2){
+    const diff=Math.round((d2-d1)/86400000)+1;
+    if(diff>=1) days.value=diff+'天';
+  }
+}
 function renderEntry(prefill){
   const f=$('#entryForm'); f.innerHTML='';
   const t=todayStr();
@@ -99,7 +111,7 @@ function renderEntry(prefill){
   }
   ['提出日期','开发日期','测试日期','结案日期'].forEach(n=>{
     const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
-    if(el) el.addEventListener('change',validateDates);
+    if(el){ el.addEventListener('change',validateDates); el.addEventListener('change',autoFillDays); }
   });
   $('#saveEntry').textContent = (editingId && prefill) ? '保存修改' : '保存任务';
   $('#cancelEdit').style.display = (editingId && prefill) ? 'inline-block' : 'none';
