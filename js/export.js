@@ -240,11 +240,22 @@ $('#doExport').onclick=async ()=>{
 };
 
 function appendMode(){ const el=$('#appendMode'); return el?el.value:'append'; }
+function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
+
+/* 复制源行样式（行高 + 各单元格边框/填充/字体/对齐/数字格式）到目标行 */
+function copyRowStyle(ws, target, source){
+  const src=ws.getRow(source), tgt=ws.getRow(target);
+  tgt.height=src.height;
+  src.eachCell({includeEmpty:false},(sc,cn)=>{ tgt.getCell(cn).style=JSON.parse(JSON.stringify(sc.style)); });
+}
 
 /* 向指定行写入一个任务（seqVal 为 null 表示项次列暂不填，由调用方统一处理） */
 function writeRowVals(ws, rowNum, task, seqVal){
   const newRow=ws.getRow(rowNum);
   const row=mapTaskToRow(task);
+  const copyStyle=copyRowStyleOn();
+  // 对齐上一行样式（默认开启）：复制行高与单元格样式，使新行与模板视觉一致
+  if(copyStyle && rowNum>1) copyRowStyle(ws, rowNum, rowNum-1);
   excelHeaders.forEach((h,c)=>{
     const col=c+1;
     let val='';
@@ -252,7 +263,14 @@ function writeRowVals(ws, rowNum, task, seqVal){
     else if(h in row){ val=row[h]; }
     const cell=newRow.getCell(col);
     cell.value=val;
-    if(/进度/.test(h)&&String(val).includes('\n')) styleCell(cell,true); else styleCell(cell);
+    if(copyStyle){
+      // 已复制上一行样式：保留模板字体/边框/底色，仅对含换行的进度列补充自动换行
+      if(/进度/.test(h)&&String(val).includes('\n')){
+        const a=Object.assign({},cell.alignment||{}); a.wrapText=true; a.vertical='top'; a.horizontal='left'; cell.alignment=a;
+      }
+    }else{
+      if(/进度/.test(h)&&String(val).includes('\n')) styleCell(cell,true); else styleCell(cell);
+    }
   });
 }
 
