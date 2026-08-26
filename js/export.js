@@ -48,6 +48,20 @@ $('#excelFile').onchange=async e=>{
     const savedMap=load(LS_MAPPING,{});
     colMapping={}; excelHeaders.forEach(h=>{ const saved=(h in savedMap)?savedMap[h]:''; colMapping[h]=(saved&&schema.some(c=>c.name===saved))?saved:(matchCol(h)||''); });
     save(LS_MAPPING,colMapping);
+    // 若激活的映射方案与该文件表头一致，自动套用该方案（实现"不同客户/不同周报表头一键切换"）
+    appliedTemplate='';
+    const tplData=loadMappingTemplates();
+    if(tplData.active && tplData.list && tplData.list[tplData.active]){
+      const tpl=tplData.list[tplData.active];
+      const hd=excelHeaders.filter(Boolean);
+      const tplHd=(tpl.headers||[]).filter(Boolean);
+      if(hd.length===tplHd.length && hd.every((x,i)=>x===tplHd[i])){
+        colMapping={...(tpl.mapping||{})};
+        save(LS_MAPPING,colMapping);
+        appliedTemplate=tplData.active;
+      }
+    }
+    refreshMapTemplateSel();
     $('#excelInfo').textContent=`已读取：${f.name} · 工作表「${excelSheetName}」· 表头在第${hr}行 · 识别列：${excelHeaders.filter(Boolean).join(' / ')}`;
     renderColMap(); renderPreview();
   }catch(err){toast('读取失败：'+err.message);}
@@ -66,6 +80,65 @@ function renderColMap(){
   h+='</div>'; wrap.innerHTML=h;
   wrap.querySelectorAll('select').forEach(s=>s.onchange=()=>{colMapping[s.dataset.h]=s.value; save(LS_MAPPING,colMapping); renderPreview();});
 }
+
+/* ============ 映射方案（多模板） ============ */
+let appliedTemplate=''; // 当前 colMapping 实际生效的方案名（'' = 自动记忆映射）
+
+function refreshMapTemplateSel(){
+  const sel=$('#mapTemplate'); if(!sel) return;
+  const data=loadMappingTemplates();
+  const names=Object.keys(data.list||{});
+  sel.innerHTML='<option value="">（使用自动记忆的映射）</option>'
+    + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = appliedTemplate && names.includes(appliedTemplate) ? appliedTemplate : '';
+  const del=$('#mapTemplateDel'); if(del) del.disabled = !appliedTemplate;
+}
+
+$('#mapTemplateSave').onclick=()=>{
+  if(!excelBook){ toast('请先上传周报 excel'); return; }
+  const name=(prompt('方案名称（如：N客户周报 / 太白山周报）：')||'').trim();
+  if(!name){ return; }
+  if(!confirm(`将当前列映射（${excelHeaders.filter(Boolean).length} 列）保存为方案「${name}」？下次上传同结构的表会自动套用。`)) return;
+  const data=loadMappingTemplates();
+  data.list=data.list||{};
+  data.list[name]={headers:excelHeaders.slice(), mapping:{...colMapping}};
+  data.active=name;
+  saveMappingTemplates(data);
+  appliedTemplate=name;
+  refreshMapTemplateSel();
+  toast('已保存映射方案「'+name+'」');
+};
+$('#mapTemplateDel').onclick=()=>{
+  const sel=$('#mapTemplate'); const name=sel.value;
+  if(!name){ toast('当前没有生效的方案可删除'); return; }
+  if(!confirm('删除映射方案「'+name+'」？不影响当前已设置的映射。')) return;
+  const data=loadMappingTemplates();
+  delete data.list[name];
+  if(data.active===name) data.active='';
+  saveMappingTemplates(data);
+  appliedTemplate='';
+  refreshMapTemplateSel();
+  toast('已删除方案「'+name+'」');
+};
+$('#mapTemplate').onchange=()=>{
+  const name=$('#mapTemplate').value;
+  const data=loadMappingTemplates();
+  if(name && data.list && data.list[name]){
+    colMapping={...(data.list[name].mapping||{})};
+    save(LS_MAPPING,colMapping);
+    data.active=name;
+    saveMappingTemplates(data);
+    appliedTemplate=name;
+    renderColMap(); renderPreview();
+    refreshMapTemplateSel();
+    toast('已套用映射方案「'+name+'」');
+  }else{
+    appliedTemplate='';
+    refreshMapTemplateSel();
+  }
+};
+/* 初始化时填充方案下拉 */
+refreshMapTemplateSel();
 
 function mapTaskToRow(task){
   const row={};

@@ -275,6 +275,43 @@ $('#importAllFile').onchange=e=>{
   };
   r.readAsText(f); e.target.value='';
 };
+/* 一键加密备份 / 恢复（AES-256 本地加密，密码不落盘） */
+$('#encryptBackup').onclick=async ()=>{
+  if(!cryptoAvailable()){ toast('当前环境不支持加密（需 https 或 localhost）'); return; }
+  const pwd=prompt('设置加密备份的密码（用于以后恢复，请牢记）：');
+  if(pwd==null) return;
+  if(!pwd.trim()){ toast('密码不能为空'); return; }
+  if(prompt('再次输入密码确认：')!==pwd){ toast('两次密码不一致，已取消'); return; }
+  const obj={type:'wb_full', tasks, trash, schema, dropdowns, settings:loadSettings()};
+  try{
+    const enc=await encryptBackupJSON(obj, pwd);
+    downloadBlob(new Blob([enc],{type:'application/json'}), '周报加密备份_'+todayStr()+'.wbe');
+    markBackup(); toast('已导出加密备份（.wbe）');
+  }catch(err){ toast('加密失败：'+err.message); }
+};
+$('#restoreEncBackup').onclick=()=>$('#restoreEncFile').click();
+$('#restoreEncFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader(); r.onload=async ()=>{
+    const pwd=prompt('输入该加密备份的密码：');
+    if(pwd==null){ e.target.value=''; return; }
+    try{
+      if(!cryptoAvailable()) throw new Error('当前环境不支持解密（需 https 或 localhost）');
+      const d=await decryptBackupJSON(r.result, pwd);
+      if(d.type!=='wb_full' || !Array.isArray(d.tasks)) throw new Error('不是有效的全量备份');
+      if(!Array.isArray(d.schema) || !d.schema.length) throw new Error('备份缺少列配置');
+      if(!confirm('将恢复加密备份中的全部数据（任务库/回收站/列配置/下拉/导出设置），当前数据会被覆盖。\n建议先「全量备份」当前数据。\n仍要恢复？')) return;
+      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported}));
+      trash=Array.isArray(d.trash)?d.trash:[];
+      schema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||'')}));
+      dropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
+      save(LS_TASKS,tasks); save(LS_TRASH,trash); save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
+      if(d.settings && typeof d.settings==='object') save(LS_EXPORTCFG,d.settings);
+      renderList(); renderEntry(null); toast('已恢复加密备份');
+    }catch(err){ toast('恢复失败：'+err.message); }
+  };
+  r.readAsText(f); e.target.value='';
+};
 $('#exportTasks').onclick=()=>{ downloadJSON({tasks},'周报任务库备份.json'); markBackup(); toast('任务库已备份'); };
 /* 导出 CSV：带表头 + BOM（防中文乱码），Excel/WPS 可直接打开 */
 $('#exportCsv').onclick=()=>{

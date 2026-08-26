@@ -1,5 +1,5 @@
 /* ============ 存储与全局状态（store.js） ============ */
-const LS_SCHEMA='wb_schema', LS_DROPDOWNS='wb_dropdowns', LS_TASKS='wb_tasks', LS_TRASH='wb_trash', LS_LASTBACKUP='wb_lastbackup', LS_MAPPING='wb_mapping', LS_EXPORTCFG='wb_exportcfg';
+const LS_SCHEMA='wb_schema', LS_DROPDOWNS='wb_dropdowns', LS_TASKS='wb_tasks', LS_TRASH='wb_trash', LS_LASTBACKUP='wb_lastbackup', LS_MAPPING='wb_mapping', LS_EXPORTCFG='wb_exportcfg', LS_MAPPING_TMPL='wb_mapping_templates';
 
 /* 默认设置（配置中心可改默认，各页面运行时临时可覆盖单次） */
 const DEF_SETTINGS={
@@ -120,6 +120,41 @@ async function aiChat(messages){
   if(!out) throw new Error('接口响应格式异常（模型名或服务地址不对？）');
   return String(out);
 }
+
+/* 加密备份：Web Crypto AES-256-GCM + PBKDF2。密码不落盘，仅用于派生密钥（150k 迭代）。 */
+function cryptoAvailable(){ return !!(window.crypto && window.crypto.subtle); }
+async function deriveKey(password, salt){
+  const enc=new TextEncoder();
+  const baseKey=await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:150000, hash:'SHA-256'},
+    baseKey,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+async function encryptBackupJSON(obj, password){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await deriveKey(password, salt);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode(JSON.stringify(obj)));
+  return JSON.stringify({v:1, alg:'AES-256-GCM', salt:Array.from(salt), iv:Array.from(iv), data:Array.from(new Uint8Array(ct))});
+}
+async function decryptBackupJSON(text, password){
+  const p=JSON.parse(text);
+  if(!p || p.v!==1 || !Array.isArray(p.data)) throw new Error('不是有效的加密备份文件（.wbe）');
+  const salt=new Uint8Array(p.salt), iv=new Uint8Array(p.iv), ct=new Uint8Array(p.data);
+  const key=await deriveKey(password, salt);
+  let plain;
+  try{ plain=await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct); }
+  catch(e){ throw new Error('密码错误或文件已损坏'); }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* 映射方案（多模板）：{active:'方案名', list:{name:{headers:[],mapping:{}}}} */
+function loadMappingTemplates(){ return load(LS_MAPPING_TMPL, {active:'', list:{}}); }
+function saveMappingTemplates(o){ save(LS_MAPPING_TMPL, o); }
 function markBackup(){ save(LS_LASTBACKUP,Date.now()); }
 function checkBackupReminder(){
   const lb=load(LS_LASTBACKUP,0); const days=(Date.now()-lb)/86400000;

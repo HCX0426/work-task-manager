@@ -292,6 +292,9 @@ WE01出货单查询"></textarea>
       <button class="btn sec sm" id="exportAll">全量备份</button>
       <button class="btn sec sm" id="importAll">全量恢复</button>
       <input type="file" id="importAllFile" accept=".json" class="hidden">
+      <button class="btn sec sm" id="encryptBackup" title="AES-256 加密导出，需密码才能恢复">🔐 加密备份</button>
+      <button class="btn sec sm" id="restoreEncBackup" title="用密码恢复加密备份">🔓 恢复加密备份</button>
+      <input type="file" id="restoreEncFile" accept=".wbe,.json" class="hidden">
       <button class="btn sec sm" id="exportTasks">导出任务库(备份)</button>
       <button class="btn sec sm" id="exportCsv">导出CSV</button>
       <button class="btn sec sm" id="importTasks">覆盖导入</button>
@@ -697,6 +700,13 @@ WE01出货单查询"></textarea>
       </div>
     </div>
     <div id="excelInfo" class="muted"></div>
+    <div class="row" id="templateBar" style="margin-top:12px;gap:8px">
+      <span class="muted">映射方案：</span>
+      <select id="mapTemplate" style="width:auto"><option value="">（使用自动记忆的映射）</option></select>
+      <button class="btn sec sm" id="mapTemplateSave" title="把当前列映射存成方案，不同客户的周报表头可分别保存">保存为方案</button>
+      <button class="btn del sm" id="mapTemplateDel">删除方案</button>
+      <span class="muted">不同客户/不同周报表头各存一套映射，一键切换。</span>
+    </div>
     <div id="colMap"></div>
 
     <div class="lab" style="margin-top:14px">2. 时间范围（按所选日期类型筛选该范围内的任务） <label class="inline-check" style="margin-left:8px">按
