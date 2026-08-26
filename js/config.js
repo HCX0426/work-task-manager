@@ -116,11 +116,41 @@ $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); rend
     dedup.checked = !!st.monthDedup;
     dedup.onchange=()=>saveCfg({monthDedup:dedup.checked});
   }
+  const aiKey=$('#cfgAiKey'); if(aiKey){
+    aiKey.value = st.aiKey||'';
+    aiKey.onchange=()=>saveCfg({aiKey:aiKey.value.trim()});
+  }
+  const aiBaseUrl=$('#cfgAiBaseUrl'); if(aiBaseUrl){
+    aiBaseUrl.value = st.aiBaseUrl;
+    aiBaseUrl.onchange=()=>saveCfg({aiBaseUrl:aiBaseUrl.value.trim()});
+  }
+  const aiModel=$('#cfgAiModel'); if(aiModel){
+    aiModel.value = st.aiModel;
+    aiModel.onchange=()=>saveCfg({aiModel:aiModel.value.trim()});
+  }
+  const aiReq=$('#cfgAiReq'); if(aiReq){
+    aiReq.value = st.aiReq||'';
+    aiReq.onchange=()=>saveCfg({aiReq:aiReq.value});
+  }
   document.querySelectorAll('.cfgWk').forEach(cb=>{
     cb.checked = (st.weeklyFields||[]).includes(cb.value);
     cb.onchange=()=>{ const fields=[...document.querySelectorAll('.cfgWk:checked')].map(x=>x.value); saveCfg({weeklyFields:fields}); };
   });
 })();
+/* AI 测试连接：发一条最小请求，验证 Key/地址/模型可用 */
+$('#aiTestBtn').onclick=async ()=>{
+  const msg=$('#aiTestMsg');
+  if(!loadSettings().aiKey){ toast('请先填写 API Key'); return; }
+  msg.textContent='测试中…';
+  try{
+    const out=await aiChat([{role:'user',content:'只回复两个字：正常'}]);
+    msg.textContent = out.trim() ? '连接成功' : '连接失败：返回为空';
+    if(out.trim()) toast('AI 连接成功');
+  }catch(err){
+    msg.textContent = '连接失败：'+err.message;
+    toast('连接失败：'+err.message);
+  }
+};
 $('#saveColCfg').onclick=()=>{
   const rows=[...document.querySelectorAll('#colCfgList .col-grid')];
   const ns=rows.map(r=>{

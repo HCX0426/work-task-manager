@@ -644,6 +644,31 @@ WE01出货单查询"></textarea>
       </div>
     </div>
 
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">AI 润色（可选）</span></div>
+      <div style="padding:4px 2px">
+        <div class="hint" style="margin:0 0 10px">给「开发进度」一键润色成正式周报话术（每日录入页）。填你自己的 API Key，内容<b>只发往你填写</b>的 AI 服务商（OpenAI 兼容接口），不经过本工具任何服务器。Key 明文存在本机浏览器里，请勿在公用电脑填写。</div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px">
+          <label class="inline-check">API Key：
+            <input type="text" id="cfgAiKey" style="width:230px" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          </label>
+          <label class="inline-check">服务地址：
+            <input type="text" id="cfgAiBaseUrl" style="width:210px" placeholder="https://api.deepseek.com" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="inline-check">模型：
+            <input type="text" id="cfgAiModel" style="width:150px" placeholder="deepseek-chat" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+        <label class="inline-check" style="margin-top:8px">润色要求（可补充个性化要求）：
+          <input type="text" id="cfgAiReq" style="width:320px" placeholder="如：语气专业简洁，突出本周成果，用第一人称" autocomplete="off">
+        </label>
+        <div class="row" style="margin-top:10px">
+          <button class="btn sec sm" id="aiTestBtn">测试连接</button>
+          <span class="muted" id="aiTestMsg"></span>
+        </div>
+      </div>
+    </div>
+
     <h3>下拉选项（按列名管理，可增删、可去重排序）</h3>
     <div id="dropdownCfg"><div class="dd-block"><div class="dd-head">
         <span class="dd-name">客户</span>

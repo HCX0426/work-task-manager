@@ -48,6 +48,9 @@ function renderEntry(prefill){
       inner+=`<input type="date" name="${esc(col.name)}" value="${esc(val)}">`;
     }else if(col.type==='textarea'){
       inner+=`<textarea name="${esc(col.name)}" placeholder="可多行，如：08/20 完成，等待测试">${esc(val)}</textarea>`;
+      if(col.name==='开发进度'){
+        inner+=`<div class="row" style="margin-top:6px;gap:8px"><button type="button" class="btn sec sm ai-polish-btn">AI 润色</button><span class="muted ai-polish-msg"></span></div>`;
+      }
       inner+=`<div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」，多行可用换行</div>`;
     }else{
       inner+=`<input type="text" name="${esc(col.name)}" value="${esc(val)}">`;
@@ -85,6 +88,8 @@ function renderEntry(prefill){
     }
     const input=wrap.querySelector('input,select,textarea');
     if(input) input.addEventListener('input',()=>validateField(col.name));
+    const aiBtn=wrap.querySelector('.ai-polish-btn');
+    if(aiBtn) aiBtn.onclick=()=>aiPolishField(wrap, col.name);
   });
 
   // 字段级实时校验
@@ -133,6 +138,36 @@ function renderEntry(prefill){
   f.addEventListener('change',checkDirty);
   $('#entryDate').addEventListener('input',checkDirty);
   $('#entryDate').addEventListener('change',checkDirty);
+}
+
+/* BYOK AI 润色：把「开发进度」草稿润色成周报话术（数据只发用户自己配置的服务商） */
+async function aiPolishField(wrap, name){
+  const ta=wrap.querySelector('textarea');
+  const btn=wrap.querySelector('.ai-polish-btn');
+  const msgEl=wrap.querySelector('.ai-polish-msg');
+  const text=(ta.value||'').trim();
+  if(!text){ toast('请先填写「'+name+'」内容'); ta.focus(); return; }
+  const st=loadSettings();
+  if(!st.aiKey){ toast('请先在「配置中心 → AI 润色」填写 API Key'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='润色中…'; }
+  if(msgEl) msgEl.textContent='正在请求 AI（约几秒）…';
+  try{
+    const sys='你是周报助手。把用户给的开发进度草稿润色成正式简练的周报话术：每行一条；保留日期、关键节点和数据；突出已完成成果与进行中状态；不要编造内容；直接输出润色后的文本，不要任何解释。'+(st.aiReq?('补充要求：'+st.aiReq):'');
+    const out=await aiChat([
+      {role:'system', content:sys},
+      {role:'user', content:'请润色以下「'+name+'」：\n'+text}
+    ]);
+    if(!out.trim()) throw new Error('AI 返回内容为空');
+    ta.value=out.trim();
+    checkDirty();
+    if(msgEl) msgEl.textContent='已润色，可继续手动修改';
+    toast('AI 润色完成');
+  }catch(err){
+    if(msgEl) msgEl.textContent='';
+    toast('润色失败：'+err.message);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='AI 润色'; }
+  }
 }
 
 /* C. 字段级校验 */

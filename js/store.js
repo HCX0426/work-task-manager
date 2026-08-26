@@ -9,7 +9,11 @@ const DEF_SETTINGS={
   listSortBy:'devDate',         // 列表：排序依据（date/status/cust/devDate）
   listSortDir:'desc',           // 列表：排序方向（asc/desc）
   monthDedup:true,              // 月报：去重
-  weeklyFields:['客户','专案名称','需求说明','开发进度'] // 周报段落包含字段
+  weeklyFields:['客户','专案名称','需求说明','开发进度'], // 周报段落包含字段
+  aiKey:'',                     // AI 润色：用户自己的 Key（BYOK，数据只发往用户填写的服务商）
+  aiBaseUrl:'https://api.deepseek.com', // AI 润色：OpenAI 兼容服务地址
+  aiModel:'deepseek-chat',      // AI 润色：模型名
+  aiReq:''                      // AI 润色：个性化要求
 };
 function loadSettings(){ return Object.assign({}, DEF_SETTINGS, load(LS_EXPORTCFG,{})||{}); }
 function load(k,def){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;} }
@@ -88,6 +92,34 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show'
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function downloadJSON(obj,name){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
 function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+
+/* BYOK AI 调用：直连用户自己配置的 OpenAI 兼容接口（/chat/completions）。
+   数据只发往用户填写的服务地址，不经过本工具任何服务器。 */
+async function aiChat(messages){
+  const st=loadSettings();
+  if(!st.aiKey) throw new Error('未配置 API Key（配置中心 → AI 润色）');
+  const base=(st.aiBaseUrl||'https://api.deepseek.com').trim().replace(/\/+$/,'');
+  const model=(st.aiModel||'deepseek-chat').trim()||'deepseek-chat';
+  let res;
+  try{
+    res=await fetch(base+'/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+st.aiKey.trim()},
+      body:JSON.stringify({model, messages, stream:false, temperature:0.7})
+    });
+  }catch(e){
+    throw new Error('请求失败（网络/跨域）：该服务商可能不允许浏览器直连，建议换用支持 CORS 的服务，如 DeepSeek/OpenAI。原始错误：'+e.message);
+  }
+  if(!res.ok){
+    let t='';
+    try{ t=(await res.text()).slice(0,200); }catch(e){}
+    throw new Error('接口返回 '+res.status+(t?'：'+t:'')+(res.status===401?'（Key 无效，请检查）':''));
+  }
+  const d=await res.json();
+  const out=d&&d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content;
+  if(!out) throw new Error('接口响应格式异常（模型名或服务地址不对？）');
+  return String(out);
+}
 function markBackup(){ save(LS_LASTBACKUP,Date.now()); }
 function checkBackupReminder(){
   const lb=load(LS_LASTBACKUP,0); const days=(Date.now()-lb)/86400000;
