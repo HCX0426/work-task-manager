@@ -59,10 +59,10 @@ function renderEntry(prefill){
     const err=document.createElement('div'); err.className='field-err'; wrap.appendChild(err);
     if(col.type==='dropdown'){
       const el=wrap.querySelector('select'); el.value=val;
-      wrap.querySelector('.dd-add-opt').onclick=()=>{
+      wrap.querySelector('.dd-add-opt').onclick=async ()=>{
         const name=col.name;
         const arr=dropdowns[name]=dropdowns[name]||[];
-        const v=(prompt('为「'+name+'」新增选项：')||'').trim();
+        const v=(await uiPrompt('为「'+name+'」新增选项：')||'').trim();
         if(!v)return;
         if(!arr.includes(v)){ arr.push(v); save(LS_DROPDOWNS,dropdowns); }
         // 保存当前表单数据，避免重新渲染时丢失用户已填内容

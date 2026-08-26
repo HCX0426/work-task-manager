@@ -93,6 +93,43 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function downloadJSON(obj,name){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
 function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
 
+/* 自定义输入弹层（替代原生 prompt）：沙箱 iframe（如预览页）禁用 prompt，统一走页面内弹层，任何环境可用 */
+let uiModalEl=null;
+function uiModal(){
+  if(uiModalEl) return uiModalEl;
+  uiModalEl=document.createElement('div');
+  uiModalEl.id='uiModal';
+  uiModalEl.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:center;justify-content:center;z-index:40;';
+  uiModalEl.innerHTML='<div style="background:#fff;border-radius:12px;padding:18px 20px;width:min(430px,90vw);box-shadow:0 10px 34px rgba(0,0,0,.22);font-size:14px">'
+    +'<div class="ui-title" style="font-weight:600;font-size:15px;margin-bottom:12px;line-height:1.5"></div>'
+    +'<div class="ui-body" style="color:var(--txt)"></div>'
+    +'<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn sec ui-cancel">取消</button><button class="btn ui-ok">确定</button></div>'
+    +'</div>';
+  document.body.appendChild(uiModalEl);
+  return uiModalEl;
+}
+function uiPrompt(title, defaultValue){
+  return new Promise(resolve=>{
+    const m=uiModal();
+    m.querySelector('.ui-title').textContent=title||'';
+    const body=m.querySelector('.ui-body');
+    body.innerHTML='<input type="text" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px">';
+    const inp=body.querySelector('input');
+    inp.value=defaultValue||'';
+    m.style.display='flex';
+    const ok=m.querySelector('.ui-ok'), cancel=m.querySelector('.ui-cancel');
+    const done=val=>{ m.style.display='none'; ok.onclick=null; cancel.onclick=null; inp.onkeydown=null; m.onclick=null; resolve(val); };
+    ok.onclick=()=>done(inp.value);
+    cancel.onclick=()=>done(null);
+    m.onclick=e=>{ if(e.target===m) done(null); };
+    inp.onkeydown=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); done(inp.value); }
+      else if(e.key==='Escape'){ done(null); }
+    };
+    setTimeout(()=>inp.focus(),0);
+  });
+}
+
 /* BYOK AI 调用：直连用户自己配置的 OpenAI 兼容接口（/chat/completions）。
    数据只发往用户填写的服务地址，不经过本工具任何服务器。 */
 async function aiChat(messages){

@@ -278,10 +278,11 @@ $('#importAllFile').onchange=e=>{
 /* 一键加密备份 / 恢复（AES-256 本地加密，密码不落盘） */
 $('#encryptBackup').onclick=async ()=>{
   if(!cryptoAvailable()){ toast('当前环境不支持加密（需 https 或 localhost）'); return; }
-  const pwd=prompt('设置加密备份的密码（用于以后恢复，请牢记）：');
+  const pwd=await uiPrompt('设置加密备份的密码（用于以后恢复，请牢记）：');
   if(pwd==null) return;
   if(!pwd.trim()){ toast('密码不能为空'); return; }
-  if(prompt('再次输入密码确认：')!==pwd){ toast('两次密码不一致，已取消'); return; }
+  const pwd2=await uiPrompt('再次输入密码确认：');
+  if(pwd2!==pwd){ toast('两次密码不一致，已取消'); return; }
   const obj={type:'wb_full', tasks, trash, schema, dropdowns, settings:loadSettings()};
   try{
     const enc=await encryptBackupJSON(obj, pwd);
@@ -293,7 +294,7 @@ $('#restoreEncBackup').onclick=()=>$('#restoreEncFile').click();
 $('#restoreEncFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
   const r=new FileReader(); r.onload=async ()=>{
-    const pwd=prompt('输入该加密备份的密码：');
+    const pwd=await uiPrompt('输入该加密备份的密码：');
     if(pwd==null){ e.target.value=''; return; }
     try{
       if(!cryptoAvailable()) throw new Error('当前环境不支持解密（需 https 或 localhost）');

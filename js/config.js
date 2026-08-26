@@ -11,8 +11,8 @@ function refreshColTemplateSel(){
   const del=$('#colTemplateDel'); if(del) del.disabled = !active;
 }
 
-$('#colTemplateSave').onclick=()=>{
-  const name=(prompt('模板名称（如：N客户 / 太白山 / 通用周报）：')||'').trim();
+$('#colTemplateSave').onclick=async ()=>{
+  const name=(await uiPrompt('模板名称（如：N客户 / 太白山 / 通用周报）：')||'').trim();
   if(!name) return;
   const data=loadColTemplates();
   data.list=data.list||{};
@@ -68,7 +68,7 @@ $('#colTemplateFile').onchange=async e=>{
     const headers=[];
     for(let c=1;c<=maxCol;c++){ const v=ws.getRow(hr).getCell(c).value; const h=String(v!=null?v:'').trim(); if(h && !headers.includes(h)) headers.push(h); }
     if(!headers.length){ toast('未读取到任何列名'); e.target.value=''; return; }
-    const name=(prompt(`读取到 ${headers.length} 列：\n${headers.join('、')}\n\n模板名称：`)||'').trim();
+    const name=(await uiPrompt('读取到 '+headers.length+' 列：\n'+headers.join('、')+'\n\n模板名称：')||'').trim();
     if(!name){ e.target.value=''; return; }
     const ns=headers.map(h=>({name:h, type:guessType(h), def:''}));
     // 预置已知下拉列的默认选项（客户/完成状态），避免导入后是空下拉
