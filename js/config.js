@@ -97,6 +97,8 @@ $('#saveColCfg').onclick=()=>{
     return {name, type, def};
   });
   if(ns.some(c=>!c.name)){toast('列名不能为空');return;}
+  const seen=new Set();
+  for(const c of ns){ if(seen.has(c.name)){ toast('列名不能重复：'+c.name); return; } seen.add(c.name); }
   const kept=ns.map(c=>c.name);
   Object.keys(dropdowns).forEach(k=>{ if(!kept.includes(k)) delete dropdowns[k]; });
   schema=ns; save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);

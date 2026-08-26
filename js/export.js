@@ -125,7 +125,7 @@ function renderPreview(){
   let h='<table><thead><tr>'+(excelBook?'<th>录入日期</th>':'')+headers.map(x=>`<th>${esc(x.name)}</th>`).join('')+'</tr></thead><tbody>';
   t.forEach(task=>{
     h+='<tr>'+(excelBook?`<td>${task.entryDate}</td>`:'');
-    headers.forEach(x=>{let v=valOf(task,x.name); h+=`<td>${String(v).replace(/\n/g,'<br>')||'—'}</td>`;});
+    headers.forEach(x=>{let v=valOf(task,x.name); h+=`<td>${esc(String(v)).replace(/\n/g,'<br>')||'—'}</td>`;});
     h+='</tr>';
   });
   h+='</tbody></table>';wrap.innerHTML=h;
