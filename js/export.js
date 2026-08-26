@@ -199,6 +199,11 @@ function validateExportStructure(){
   const t=getRangeTasks();
   if(!t.length) errors.push('当前时间范围内没有可追加的任务（或全部已追加且勾选了跳过）。');
 
+  // 8) 分组插入模式需映射「完成状态」列
+  if(appendMode()==='group' && !excelHeaders.some(h=>effMap(h)==='完成状态')){
+    errors.push('「按状态分组插入」模式需要将「完成状态」列映射到本工具的完成状态列，请在上方「列名映射」中为对应表头选择「完成状态」。');
+  }
+
   return {errors,warnings};
 }
 function renderValidateReport(res){
@@ -234,6 +239,70 @@ $('#doExport').onclick=async ()=>{
   await doExportInner();
 };
 
+function appendMode(){ const el=$('#appendMode'); return el?el.value:'append'; }
+
+/* 向指定行写入一个任务（seqVal 为 null 表示项次列暂不填，由调用方统一处理） */
+function writeRowVals(ws, rowNum, task, seqVal){
+  const newRow=ws.getRow(rowNum);
+  const row=mapTaskToRow(task);
+  excelHeaders.forEach((h,c)=>{
+    const col=c+1;
+    let val='';
+    if(seqVal!=null && effMap(h)==='项次'){ val=seqVal; }
+    else if(h in row){ val=row[h]; }
+    const cell=newRow.getCell(col);
+    cell.value=val;
+    if(/进度/.test(h)&&String(val).includes('\n')) styleCell(cell,true); else styleCell(cell);
+  });
+}
+
+/* 末尾追加（现有模式）：按项次续号，从最后数据行之后追加 */
+function appendToEnd(ws, t, lastDataRow){
+  const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
+  const seqCol=seqHd?excelHeaders.indexOf(seqHd)+1:0;
+  let lastSeq=0;
+  if(seqCol){ for(let r=excelHeaderRow+1;r<=lastDataRow;r++){ const v=ws.getRow(r).getCell(seqCol).value; const n=(typeof v==='number')?v:((typeof v==='string'&&/^\d+$/.test(String(v).trim()))?parseInt(v,10):0); if(n>lastSeq)lastSeq=n; } }
+  let nextR=lastDataRow+1;
+  t.forEach((task,idx)=>{ writeRowVals(ws, nextR, task, lastSeq+idx+1); nextR++; });
+}
+
+/* 按状态分组插入：每个任务插入到模板中同状态组的最后一条之后，后续行自动后移；项次整列重新编号。
+   未知状态 / 空状态追加到整个表格末尾。 */
+function insertGrouped(ws, t, lastDataRow){
+  const stHd=excelHeaders.find(h=>effMap(h)==='完成状态');
+  if(!stHd) return; // 校验阶段已拦截
+  const stCol=excelHeaders.indexOf(stHd)+1;
+  // 扫描数据区，记录每个状态值「最后一条」所在行号
+  const lastRowOf={};
+  for(let r=excelHeaderRow+1;r<=lastDataRow;r++){
+    const cell=ws.getRow(r).getCell(stCol);
+    const v=(cell.value!=null)?String(cell.value).trim():'';
+    lastRowOf[v]=r;
+  }
+  // 计算每个任务的插入锚点：模板有该状态→用该状态最后行；否则用表格末尾
+  const items=t.map(task=>{
+    const st=String(task.values['完成状态']||'').trim();
+    return {task, anchor:(lastRowOf[st]!=null?lastRowOf[st]:lastDataRow)};
+  });
+  // 按锚点降序稳定排序（从下往上插：下方插入不影响上方锚点行号；同锚点保持录入顺序）
+  items.sort((a,b)=>b.anchor-a.anchor);
+  const cnt={}; // 每个锚点已插条数（同一状态组内连续插入，位置依次 +1）
+  items.forEach(({task,anchor})=>{
+    cnt[anchor]=(cnt[anchor]||0)+1;
+    const pos=anchor+cnt[anchor];
+    ws.insertRow(pos, []);
+    writeRowVals(ws, pos, task, null);
+  });
+  // 项次整列重新编号（表头下第一行到末尾）
+  const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
+  if(seqHd){
+    const seqCol=excelHeaders.indexOf(seqHd)+1;
+    let n=1;
+    const finalLast=lastDataRow+items.length;
+    for(let r=excelHeaderRow+1;r<=finalLast;r++){ ws.getRow(r).getCell(seqCol).value=n++; }
+  }
+}
+
 async function doExportInner(){
   const ws=excelSheet;
   // 找到最后一个非空数据行（模板底部可能预留空白行，避免追加后夹空行、续号基准不准）
@@ -243,27 +312,10 @@ async function doExportInner(){
     ws.getRow(r).eachCell(()=>{ has=true; });
     if(has)lastDataRow=r;
   }
-  const origRowCount=lastDataRow;
-  let lastSeq=0;
-  const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
-  const seqCol=seqHd?excelHeaders.indexOf(seqHd)+1:0;
-  if(seqCol){ for(let r=excelHeaderRow+1;r<=origRowCount;r++){ const v=ws.getRow(r).getCell(seqCol).value; const n=(typeof v==='number')?v:((typeof v==='string'&&/^\d+$/.test(String(v).trim()))?parseInt(v,10):0); if(n>lastSeq)lastSeq=n; } }
-  let nextR=origRowCount+1;
   const t=getRangeTasks();
-  t.forEach((task,idx)=>{
-    const row=mapTaskToRow(task);
-    const newRow=ws.getRow(nextR);
-    excelHeaders.forEach((h,c)=>{
-      const col=c+1;
-      let val='';
-      if(effMap(h)==='项次'){val=lastSeq+idx+1;}
-      else if(h in row){val=row[h];}
-      const cell=newRow.getCell(col);
-      cell.value=val;
-      if(/进度/.test(h)&&String(val).includes('\n')) styleCell(cell,true); else styleCell(cell);
-    });
-    nextR++;
-  });
+  if(!t.length) return;
+  if(appendMode()==='group') insertGrouped(ws, t, lastDataRow);
+  else appendToEnd(ws, t, lastDataRow);
   const out=await excelBook.xlsx.writeBuffer();
   const base=(excelFileName||'周报').replace(/\.xlsx?$/i,'');
   downloadBlob(new Blob([out],{type:'application/octet-stream'}), base+'_已追加.xlsx');
