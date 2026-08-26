@@ -545,7 +545,7 @@ WE01出货单查询"></textarea>
 
     <div class="dd-block">
       <div class="dd-head"><span class="dd-name">任务列表</span></div>
-      <div style="padding:4px 2px">
+      <div style="padding:4px 2px;display:flex;flex-wrap:wrap;gap:14px;align-items:center">
         <label class="inline-check">排序依据：
           <select id="cfgListSortBy" style="width:auto">
             <option value="date">录入时间</option>
@@ -554,7 +554,7 @@ WE01出货单查询"></textarea>
             <option value="devDate" selected="">开发日期</option>
           </select>
         </label>
-        <label class="inline-check" style="margin-left:14px">方向：
+        <label class="inline-check">方向：
           <select id="cfgListSortDir" style="width:auto">
             <option value="desc" selected="">降序（新的在前）</option>
             <option value="asc">升序（旧的在前）</option>
