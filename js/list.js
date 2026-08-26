@@ -328,3 +328,214 @@ $('#importTasksFile').onchange=e=>{
   };
   r.readAsText(f);e.target.value='';
 };
+
+/* ============ 甘特图视图 ============ */
+let currentView = 'card';
+
+function switchView(view){
+  currentView = view;
+  const cardBtn = $('#viewCard');
+  const ganttBtn = $('#viewGantt');
+  const cardContainer = $('#viewCardContainer');
+  const ganttContainer = $('#viewGanttContainer');
+  
+  if(view === 'gantt'){
+    cardBtn.classList.remove('active');
+    ganttBtn.classList.add('active');
+    cardContainer.classList.add('hidden');
+    ganttContainer.classList.remove('hidden');
+    renderGantt();
+  } else {
+    ganttBtn.classList.remove('active');
+    cardBtn.classList.add('active');
+    ganttContainer.classList.add('hidden');
+    cardContainer.classList.remove('hidden');
+    renderList();
+  }
+}
+
+function renderGantt(){
+  const chart = $('#ganttChart');
+  if(!tasks.length){
+    chart.innerHTML = '<div class="gantt-empty">暂无任务数据</div>';
+    return;
+  }
+  
+  // 计算日期范围
+  const rangeSel = $('#ganttRange').value;
+  const today = new Date();
+  let minDate, maxDate;
+  
+  if(rangeSel === 'all'){
+    const dates = [];
+    tasks.forEach(t => {
+      const start = parseDateAny(t.values['开发日期']) || parseDateAny(t.values['提出日期']);
+      const end = parseDateAny(t.values['结案日期']) || start;
+      if(start) dates.push(start);
+      if(end) dates.push(end);
+    });
+    if(!dates.length){ dates.push(today); }
+    minDate = new Date(Math.min(...dates));
+    maxDate = new Date(Math.max(...dates));
+  } else if(rangeSel === '30'){
+    minDate = new Date(today.getTime() - 15 * 86400000);
+    maxDate = new Date(today.getTime() + 45 * 86400000);
+  } else if(rangeSel === '90'){
+    minDate = new Date(today.getTime() - 30 * 86400000);
+    maxDate = new Date(today.getTime() + 60 * 86400000);
+  } else { // year
+    const y = today.getFullYear();
+    minDate = new Date(y, 0, 1);
+    maxDate = new Date(y, 11, 31);
+  }
+  
+  // 扩展范围确保显示完整
+  minDate = new Date(minDate.getTime() - 3 * 86400000);
+  maxDate = new Date(maxDate.getTime() + 3 * 86400000);
+  
+  const totalDays = Math.ceil((maxDate - minDate) / 86400000) + 1;
+  const dayWidth = 14; // 每天14px
+  const timelineWidth = totalDays * dayWidth;
+  
+  // 构建时间轴表头（按周分组）
+  let headerHtml = '<div class="gantt-header-row"><div class="gantt-label-col">任务 / 日期</div><div class="gantt-timeline">';
+  let weekStart = new Date(minDate);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // 周一
+  let cursor = new Date(weekStart);
+  while(cursor <= maxDate){
+    const weekEnd = new Date(cursor.getTime() + 6 * 86400000);
+    const wStart = cursor < minDate ? minDate : cursor;
+    const wEnd = weekEnd > maxDate ? maxDate : weekEnd;
+    const wDays = Math.ceil((wEnd - wStart) / 86400000) + 1;
+    const pct = (wDays / totalDays) * 100;
+    const weekLabel = `${wStart.getMonth()+1}/${wStart.getDate()}-${wEnd.getMonth()+1}/${wEnd.getDate()}`;
+    headerHtml += `<div class="gantt-week-col" style="flex:${wDays} 1 0">${weekLabel}</div>`;
+    cursor = new Date(weekEnd.getTime() + 86400000);
+  }
+  headerHtml += '</div></div>';
+  
+  // 今天线位置
+  const todayPos = ((today - minDate) / (maxDate - minDate)) * 100;
+  
+  // 分组逻辑
+  const groupBy = $('#ganttGroupBy').value;
+  const groups = {};
+  
+  tasks.forEach(t => {
+    // 筛选有日期的任务
+    const start = parseDateAny(t.values['开发日期']) || parseDateAny(t.values['提出日期']);
+    if(!start) return;
+    
+    let groupKey;
+    if(groupBy === 'owner') groupKey = (t.values['负责人'] || '未分配').trim() || '未分配';
+    else if(groupBy === 'cust') groupKey = (t.values['客户'] || '未分配').trim() || '未分配';
+    else groupKey = (t.values['完成状态'] || '未填').trim() || '未填';
+    
+    if(!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(t);
+  });
+  
+  // 生成甘特行
+  let bodyHtml = '';
+  Object.keys(groups).sort().forEach(gk => {
+    const groupTasks = groups[gk];
+    bodyHtml += `<div class="gantt-group"><div class="gantt-group-title">${esc(gk)} <span class="gcount">(${groupTasks.length})</span></div>`;
+    
+    groupTasks.forEach(t => {
+      const name = t.values['专案名称'] || '未命名任务';
+      const meta = `${t.values['客户'] || ''} · ${t.values['负责人'] || ''}`.trim() || '—';
+      const status = String(t.values['完成状态'] || '').trim();
+      
+      // 计算起止日期
+      let start = parseDateAny(t.values['开发日期']) || parseDateAny(t.values['提出日期']) || minDate;
+      let end = parseDateAny(t.values['结案日期']);
+      if(!end){
+        if(status === 'Closed') end = start; // 已完成但无结案日期，用开始日期
+        else end = new Date(today.getTime() + 7 * 86400000); // 未完成，预估7天
+      }
+      
+      // 裁剪到显示范围
+      const displayStart = start < minDate ? minDate : start;
+      const displayEnd = end > maxDate ? maxDate : end;
+      
+      // 计算位置和宽度
+      const left = ((displayStart - minDate) / (maxDate - minDate)) * 100;
+      const width = Math.max(((displayEnd - displayStart) / (maxDate - minDate)) * 100, 1);
+      
+      // 状态颜色
+      let statusClass = 'status_other';
+      const statusLower = status.toLowerCase();
+      if(statusLower === 'closed') statusClass = 'status_closed';
+      else if(statusLower === 'ongoing') statusClass = 'status_ongoing';
+      else if(statusLower === 'planning') statusClass = 'status_planning';
+      else if(start < today && statusLower !== 'closed') statusClass = 'status_overdue';
+      
+      const dateRange = `${toInputDate(start)} ~ ${toInputDate(end)}`;
+      
+      bodyHtml += `<div class="gantt-row">
+        <div class="gantt-label">
+          <span class="gt-name" title="${esc(name)}">${esc(name)}</span>
+          <span class="gt-meta">${esc(meta)}</span>
+        </div>
+        <div class="gantt-bar-col">
+          <div class="gantt-bar ${statusClass}" style="left:${left}%;width:${width}%" 
+               title="${esc(name)}\n${dateRange}\n状态: ${esc(status || '未填')}"
+               data-edit="${t.id}">
+            <span class="bar-label">${esc(name)}</span>
+          </div>
+        </div>
+      </div>`;
+    });
+    bodyHtml += '</div>';
+  });
+  
+  if(!bodyHtml){
+    chart.innerHTML = '<div class="gantt-empty">没有符合条件的任务（需有开发日期或提出日期）</div>';
+    return;
+  }
+  
+  // 添加图例
+  const legendHtml = `<div class="gantt-legend">
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--ok)"></span>已完成</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--blue)"></span>进行中</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--warn)"></span>规划中</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--del)"></span>逾期</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:#888"></span>其他</div>
+  </div>`;
+  
+  chart.innerHTML = headerHtml + bodyHtml + legendHtml;
+  
+  // 设置今天线位置
+  if(todayPos >= 0 && todayPos <= 100){
+    const barCol = chart.querySelectorAll('.gantt-bar-col');
+    barCol.forEach(c => {
+      c.style.setProperty('--today-pos', todayPos + '%');
+    });
+    chart.querySelectorAll('.gantt-bar-col').forEach(col => {
+      const line = document.createElement('div');
+      line.style.cssText = `position:absolute;top:-32px;bottom:0;width:2px;background:var(--del);left:${todayPos}%;z-index:3;pointer-events:none`;
+      col.appendChild(line);
+    });
+  }
+  
+  // 绑定点击编辑
+  chart.querySelectorAll('[data-edit]').forEach(b => {
+    b.onclick = () => {
+      const tk = tasks.find(x => x.id === b.dataset.edit);
+      if(!tk) return;
+      editingId = tk.id;
+      document.querySelector('nav button[data-tab="entry"]').click();
+      renderEntry({...tk.values, entryDate:tk.entryDate});
+      window.scrollTo(0,0);
+    };
+  });
+}
+
+// 视图切换事件绑定
+$('#viewCard').onclick = () => switchView('card');
+$('#viewGantt').onclick = () => switchView('gantt');
+$('#ganttGroupBy').onchange = renderGantt;
+$('#ganttRange').onchange = renderGantt;
+
+// 默认显示卡片视图
+$('#viewCard').classList.add('active');

@@ -115,6 +115,42 @@
   /* ============ 回收站 ============ */
   #trashPanel{border-top:1px dashed var(--line);margin-top:14px;padding-top:12px}
 
+  /* ============ 甘特图视图 ============ */
+  .gantt-controls{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .btn.sec.active{background:var(--blue);color:#fff}
+  .gantt-chart{border:1px solid var(--line);border-radius:10px;background:#fff;overflow-x:auto}
+  .gantt-header-row{display:flex;border-bottom:1px solid var(--line);background:#f8fafc;position:sticky;top:0;z-index:2}
+  .gantt-label-col{flex:0 0 220px;padding:10px 12px;font-weight:600;font-size:12px;color:var(--mut);border-right:1px solid var(--line)}
+  .gantt-timeline{flex:1;display:flex;height:36px}
+  .gantt-month-col{flex:1;border-right:1px solid var(--line);padding:4px 6px;font-size:11px;color:var(--mut);text-align:center;background:#f0f3f7}
+  .gantt-week-col{flex:1;border-right:1px solid var(--line);padding:4px 2px;font-size:10px;color:var(--mut);text-align:center}
+  .gantt-today-line{position:relative}
+  .gantt-today-line::after{content:'';position:absolute;top:0;bottom:0;width:2px;background:var(--del);left:var(--today-pos,50%);z-index:3}
+  .gantt-group{border-bottom:2px solid var(--line)}
+  .gantt-group-title{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#eef3ff;font-size:13px;font-weight:600}
+  .gantt-group-title .gcount{font-weight:400;color:var(--mut);font-size:12px}
+  .gantt-row{display:flex;align-items:center;border-bottom:1px solid #f0f2f5;min-height:32px}
+  .gantt-row:hover{background:#f9fbfd}
+  .gantt-row:nth-child(even){background:#fcfdfe}
+  .gantt-row:nth-child(even):hover{background:#f4f7fb}
+  .gantt-label{flex:0 0 220px;padding:6px 12px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;overflow:hidden}
+  .gantt-label .gt-name{font-size:12px;font-weight:500;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gantt-label .gt-meta{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gantt-bar-col{flex:1;position:relative;height:32px}
+  .gantt-bar{position:absolute;top:5px;height:22px;border-radius:4px;display:flex;align-items:center;padding:0 6px;font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;cursor:pointer;transition:opacity .15s}
+  .gantt-bar:hover{opacity:.85;z-index:4}
+  .gantt-bar.status_closed{background:var(--ok)}
+  .gantt-bar.status_ongoing{background:var(--blue)}
+  .gantt-bar.status_planning{background:var(--warn)}
+  .gantt-bar.status_overdue{background:var(--del)}
+  .gantt-bar.status_other{background:#888}
+  .gantt-bar .bar-label{overflow:hidden;text-overflow:ellipsis}
+  .gantt-bar .bar-date{opacity:.8;margin-left:4px;font-size:10px}
+  .gantt-legend{display:flex;gap:12px;margin-top:10px;font-size:12px;color:var(--mut)}
+  .gantt-legend-item{display:flex;align-items:center;gap:4px}
+  .gantt-legend-dot{width:12px;height:12px;border-radius:3px}
+  .gantt-empty{padding:24px;text-align:center;color:var(--mut)}
+
   /* ============ 配置中心：下拉选项 chip 样式 ============ */
   .dd-block{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafbfc}
   .dd-block .dd-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -245,6 +281,8 @@ WE01出货单查询"></textarea>
       <select id="listSortDir" style="flex:0 0 120px"><option value="desc" selected="">降序</option><option value="asc">升序</option></select>
     </div>
     <div class="row" style="margin-bottom:8px">
+      <button class="btn sec sm" id="viewCard" title="卡片视图">📋 卡片</button>
+      <button class="btn sec sm" id="viewGantt" title="甘特视图">📊 甘特</button>
       <button class="btn sec sm" id="batchToggle">批量模式</button>
       <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
       <button class="btn sec sm" id="undoLastExport">撤销本次追加</button>
@@ -271,7 +309,18 @@ WE01出货单查询"></textarea>
       <select id="batchStatus"><option value="">不改状态</option><option value="Closed">Closed</option><option value="Ongoing">Ongoing</option><option value="planning">planning</option></select>
       <button class="btn sec sm" id="batchApply">应用到选中</button>
     </div>
-    <div id="taskTableWrap"><p class="muted">没有任务（去「每日录入」添加）。</p></div>
+    <div id="viewCardContainer">
+      <div id="taskTableWrap"><p class="muted">没有任务（去「每日录入」添加）。</p></div>
+    </div>
+    <div id="viewGanttContainer" class="hidden">
+      <div class="gantt-controls">
+        <span class="muted">按：</span>
+        <select id="ganttGroupBy" style="width:auto"><option value="owner">负责人</option><option value="cust">客户</option><option value="status">完成状态</option></select>
+        <span class="muted">显示：</span>
+        <select id="ganttRange" style="width:auto"><option value="all">全部时间</option><option value="30">最近30天</option><option value="90">最近90天</option><option value="year">今年</option></select>
+      </div>
+      <div id="ganttChart" class="gantt-chart"></div>
+    </div>
     <div id="trashPanel" class="hidden">
       <h3>回收站（可恢复） <button class="btn del sm" id="clearTrash" style="margin-left:8px">清空回收站</button></h3>
       <p class="muted" style="margin:4px 0 10px">回收站最多保留 50 条，超出自动清理最旧记录。</p>
