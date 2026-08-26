@@ -45,7 +45,7 @@ $('#excelFile').onchange=async e=>{
     excelHeaders=[];
     for(let c=1;c<=maxCol;c++){ const v=ws.getRow(hr).getCell(c).value; excelHeaders.push(v!=null?String(v).trim():''); }
     const savedMap=load(LS_MAPPING,{});
-    colMapping={}; excelHeaders.forEach(h=>{ colMapping[h]=(h in savedMap)?savedMap[h]:(matchCol(h)||''); });
+    colMapping={}; excelHeaders.forEach(h=>{ const saved=(h in savedMap)?savedMap[h]:''; colMapping[h]=(saved&&schema.some(c=>c.name===saved))?saved:(matchCol(h)||''); });
     save(LS_MAPPING,colMapping);
     $('#excelInfo').textContent=`已读取：${f.name} · 工作表「${excelSheetName}」· 表头在第${hr}行 · 识别列：${excelHeaders.filter(Boolean).join(' / ')}`;
     renderColMap(); renderPreview();

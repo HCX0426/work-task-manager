@@ -16,8 +16,8 @@ document.querySelectorAll('nav button').forEach(b=>{
     }
     if(b.dataset.tab==='list')renderList();
     if(b.dataset.tab==='config')renderConfig();
-    if(b.dataset.tab==='export'){setDefaultRange();renderPreview();}
-    if(b.dataset.tab==='monthly'){ setMonthDefault(); renderMonthly(); }
+    if(b.dataset.tab==='export'){ if(!$('#rangeStart').value)setDefaultRange(); renderPreview(); }
+    if(b.dataset.tab==='monthly'){ if(!$('#monthPick').value)setMonthDefault(); renderMonthly(); }
   };
 });
 
