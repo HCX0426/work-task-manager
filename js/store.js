@@ -5,8 +5,9 @@ const LS_SCHEMA='wb_schema', LS_DROPDOWNS='wb_dropdowns', LS_TASKS='wb_tasks', L
 const DEF_SETTINGS={
   copyRowStyle:true,            // 导出：对齐上一行样式
   appendMode:'group',           // 导出：追加模式（末尾/分组）
-  rangeBy:'entryDate',          // 导出：范围日期类型（entryDate/提出日期/开发日期）
-  listSort:'dateDesc',          // 列表：排序（dateDesc/dateAsc/status/cust/devDate）
+  rangeBy:'开发日期',           // 导出：范围日期类型（entryDate/提出日期/开发日期）
+  listSortBy:'devDate',         // 列表：排序依据（date/status/cust/devDate）
+  listSortDir:'desc',           // 列表：排序方向（asc/desc）
   monthDedup:true,              // 月报：去重
   weeklyFields:['客户','专案名称','需求说明','开发进度'] // 周报段落包含字段
 };

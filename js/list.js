@@ -66,14 +66,17 @@ function renderList(){
   const cf=$('#listCustFilter').value;
   const sf=$('#listStatusFilter').value;
   const ef=$('#listExportFilter').value;
-  const sort=$('#listSort') ? $('#listSort').value : 'dateDesc';
+  const sortBy=$('#listSortBy') ? $('#listSortBy').value : 'devDate';
+  const sortDir=$('#listSortDir') ? $('#listSortDir').value : 'desc';
   let list=tasks.slice();
-  // 排序（dateDesc=最新在前，与原 reverse 行为一致）
-  if(sort==='dateAsc') list.sort((a,b)=>String(a.entryDate).localeCompare(String(b.entryDate)));
-  else if(sort==='dateDesc') list.sort((a,b)=>String(b.entryDate).localeCompare(String(a.entryDate)));
-  else if(sort==='status') list.sort((a,b)=>String(a.values['完成状态']||'').localeCompare(String(b.values['完成状态']||'')));
-  else if(sort==='cust') list.sort((a,b)=>String(a.values['客户']||'').localeCompare(String(b.values['客户']||'')));
-  else if(sort==='devDate') list.sort((a,b)=>String(a.values['开发日期']||'').localeCompare(String(b.values['开发日期']||'')));
+  // 排序：依据 + 方向（空值排最后）
+  const sortKey=t=>{
+    if(sortBy==='status') return String(t.values['完成状态']||'');
+    if(sortBy==='cust') return String(t.values['客户']||'');
+    if(sortBy==='devDate') return String(t.values['开发日期']||'');
+    return String(t.entryDate||'');
+  };
+  list.sort((a,b)=>{ const r=sortKey(a).localeCompare(sortKey(b)); return sortDir==='desc'?-r:r; });
   if(q)list=list.filter(t=>Object.values(t.values).some(v=>String(v).toLowerCase().includes(q)));
   if(cf)list=list.filter(t=>(t.values['客户']||'')===cf);
   if(sf==='__not_closed')list=list.filter(t=>String(t.values['完成状态']||'')!=='Closed');
@@ -196,9 +199,10 @@ $('#listSearch').oninput=renderList;
 $('#listCustFilter').onchange=renderList;
 $('#listStatusFilter').onchange=renderList;
 $('#listExportFilter').onchange=renderList;
-$('#listSort').onchange=renderList;
-/* 初始化列表排序为配置中心默认值 */
-(function(){ const st=loadSettings(); const el=$('#listSort'); if(el) el.value=st.listSort; })();
+$('#listSortBy').onchange=renderList;
+$('#listSortDir').onchange=renderList;
+/* 初始化列表排序（依据/方向）为配置中心默认值 */
+(function(){ const st=loadSettings(); const b=$('#listSortBy'); if(b) b.value=st.listSortBy; const d=$('#listSortDir'); if(d) d.value=st.listSortDir; })();
 $('#clearTasks').onclick=()=>{ if(confirm('确定清空全部任务库和回收站？建议先导出备份。')){tasks=[];trash=[];save(LS_TASKS,tasks);save(LS_TRASH,trash);renderList();toast('已清空');} };
 $('#undoExported').onclick=()=>{
   const n=tasks.filter(t=>t.exported).length;

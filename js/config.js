@@ -104,9 +104,13 @@ $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); rend
     rangeBy.value = st.rangeBy;
     rangeBy.onchange=()=>saveCfg({rangeBy:rangeBy.value});
   }
-  const listSort=$('#cfgListSort'); if(listSort){
-    listSort.value = st.listSort;
-    listSort.onchange=()=>saveCfg({listSort:listSort.value});
+  const sortBy=$('#cfgListSortBy'); if(sortBy){
+    sortBy.value = st.listSortBy;
+    sortBy.onchange=()=>saveCfg({listSortBy:sortBy.value});
+  }
+  const sortDir=$('#cfgListSortDir'); if(sortDir){
+    sortDir.value = st.listSortDir;
+    sortDir.onchange=()=>saveCfg({listSortDir:sortDir.value});
   }
   const dedup=$('#cfgMonthDedup'); if(dedup){
     dedup.checked = !!st.monthDedup;

@@ -232,7 +232,8 @@ WE01出货单查询"></textarea>
       <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
       <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option></select>
       <select id="listExportFilter" style="flex:0 0 150px"><option value="">全部(含已追加)</option><option value="not_exported">未追加</option><option value="exported">已追加</option></select>
-      <select id="listSort" style="flex:0 0 160px"><option value="dateDesc">录入时间↓</option><option value="dateAsc">录入时间↑</option><option value="status">完成状态</option><option value="cust">客户</option><option value="devDate">开发日期</option></select>
+      <select id="listSortBy" style="flex:0 0 120px"><option value="date">录入时间</option><option value="status">完成状态</option><option value="cust">客户</option><option value="devDate" selected="">开发日期</option></select>
+      <select id="listSortDir" style="flex:0 0 120px"><option value="desc" selected="">降序</option><option value="asc">升序</option></select>
     </div>
     <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" id="batchToggle">批量模式</button>
@@ -535,7 +536,7 @@ WE01出货单查询"></textarea>
             <select id="cfgRangeBy" style="width:auto">
               <option value="entryDate">录入日期</option>
               <option value="提出日期">提出日期</option>
-              <option value="开发日期">开发日期</option>
+              <option value="开发日期" selected="">开发日期</option>
             </select>
           </label>
         </div>
@@ -545,13 +546,18 @@ WE01出货单查询"></textarea>
     <div class="dd-block">
       <div class="dd-head"><span class="dd-name">任务列表</span></div>
       <div style="padding:4px 2px">
-        <label class="inline-check">排序默认：
-          <select id="cfgListSort" style="width:auto">
-            <option value="dateDesc">录入时间↓（最新）</option>
-            <option value="dateAsc">录入时间↑（最早）</option>
+        <label class="inline-check">排序依据：
+          <select id="cfgListSortBy" style="width:auto">
+            <option value="date">录入时间</option>
             <option value="status">完成状态</option>
             <option value="cust">客户</option>
-            <option value="devDate">开发日期</option>
+            <option value="devDate" selected="">开发日期</option>
+          </select>
+        </label>
+        <label class="inline-check" style="margin-left:14px">方向：
+          <select id="cfgListSortDir" style="width:auto">
+            <option value="desc" selected="">降序（新的在前）</option>
+            <option value="asc">升序（旧的在前）</option>
           </select>
         </label>
       </div>
@@ -607,7 +613,7 @@ WE01出货单查询"></textarea>
       <select id="rangeBy" style="width:auto">
         <option value="entryDate">录入日期</option>
         <option value="提出日期">提出日期</option>
-        <option value="开发日期">开发日期</option>
+        <option value="开发日期" selected="">开发日期</option>
       </select>
     </label></div>
     <div class="range-grid">
