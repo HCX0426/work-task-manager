@@ -336,6 +336,21 @@ WE01出货单查询"></textarea>
     <h2>配置中心</h2>
     <div class="hint">列结构在这里配置：每一列有 <b>列名 / 类型 / 默认值</b> 三栏。默认值留空=不预填；日期列可勾选「默认今天」；固定默认直接填（如厂区=东莞）。表头改了/加列了，改这里即可。用 ▲▼ 调整列顺序。</div>
 
+    <h3>列模板（多套列结构，可切换）</h3>
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">当前模板</span></div>
+      <div style="padding:4px 2px">
+        <div class="hint" style="margin:0 0 10px">一套模板 = 列定义 + 下拉选项 + 导出表头映射。切换后<b>录入页、导出追加、月报</b>全部跟随新列结构；也支持直接读一个已有周报 excel 的表头，一键生成模板（列类型自动推断）。现有任务数据不受影响（字段仍在，只是界面按新模板显示）。</div>
+        <div class="row" style="gap:8px">
+          <select id="colTemplate" style="width:auto;flex:0 0 220px"><option value="">（使用当前工作列结构）</option></select>
+          <button class="btn sec sm" id="colTemplateSave" title="把当前列定义+下拉选项保存为一个模板">存为模板</button>
+          <button class="btn del sm" id="colTemplateDel">删除模板</button>
+          <button class="btn sec sm" id="colTemplateImport">从周报excel导入列名</button>
+          <input type="file" id="colTemplateFile" accept=".xlsx" class="hidden">
+        </div>
+      </div>
+    </div>
+
     <h3>列定义（可增删、可排序）</h3>
     <div id="colCfgList"><div class="col-grid-head"><span>序</span><span>列名</span><span>类型</span><span>默认值</span><span>默认今天</span><span>操作</span></div><div class="col-grid">
       <span class="idx">1</span>
@@ -700,13 +715,6 @@ WE01出货单查询"></textarea>
       </div>
     </div>
     <div id="excelInfo" class="muted"></div>
-    <div class="row" id="templateBar" style="margin-top:12px;gap:8px">
-      <span class="muted">映射方案：</span>
-      <select id="mapTemplate" style="width:auto"><option value="">（使用自动记忆的映射）</option></select>
-      <button class="btn sec sm" id="mapTemplateSave" title="把当前列映射存成方案，不同客户的周报表头可分别保存">保存为方案</button>
-      <button class="btn del sm" id="mapTemplateDel">删除方案</button>
-      <span class="muted">不同客户/不同周报表头各存一套映射，一键切换。</span>
-    </div>
     <div id="colMap"></div>
 
     <div class="lab" style="margin-top:14px">2. 时间范围（按所选日期类型筛选该范围内的任务） <label class="inline-check" style="margin-left:8px">按

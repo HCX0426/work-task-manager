@@ -1,5 +1,5 @@
 /* ============ 存储与全局状态（store.js） ============ */
-const LS_SCHEMA='wb_schema', LS_DROPDOWNS='wb_dropdowns', LS_TASKS='wb_tasks', LS_TRASH='wb_trash', LS_LASTBACKUP='wb_lastbackup', LS_MAPPING='wb_mapping', LS_EXPORTCFG='wb_exportcfg', LS_MAPPING_TMPL='wb_mapping_templates';
+const LS_SCHEMA='wb_schema', LS_DROPDOWNS='wb_dropdowns', LS_TASKS='wb_tasks', LS_TRASH='wb_trash', LS_LASTBACKUP='wb_lastbackup', LS_MAPPING='wb_mapping', LS_EXPORTCFG='wb_exportcfg', LS_COL_TMPL='wb_col_templates';
 
 /* 默认设置（配置中心可改默认，各页面运行时临时可覆盖单次） */
 const DEF_SETTINGS={
@@ -152,9 +152,20 @@ async function decryptBackupJSON(text, password){
   return JSON.parse(new TextDecoder().decode(plain));
 }
 
-/* 映射方案（多模板）：{active:'方案名', list:{name:{headers:[],mapping:{}}}} */
-function loadMappingTemplates(){ return load(LS_MAPPING_TMPL, {active:'', list:{}}); }
-function saveMappingTemplates(o){ save(LS_MAPPING_TMPL, o); }
+/* 列模板（配置中心多套列结构）：{active:'名称', list:{名称:{schema:[],dropdowns:{},mapping:{}}}} */
+function loadColTemplates(){ return load(LS_COL_TMPL, {active:'', list:{}}); }
+function saveColTemplates(o){ save(LS_COL_TMPL, o); }
+/* 应用一套列模板：覆盖当前 schema/dropdowns/colMapping 并持久化（供切换模板调用） */
+function applyColTemplate(tpl){
+  if(!tpl || !Array.isArray(tpl.schema) || !tpl.schema.length) throw new Error('模板缺少有效列定义');
+  schema = tpl.schema.map(c=>({name:String(c.name||'').trim(), type:String(c.type||'text'), def:String(c.def||'')}));
+  dropdowns = (tpl.dropdowns && typeof tpl.dropdowns==='object') ? JSON.parse(JSON.stringify(tpl.dropdowns)) : {};
+  save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
+  // 仅当模板带非空映射时才覆盖导出映射（空映射=保留自动识别，避免误清记忆）
+  if(tpl.mapping && typeof tpl.mapping==='object' && Object.keys(tpl.mapping).length){
+    colMapping=JSON.parse(JSON.stringify(tpl.mapping)); save(LS_MAPPING,colMapping);
+  }
+}
 function markBackup(){ save(LS_LASTBACKUP,Date.now()); }
 function checkBackupReminder(){
   const lb=load(LS_LASTBACKUP,0); const days=(Date.now()-lb)/86400000;

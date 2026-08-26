@@ -1,4 +1,95 @@
 /* ============ 配置中心（config.js） ============ */
+/* 列模板：切换后 schema/dropdowns/导出映射 全站跟随 */
+function refreshColTemplateSel(){
+  const sel=$('#colTemplate'); if(!sel) return;
+  const data=loadColTemplates();
+  const names=Object.keys(data.list||{});
+  sel.innerHTML='<option value="">（使用当前工作列结构）</option>'
+    + names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const active = data.active && names.includes(data.active) ? data.active : '';
+  sel.value = active;
+  const del=$('#colTemplateDel'); if(del) del.disabled = !active;
+}
+
+$('#colTemplateSave').onclick=()=>{
+  const name=(prompt('模板名称（如：N客户 / 太白山 / 通用周报）：')||'').trim();
+  if(!name) return;
+  const data=loadColTemplates();
+  data.list=data.list||{};
+  data.list[name]={schema:JSON.parse(JSON.stringify(schema)), dropdowns:JSON.parse(JSON.stringify(dropdowns)), mapping:(typeof colMapping==='object'?JSON.parse(JSON.stringify(colMapping)):{})};
+  data.active=name;
+  saveColTemplates(data);
+  refreshColTemplateSel();
+  toast('已保存列模板「'+name+'」');
+};
+$('#colTemplateDel').onclick=()=>{
+  const name=$('#colTemplate').value;
+  if(!name){ toast('当前没有生效的模板可删除'); return; }
+  if(!confirm('删除列模板「'+name+'」？不影响当前列结构。')) return;
+  const data=loadColTemplates();
+  delete data.list[name];
+  if(data.active===name) data.active='';
+  saveColTemplates(data);
+  refreshColTemplateSel();
+  toast('已删除模板「'+name+'」');
+};
+$('#colTemplate').onchange=()=>{
+  const name=$('#colTemplate').value;
+  const data=loadColTemplates();
+  if(name && data.list && data.list[name]){
+    if(!confirm(`切换到列模板「${name}」？\n录入页字段、下拉选项、导出映射将按此模板变更；现有任务数据保留（字段仍在，界面按新模板显示）。`)) { refreshColTemplateSel(); return; }
+    try{
+      applyColTemplate(data.list[name]);
+      data.active=name;
+      saveColTemplates(data);
+      renderConfig(); renderEntry(null);
+      if(typeof renderPreview==='function') renderPreview();
+      refreshColTemplateSel();
+      toast('已切换到模板「'+name+'」');
+    }catch(err){ toast('切换失败：'+err.message); }
+  }else{
+    refreshColTemplateSel();
+  }
+};
+/* 从已有周报 excel 读取表头列名，一键生成列模板 */
+$('#colTemplateImport').onclick=()=>$('#colTemplateFile').click();
+$('#colTemplateFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(!/\.xlsx$/i.test(f.name)){ toast('仅支持 .xlsx'); e.target.value=''; return; }
+  try{
+    const buf=await f.arrayBuffer();
+    const wb=new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws=wb.getWorksheet(1);
+    let hr=1, found=false;
+    for(;hr<=ws.rowCount;hr++){ let n=0; ws.getRow(hr).eachCell(()=>{n++;}); if(n>=3){found=true;break;} }
+    if(!found){ toast('未能识别表头行（需至少3个非空单元格）'); e.target.value=''; return; }
+    const maxCol=Math.max(ws.getRow(hr).cellCount||0, ws.columnCount||0);
+    const headers=[];
+    for(let c=1;c<=maxCol;c++){ const v=ws.getRow(hr).getCell(c).value; const h=String(v!=null?v:'').trim(); if(h && !headers.includes(h)) headers.push(h); }
+    if(!headers.length){ toast('未读取到任何列名'); e.target.value=''; return; }
+    const name=(prompt(`读取到 ${headers.length} 列：\n${headers.join('、')}\n\n模板名称：`)||'').trim();
+    if(!name){ e.target.value=''; return; }
+    const ns=headers.map(h=>({name:h, type:guessType(h), def:''}));
+    // 预置已知下拉列的默认选项（客户/完成状态），避免导入后是空下拉
+    const dd={};
+    ns.forEach(c=>{ if(c.type==='dropdown' && DEFAULT_DROPDOWNS[c.name]) dd[c.name]=DEFAULT_DROPDOWNS[c.name].slice(); });
+    const data=loadColTemplates();
+    data.list=data.list||{};
+    data.list[name]={schema:ns, dropdowns:dd, mapping:{}};
+    data.active=name;
+    saveColTemplates(data);
+    applyColTemplate(data.list[name]);
+    renderConfig(); renderEntry(null);
+    if(typeof renderPreview==='function') renderPreview();
+    refreshColTemplateSel();
+    toast('已从 excel 导入列模板「'+name+'」');
+  }catch(err){ toast('导入失败：'+err.message); }
+  e.target.value='';
+};
+/* 初始化时填充模板下拉 */
+refreshColTemplateSel();
+
 function moveCol(i,dir){
   const j=i+dir; if(j<0||j>=schema.length)return;
   const tmp=schema[i]; schema[i]=schema[j]; schema[j]=tmp;
