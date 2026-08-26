@@ -39,7 +39,10 @@ function renderEntry(prefill){
       else { val = col.def||''; }
     }
     if(col.type==='dropdown'){
-      const opts=(dropdowns[col.name]||[]).map(o=>`<option>${esc(o)}</option>`).join('');
+      const arr=dropdowns[col.name]||[];
+      let opts=arr.map(o=>`<option>${esc(o)}</option>`).join('');
+      // 任务已有值但该选项已被从配置删除时，追加占位选项，避免编辑后字段被清空
+      if(val && !arr.includes(val)) opts+=`<option selected>${esc(val)}</option>`;
       inner+=`<div class="dd-inline"><select name="${esc(col.name)}"><option value="">请选择</option>${opts}</select><button type="button" class="btn sec sm dd-add-opt" title="为「${esc(col.name)}」新增选项">+ 新增</button></div>`;
     }else if(col.type==='date'){
       inner+=`<input type="date" name="${esc(col.name)}" value="${esc(val)}">`;
