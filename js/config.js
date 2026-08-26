@@ -87,11 +87,17 @@ function renderConfig(){
 }
 $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); renderConfig(); };
 
-/* 导出默认设置（对齐上一行样式）——配置中心可改默认值，导出页单次可临时覆盖 */
+/* 导出默认设置（对齐上一行样式 / 追加模式）——配置中心可改默认值，导出页单次可临时覆盖 */
 (function(){
-  const el=$('#cfgCopyRowStyle'); if(!el)return;
-  el.checked = (load(LS_EXPORTCFG,{}).copyRowStyle!==false);
-  el.onchange=()=>{ save(LS_EXPORTCFG,{copyRowStyle:el.checked}); toast('导出默认设置已保存'); };
+  const saveCfg=(patch)=>{ const cfg=load(LS_EXPORTCFG,{})||{}; Object.assign(cfg,patch); save(LS_EXPORTCFG,cfg); toast('导出默认设置已保存'); };
+  const copy=$('#cfgCopyRowStyle'); if(copy){
+    copy.checked = (load(LS_EXPORTCFG,{}).copyRowStyle!==false);
+    copy.onchange=()=>saveCfg({copyRowStyle:copy.checked});
+  }
+  const mode=$('#cfgAppendMode'); if(mode){
+    mode.value = (load(LS_EXPORTCFG,{}).appendMode==='group') ? 'group' : 'append';
+    mode.onchange=()=>saveCfg({appendMode:mode.value});
+  }
 })();
 $('#saveColCfg').onclick=()=>{
   const rows=[...document.querySelectorAll('#colCfgList .col-grid')];

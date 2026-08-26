@@ -519,7 +519,13 @@ WE01出货单查询"></textarea>
 
     <h3>导出默认设置</h3>
     <label class="inline-check" style="margin-top:6px"><input type="checkbox" id="cfgCopyRowStyle" checked=""> 导出追加时默认「对齐上一行样式」</label>
-    <p class="muted" style="margin:6px 0 0">勾选后，追加/插入的行自动复制上一行的边框、底色、行高，与模板一致；导出页也可临时调整单次。</p>
+    <label class="inline-check" style="margin-top:10px">导出追加模式默认：
+      <select id="cfgAppendMode" style="width:auto">
+        <option value="append">末尾追加</option>
+        <option value="group">按状态分组插入</option>
+      </select>
+    </label>
+    <p class="muted" style="margin:6px 0 0">对齐样式：勾选后追加/插入的行自动复制上一行的边框、底色、行高；追加模式：分组插入按「完成状态」插到模板对应状态区末尾。导出页均可临时调整单次。</p>
 
     <h3>下拉选项（按列名管理，可增删、可去重排序）</h3>
     <div id="dropdownCfg"><div class="dd-block"><div class="dd-head">
