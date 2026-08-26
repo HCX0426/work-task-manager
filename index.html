@@ -202,6 +202,29 @@
   .val-report ul{margin:4px 0 0;padding-left:20px}
   .val-report li{margin:3px 0}
 
+  /* ============ 数据看板 ============ */
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .dash-box{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .dash-box h3{font-size:13px;margin:0 0 10px;color:var(--txt)}
+  .dash-trend{display:flex;align-items:flex-end;gap:8px;height:150px;padding-top:8px}
+  .dash-trend .t-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+  .dash-trend .t-bar{width:60%;max-width:44px;background:var(--blue);border-radius:5px 5px 0 0;min-height:2px;transition:height .2s}
+  .dash-trend .t-bar.zero{background:#e3e7ee}
+  .dash-trend .t-val{font-size:11px;font-weight:600;color:var(--txt)}
+  .dash-trend .t-lab{font-size:11px;color:var(--mut)}
+  .dash-bars{display:flex;flex-direction:column;gap:7px}
+  .dash-bar-row{display:flex;align-items:center;gap:8px;font-size:12px}
+  .dash-bar-row .bk{flex:0 0 74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+  .dash-bar-row .bt{flex:1;height:10px;background:#eef1f5;border-radius:999px;overflow:hidden}
+  .dash-bar-row .bt i{display:block;height:100%;background:var(--blue);border-radius:999px}
+  .dash-bar-row .bn{flex:0 0 34px;text-align:right;font-weight:600;color:var(--txt)}
+  .dash-overdue-empty{padding:20px 0;text-align:center;color:var(--ok);font-size:13px}
+  .dash-over-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+  .dash-over-item:last-child{border-bottom:none}
+  .dash-over-item .od-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dash-over-item .od-days{flex:0 0 auto;color:var(--del);font-weight:600;background:#fdf3f0;border-radius:999px;padding:1px 8px}
+  .dash-over-item .od-meta{flex:0 0 auto;color:var(--mut);font-size:11px}
+
   /* 窄屏适配：放在所有基础样式之后，确保覆盖生效 */
   @media (max-width:600px){
     .grid{grid-template-columns:1fr}
@@ -213,6 +236,7 @@
     main{padding:0 8px}
     nav{width:100%;justify-content:flex-start}
     header{flex-wrap:wrap}
+    .dash-grid{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -224,6 +248,7 @@
   </div>
   <nav>
     <button data-tab="entry" class="active">每日录入</button>
+    <button data-tab="dashboard" class="">数据看板</button>
     <button data-tab="list" class="">任务列表</button>
     <button data-tab="export" class="">导出追加</button>
     <button data-tab="monthly" class="">月报汇总</button>
@@ -255,6 +280,30 @@ WE01出货单查询"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="btn" id="bulkSave">批量保存</button>
         <span class="muted" id="bulkMsg"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 数据看板 -->
+  <section id="tab-dashboard" class="card hidden">
+    <h2>数据看板 <span class="muted">一屏总览：工作量、进度、分布与逾期</span></h2>
+    <div id="dashKpis" class="stats"></div>
+    <div class="dash-grid">
+      <div class="dash-box">
+        <h3>任务趋势（近 6 个月录入）</h3>
+        <div id="dashTrend" class="dash-trend"></div>
+      </div>
+      <div class="dash-box">
+        <h3>按客户分布</h3>
+        <div id="dashCust" class="dash-bars"></div>
+      </div>
+      <div class="dash-box">
+        <h3>按完成状态分布</h3>
+        <div id="dashStatus" class="dash-bars"></div>
+      </div>
+      <div class="dash-box">
+        <h3>逾期未完成</h3>
+        <div id="dashOverdue"></div>
       </div>
     </div>
   </section>
@@ -823,6 +872,7 @@ WE01出货单查询"></textarea>
 <script src="js/config.js"></script>
 <script src="js/export.js"></script>
 <script src="js/monthly.js"></script>
+<script src="js/dashboard.js"></script>
 <script src="js/app.js"></script>
 
 
