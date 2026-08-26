@@ -160,6 +160,10 @@ $('#toggleBulk').onclick=()=>{
 $('#bulkSave').onclick=()=>{
   const lines=$('#bulkText').value.split('\n').map(s=>s.trim()).filter(Boolean);
   if(!lines.length){toast('没有内容');return;}
+  // 校验：统计缺少专案名称的行数（月报汇总依赖专案名称）
+  let noName=0;
+  lines.forEach(line=>{ const i=line.indexOf('|'); if(i<0 || !line.slice(0,i).trim()) noName++; });
+  if(noName>0 && !confirm(`有 ${noName} 行缺少「专案名称」（月报汇总依赖它，缺了将无法在月报中统计）。\n仍要保存吗？`)){ return; }
   const d=$('#entryDate').value||todayStr();
   let n=0;
   lines.forEach(line=>{

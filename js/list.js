@@ -207,7 +207,9 @@ $('#importTasksFile').onchange=e=>{
           exported:!!t.exported
         };
       });
-      tasks=validTasks;save(LS_TASKS,tasks);renderList();toast('任务库已导入');
+      if(confirm(`导入将覆盖当前全部 ${tasks.length} 条任务数据，且不可撤销。\n建议先「导出任务库(备份)」。\n仍要导入？`)){
+        tasks=validTasks;save(LS_TASKS,tasks);renderList();toast('任务库已导入');
+      }
     }catch(err){toast('导入失败：'+err.message);}
   };
   r.readAsText(f);e.target.value='';

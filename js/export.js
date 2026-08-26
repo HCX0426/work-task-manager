@@ -235,7 +235,14 @@ $('#doExport').onclick=async ()=>{
 
 async function doExportInner(){
   const ws=excelSheet;
-  const origRowCount=ws.rowCount;
+  // 找到最后一个非空数据行（模板底部可能预留空白行，避免追加后夹空行、续号基准不准）
+  let lastDataRow=excelHeaderRow;
+  for(let r=excelHeaderRow+1;r<=ws.rowCount;r++){
+    let has=false;
+    ws.getRow(r).eachCell(()=>{ has=true; });
+    if(has)lastDataRow=r;
+  }
+  const origRowCount=lastDataRow;
   let lastSeq=0;
   const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
   const seqCol=seqHd?excelHeaders.indexOf(seqHd)+1:0;
