@@ -242,6 +242,13 @@ $('#doExport').onclick=async ()=>{
 function appendMode(){ const el=$('#appendMode'); return el?el.value:'append'; }
 function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
 
+/* 初始化导出页「对齐上一行样式」为配置中心的默认值（导出页仍可临时调整单次） */
+(function(){
+  const el=$('#copyRowStyle'); if(!el)return;
+  const cfg=load(LS_EXPORTCFG,{});
+  if(cfg.copyRowStyle!==undefined) el.checked=cfg.copyRowStyle;
+})();
+
 /* 复制源行样式（行高 + 各单元格边框/填充/字体/对齐/数字格式）到目标行。
    遍历全部列（含「有样式但值空」的单元格，如测试/结案日期、备注等），确保整行视觉对齐 */
 function copyRowStyle(ws, target, source){

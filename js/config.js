@@ -86,6 +86,13 @@ function renderConfig(){
   });
 }
 $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); renderConfig(); };
+
+/* 导出默认设置（对齐上一行样式）——配置中心可改默认值，导出页单次可临时覆盖 */
+(function(){
+  const el=$('#cfgCopyRowStyle'); if(!el)return;
+  el.checked = (load(LS_EXPORTCFG,{}).copyRowStyle!==false);
+  el.onchange=()=>{ save(LS_EXPORTCFG,{copyRowStyle:el.checked}); toast('导出默认设置已保存'); };
+})();
 $('#saveColCfg').onclick=()=>{
   const rows=[...document.querySelectorAll('#colCfgList .col-grid')];
   const ns=rows.map(r=>{
