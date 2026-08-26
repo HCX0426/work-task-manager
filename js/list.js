@@ -344,6 +344,60 @@ $('#importTasksFile').onchange=e=>{
   r.readAsText(f);e.target.value='';
 };
 
+/* ============ 从 Excel 导入任务库（历史周报反向导入，表头自动映射到列名） ============ */
+$('#importExcelBtn').onclick=()=>$('#importExcelFile').click();
+$('#importExcelFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  if(!/\.xlsx$/i.test(f.name)){ toast('仅支持 .xlsx（旧版 .xls 请先另存为 .xlsx）'); e.target.value=''; return; }
+  try{
+    const buf=await f.arrayBuffer();
+    const wb=new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws=wb.getWorksheet(1);
+    // 找表头行：首个非空单元格>=3 的行
+    let hr=1, found=false;
+    for(;hr<=ws.rowCount;hr++){ let n=0; ws.getRow(hr).eachCell(()=>{n++;}); if(n>=3){found=true;break;} }
+    if(!found){ toast('未能识别表头行（需至少3个非空单元格）'); e.target.value=''; return; }
+    const maxCol=Math.max(ws.getRow(hr).cellCount||0, ws.columnCount||0);
+    const headers=[];
+    for(let c=1;c<=maxCol;c++){ const v=ws.getRow(hr).getCell(c).value; headers.push(v!=null?String(v).trim():''); }
+    // 映射：表头 -> 列名（复用 matchCol）
+    const mapTo=headers.map(h=>matchCol(h)||'');
+    // 收集数据行
+    const newTasks=[];
+    for(let r=hr+1;r<=ws.rowCount;r++){
+      const row=ws.getRow(r);
+      if(!row.cellCount) continue;
+      // 跳过空行
+      let hasAny=false;
+      row.eachCell(c=>{ if(c.value!=null && String(c.value).trim()!=='') hasAny=true; });
+      if(!hasAny) continue;
+      const values={};
+      mapTo.forEach((key,ci)=>{
+        if(!key || key==='项次') return;
+        let v=row.getCell(ci+1).value;
+        if(v==null) v='';
+        else if(v instanceof Date) v=toInputDate(v);
+        else v=String(v).trim();
+        if(v!=='') values[key]=v;
+      });
+      // 没有匹配到任何列的跳过
+      if(!Object.keys(values).length) continue;
+      // 录入日期：用提出日期或开发日期或今天的首日兜底
+      const entry=values['提出日期']||values['开发日期']||'';
+      newTasks.push({id:uid(), entryDate:entry, values, exported:false});
+    }
+    if(!newTasks.length){ toast('表格里没有可导入的数据行'); e.target.value=''; return; }
+    const merged=confirm(`读取到 ${newTasks.length} 条任务。\n「确定」= 合并进现有任务库（当前 ${tasks.length} 条）；\n「取消」= 不导入。`);
+    if(!merged){ e.target.value=''; return; }
+    tasks=tasks.concat(newTasks);
+    save(LS_TASKS,tasks);
+    renderList();
+    toast(`已从 Excel 导入 ${newTasks.length} 条任务，现有 ${tasks.length} 条`);
+  }catch(err){ toast('导入失败：'+err.message); }
+  e.target.value='';
+};
+
 /* ============ 甘特图视图 ============ */
 let currentView = 'card';
 

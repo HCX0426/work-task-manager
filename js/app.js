@@ -1,4 +1,26 @@
 /* ============ 初始化与 Tab 切换（app.js） ============ */
+/* 深色模式：存 localStorage，切换立即生效 */
+function applyTheme(dark){
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+  const btn=$('#themeToggle');
+  if(btn) btn.textContent = dark ? '☀️ 浅色' : '🌙 深色';
+  save('wb_theme', dark?'dark':'light');
+}
+(function(){
+  const saved=load('wb_theme','');
+  const dark = saved==='dark' || (saved!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  applyTheme(dark);
+  const btn=$('#themeToggle');
+  if(btn) btn.onclick=()=>{ applyTheme(document.documentElement.getAttribute('data-theme')!=='dark'); };
+})();
+
+/* PWA：注册 Service Worker（离线可用），仅 https/localhost 生效 */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* 不支持的环境静默跳过 */ });
+  });
+}
+
 document.querySelectorAll('nav button').forEach(b=>{
   b.onclick=()=>{
     // 录入/编辑有未保存修改时，切走前先确认（点当前 tab 本身不提示）

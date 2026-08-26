@@ -49,7 +49,7 @@ function renderEntry(prefill){
     }else if(col.type==='textarea'){
       inner+=`<textarea name="${esc(col.name)}" placeholder="可多行，如：08/20 完成，等待测试">${esc(val)}</textarea>`;
       if(col.name==='开发进度'){
-        inner+=`<div class="row" style="margin-top:6px;gap:8px"><button type="button" class="btn sec sm ai-polish-btn">AI 润色</button><span class="muted ai-polish-msg"></span></div>`;
+        inner+=`<div class="row" style="margin-top:6px;gap:8px"><button type="button" class="btn sec sm ai-polish-btn">AI 润色</button><button type="button" class="btn sec sm voice-btn" title="语音转文字填入（Chrome 浏览器支持）">🎤 语音</button><span class="muted ai-polish-msg"></span><span class="muted voice-status"></span></div>`;
       }
       inner+=`<div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」，多行可用换行</div>`;
     }else{
@@ -90,6 +90,8 @@ function renderEntry(prefill){
     if(input) input.addEventListener('input',()=>validateField(col.name));
     const aiBtn=wrap.querySelector('.ai-polish-btn');
     if(aiBtn) aiBtn.onclick=()=>aiPolishField(wrap, col.name);
+    const voiceBtn=wrap.querySelector('.voice-btn');
+    if(voiceBtn) voiceBtn.onclick=()=>startVoiceInput(wrap, voiceBtn);
   });
 
   // 字段级实时校验
@@ -138,6 +140,48 @@ function renderEntry(prefill){
   f.addEventListener('change',checkDirty);
   $('#entryDate').addEventListener('input',checkDirty);
   $('#entryDate').addEventListener('change',checkDirty);
+}
+
+/* 语音录入：Web Speech API 转文字填入「开发进度」（Chrome 浏览器支持，识别在本地进行） */
+function startVoiceInput(wrap, btn){
+  const ta=wrap.querySelector('textarea');
+  const status=wrap.querySelector('.voice-status');
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast('当前浏览器不支持语音识别（请用 Chrome）'); return; }
+  if(btn.dataset.on==='1'){
+    btn.dataset.on=''; btn.textContent='🎤 语音'; btn.classList.remove('active');
+    if(window.__rec){ try{window.__rec.stop();}catch(e){} }
+    if(status) status.textContent='';
+    return;
+  }
+  const rec=new SR();
+  window.__rec=rec;
+  rec.lang='zh-CN';
+  rec.interimResults=true;
+  rec.continuous=true;
+  rec.onstart=()=>{ btn.dataset.on='1'; btn.textContent='⏹ 停止'; btn.classList.add('active'); if(status) status.textContent='正在听…'; };
+  rec.onresult=e=>{
+    let text='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      text+=e.results[i][0].transcript;
+    }
+    ta.value=(ta.value||'')+text;
+    if(status) status.textContent='已听到，点击「停止」结束';
+    checkDirty();
+  };
+  rec.onerror=e=>{
+    btn.dataset.on=''; btn.textContent='🎤 语音'; btn.classList.remove('active');
+    if(status) status.textContent='';
+    toast('语音识别失败：'+(e.error==='not-allowed'?'未授权麦克风':e.error));
+  };
+  rec.onend=()=>{
+    if(btn.dataset.on==='1'){ // 自动结束后自动重启（continuous），用户点击停止才真正结束
+      try{ rec.start(); }catch(err){ btn.dataset.on=''; btn.textContent='🎤 语音'; }
+    }else{
+      btn.textContent='🎤 语音';
+    }
+  };
+  try{ rec.start(); }catch(err){ toast('启动语音识别失败'); }
 }
 
 /* BYOK AI 润色：把「开发进度」草稿润色成周报话术（数据只发用户自己配置的服务商） */

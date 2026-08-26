@@ -1,0 +1,19 @@
+{
+  "name": "工作任务管理",
+  "short_name": "任务管理",
+  "description": "本地任务管理与周报工具：数据存浏览器、可离线、可配置抗格式变化",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#2f6fed",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

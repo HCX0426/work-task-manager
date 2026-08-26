@@ -2,10 +2,46 @@
 <html lang="zh-CN"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2f6fed">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>工作任务管理</title>
 <script src="exceljs.min.js"></script>
 <style>
   :root{ --blue:#2f6fed; --bg:#f5f6f8; --card:#fff; --line:#e3e6eb; --txt:#222; --mut:#7a828c; --ok:#1aa260; --warn:#e08a00; --del:#d8453a; }
+  /* 深色模式：所有硬编码浅色背景统一走变量，切 html[data-theme=dark] 即全局生效 */
+  html[data-theme=dark]{
+    --blue:#5b8def; --bg:#17191d; --card:#202329; --line:#33373f; --txt:#e6e8eb; --mut:#9aa3ae;
+    --ok:#2fbe76; --warn:#f0a53a; --del:#f0655c;
+  }
+  html[data-theme=dark] header{background:#1c1f24}
+  html[data-theme=dark] nav button{background:#2a2e35;color:#cfd5dd}
+  html[data-theme=dark] .btn.sec{background:#2a2e35;color:#cfd5dd}
+  html[data-theme=dark] .hint{background:#1f2838;color:#b8c4da;border-left-color:#5b8def}
+  html[data-theme=dark] .stat,.dash-box,.dd-block,.cust-stats{background:#20242b;border-color:#33373f}
+  html[data-theme=dark] .stat{background:#222837}
+  html[data-theme=dark] .task-card{background:#202329}
+  html[data-theme=dark] .task-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  html[data-theme=dark] th{background:#262b33}
+  html[data-theme=dark] input,select,textarea{background:#262b33;color:#e6e8eb;border-color:#3a3f48}
+  html[data-theme=dark] .file-drop,.col-grid,.cm-row,.batch-bar{background:#20242b;border-color:#33373f}
+  html[data-theme=dark] .gantt-chart{background:#202329}
+  html[data-theme=dark] .gantt-row:nth-child(even){background:#23262d}
+  html[data-theme=dark] .gantt-group-title{background:#222837}
+  html[data-theme=dark] .gantt-header-row{background:#262b33}
+  html[data-theme=dark] .gantt-week-col,.gantt-month-col{background:#262b33;border-color:#33373f}
+  html[data-theme=dark] .tc-date{background:#222837;color:#5b8def}
+  html[data-theme=dark] .dd-chip{background:#222837;border-color:#34406b;color:#8fb0f5}
+  html[data-theme=dark] .dd-chip input{color:#8fb0f5}
+  html[data-theme=dark] .weekly-preview{background:#20242b;border-color:#33373f}
+  html[data-theme=dark] .val-report.ok{background:#1c2a22;border-color:#2a4a35;color:#7fd6a0}
+  html[data-theme=dark] .val-report.has-err{background:#2c2020;border-color:#4a2a27;color:#f0a29a}
+  html[data-theme=dark] .val-report.has-warn{background:#2a2419;border-color:#4a3a1f;color:#eac486}
+  html[data-theme=dark] .cust-row,.dist-row{color:#dfe3e8}
+  html[data-theme=dark] #toast{background:#e8ebee;color:#222}
+  html[data-theme=dark] .cust-bar,.dash-bar-row .bt{background:#33373f}
+  html[data-theme=dark] .task-card.done{border-left-color:#2fbe76}
   *{box-sizing:border-box}
   body{margin:0;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
   header{background:#fff;border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
@@ -246,6 +282,7 @@
     <button data-tab="monthly" class="">月报汇总</button>
     <button data-tab="config" class="">配置中心</button>
   </nav>
+  <button id="themeToggle" class="btn sec sm" title="切换深色/浅色模式" style="flex:0 0 auto">🌙 深色</button>
 </header>
 
 <main>
@@ -340,6 +377,8 @@ WE01出货单查询"></textarea>
       <button class="btn sec sm" id="importTasks">覆盖导入</button>
       <button class="btn sec sm" id="mergeTasks">合并导入</button>
       <input type="file" id="importTasksFile" accept=".json" class="hidden">
+      <button class="btn sec sm" id="importExcelBtn" title="把历史周报Excel的表读成任务库（表头自动映射）">📥 从Excel导入</button>
+      <input type="file" id="importExcelFile" accept=".xlsx" class="hidden">
       <button class="btn del sm" id="clearTasks">清空任务库</button>
     </div>
     <div id="batchBar" class="row batch-bar hidden">
