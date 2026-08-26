@@ -46,14 +46,53 @@ function getDashboardData(){
   return {total, y, m, monthCount:monthTasks.length, closedMonth, rate, ongoing, closedAll, overdueCount:overdue.length, trend, byCust, bySt, overdueList, monthTasks};
 }
 
+/* 平均开发天数：开发日期~结案日期（含首尾），取所有已填两者的任务均值 */
+function avgDevDays(){
+  const days=[];
+  tasks.forEach(t=>{
+    const d1=parseDateAny(t.values['开发日期']), d2=parseDateAny(t.values['结案日期']);
+    if(d1&&d2){ const diff=Math.round((d2-d1)/86400000)+1; if(diff>0) days.push(diff); }
+  });
+  if(!days.length) return null;
+  return Math.round(days.reduce((a,b)=>a+b,0)/days.length);
+}
+
+/* 数据健康检查：列出缺失关键字段的任务 */
+function getHealthIssues(){
+  const issues=[];
+  tasks.forEach(t=>{
+    const v=t.values||{};
+    const name=String(v['专案名称']||'').trim()||'(未填专案)';
+    const st=String(v['完成状态']||'').trim();
+    if(!String(v['专案名称']||'').trim()) issues.push({name, why:'缺「专案名称」（月报无法统计）'});
+    if(st==='Closed' && !String(v['结案日期']||'').trim()) issues.push({name, why:'已完成但缺「结案日期」'});
+    if(st==='Closed' && !String(v['开发日期']||'').trim() && !String(v['提出日期']||'').trim()) issues.push({name, why:'已完成但缺日期'});
+    if(String(v['开发进度']||'').trim() && st==='' ) issues.push({name, why:'有进度但状态未填'});
+  });
+  return issues;
+}
+
+/* 本地存储用量 */
+function getStorageInfo(){
+  try{
+    let total=0;
+    const keys=['wb_tasks','wb_trash','wb_schema','wb_dropdowns','wb_exportcfg','wb_mapping','wb_col_templates','wb_lastbackup','wb_theme'];
+    const sizes={};
+    keys.forEach(k=>{ const v=localStorage.getItem(k); if(v){ sizes[k]=v.length*2; total+=v.length*2; } });
+    return {total, sizes, bytes:total};
+  }catch(e){ return null; }
+}
+
 function renderDashboard(){
   const d=getDashboardData();
+  const avg=avgDevDays();
   $('#dashKpis').innerHTML=`
     <div class="stat"><div class="num">${d.total}</div><div class="lab">任务总数</div></div>
     <div class="stat"><div class="num">${d.monthCount}</div><div class="lab">本月任务</div></div>
     <div class="stat"><div class="num">${d.rate}%</div><div class="lab">本月完成率</div></div>
     <div class="stat"><div class="num">${d.ongoing}</div><div class="lab">未结案</div></div>
     <div class="stat"><div class="num">${d.closedAll}</div><div class="lab">已结案</div></div>
+    <div class="stat"><div class="num">${avg!=null?avg+'天':'—'}</div><div class="lab">平均开发天数</div></div>
     <div class="stat${d.overdueCount?' warn':''}"><div class="num">${d.overdueCount}</div><div class="lab">逾期未完成</div></div>`;
 
   // 任务趋势
@@ -83,6 +122,18 @@ function renderDashboard(){
   $('#dashOverdue').innerHTML=d.overdueList.length
     ? d.overdueList.map(x=>`<div class="dash-over-item"><span class="od-name">${esc(x.name)}</span><span class="od-meta">${esc(x.cust)}</span><span class="od-days">逾期 ${x.days} 天</span></div>`).join('')
     : '<div class="dash-overdue-empty">✓ 没有逾期未完成的任务</div>';
+
+  // 数据健康检查
+  const issues=getHealthIssues();
+  $('#dashHealth').innerHTML=issues.length
+    ? `<div class="dash-overdue-empty" style="color:var(--warn);padding:6px 0 10px">发现 ${issues.length} 处可优化项：</div>`+issues.slice(0,8).map(x=>`<div class="dash-over-item"><span class="od-name">${esc(x.name)}</span><span class="od-meta">${esc(x.why)}</span></div>`).join('')+(issues.length>8?`<div class="muted" style="margin-top:6px">…还有 ${issues.length-8} 项，到任务列表补全即可</div>`:'')
+    : '<div class="dash-overdue-empty">✓ 数据健康，关键字段都齐</div>';
+
+  // 本地存储用量
+  const st=getStorageInfo();
+  $('#dashStorage').innerHTML=st!=null
+    ? `<div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">${(st.total/1024).toFixed(1)} KB（约 ${st.total} 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 5MB</span><span class="od-meta">${(st.total/1048576*100).toFixed(1)}% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p>`
+    : '<div class="dash-overdue-empty">无法读取存储用量</div>';
 }
 
 /* ============ 导出 PDF 汇报（打印成 PDF，中文渲染完美、零外部依赖） ============ */
@@ -185,3 +236,39 @@ function exportReportPDF(){
   toast('已生成汇报文档，打印对话框选「另存为 PDF」');
 }
 $('#dashExportPdf').onclick=exportReportPDF;
+
+/* ============ 导出 Word（.doc，HTML 包装，Word/WPS 可直接打开） ============ */
+function exportReportWord(){
+  const d=getDashboardData();
+  const p=n=>String(n).padStart(2,'0');
+  const dateStr=d.y+'-'+p(d.m)+'-'+p(new Date().getDate());
+  const avg=avgDevDays();
+  const issues=getHealthIssues();
+  const custArr=Object.entries(d.byCust).sort((a,b)=>b[1].total-a[1].total);
+  const custRows=custArr.map(([k,v])=>{ const r=v.total?Math.round(v.closed/v.total*100):0; return `<tr><td>${esc(k)}</td><td class="c">${v.total}</td><td class="c">${v.closed}</td><td class="c">${r}%</td></tr>`; }).join('');
+  const stArr=Object.entries(d.bySt).sort((a,b)=>b[1]-a[1]);
+  const stRows=stArr.map(([k,n])=>`<tr><td>${esc(k)}</td><td class="c">${n}</td></tr>`).join('');
+  const odRows=d.overdueList.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.cust)}</td><td class="c">${x.days} 天</td></tr>`).join('');
+  const healthRows=issues.length?issues.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.why)}</td></tr>`).join(''):'<tr><td colspan="2" class="c muted">✓ 数据健康</td></tr>';
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="utf-8"><title>月度汇报</title></head>
+<body>
+<h1 style="text-align:center;font-size:20pt">工作任务管理 · 月度汇报</h1>
+<p style="text-align:center;color:#666">统计截至 ${dateStr}</p>
+<h2 style="border-left:4px solid #2f6fed;padding-left:8px">一、总体指标</h2>
+<p>任务总数：${d.total}　本月任务：${d.monthCount}　本月完成率：${d.rate}%　未结案：${d.ongoing}　已结案：${d.closedAll}　平均开发天数：${avg!=null?avg+'天':'—'}　逾期未完成：${d.overdueCount}</p>
+<h2 style="border-left:4px solid #2f6fed;padding-left:8px">二、按客户统计</h2>
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%"><tr style="background:#eef3fa"><th>客户</th><th>任务数</th><th>已完成</th><th>完成率</th></tr>${custRows||'<tr><td colspan="4">暂无数据</td></tr>'}</table>
+<h2 style="border-left:4px solid #2f6fed;padding-left:8px">三、按完成状态分布</h2>
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%"><tr style="background:#eef3fa"><th>状态</th><th>数量</th></tr>${stRows||'<tr><td colspan="2">暂无数据</td></tr>'}</table>
+<h2 style="border-left:4px solid #2f6fed;padding-left:8px">四、逾期未完成</h2>
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%"><tr style="background:#eef3fa"><th>专案名称</th><th>客户</th><th>逾期</th></tr>${odRows||'<tr><td colspan="3">✓ 没有逾期任务</td></tr>'}</table>
+<h2 style="border-left:4px solid #2f6fed;padding-left:8px">五、数据健康检查</h2>
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%"><tr style="background:#eef3fa"><th>专案</th><th>待补全</th></tr>${healthRows}</table>
+<p style="color:#999;font-size:9pt;margin-top:20px">由「工作任务管理」生成 · 数据存于本地浏览器，未上传任何服务器</p>
+</body></html>`;
+  const blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  downloadBlob(blob,'工作任务月度汇报_'+todayStr()+'.doc');
+  toast('已导出 Word 汇报（.doc）');
+}
+$('#dashExportWord').onclick=exportReportWord;

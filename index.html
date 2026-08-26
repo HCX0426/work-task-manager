@@ -315,7 +315,7 @@ WE01出货单查询"></textarea>
 
   <!-- 数据看板 -->
   <section id="tab-dashboard" class="card hidden">
-    <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">数据看板 <span class="muted">一屏总览：工作量、进度、分布与逾期</span><button class="btn sec sm" id="dashExportPdf" style="margin-left:auto" title="生成排版好的汇报文档，打印时选择「另存为 PDF」">📄 导出 PDF 汇报</button></h2>
+    <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">数据看板 <span class="muted">一屏总览：工作量、进度、分布与逾期</span><span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec sm" id="dashExportWord" title="生成 Word 汇报文档（.doc，Word/WPS 可直接打开）">📝 导出 Word</button><button class="btn sec sm" id="dashExportPdf" title="生成排版好的汇报文档，打印时选择「另存为 PDF」">📄 导出 PDF</button></span></h2>
     <div class="hint">「导出 PDF 汇报」会打开排版好的汇报文档（封面 + 统计图表 + 本月任务明细），在打印对话框选择「另存为 PDF」即可保存，适合上交/汇报。</div>
     <div id="dashKpis" class="stats"></div>
     <div class="dash-grid">
@@ -334,6 +334,14 @@ WE01出货单查询"></textarea>
       <div class="dash-box">
         <h3>逾期未完成</h3>
         <div id="dashOverdue"></div>
+      </div>
+      <div class="dash-box">
+        <h3>数据健康检查 <span class="muted">（交月报前扫一遍）</span></h3>
+        <div id="dashHealth"></div>
+      </div>
+      <div class="dash-box">
+        <h3>本地存储用量</h3>
+        <div id="dashStorage"></div>
       </div>
     </div>
   </section>
