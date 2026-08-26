@@ -284,6 +284,8 @@ function writeRowVals(ws, rowNum, task, seqVal){
       }
     }else{
       if(/进度/.test(h)&&String(val).includes('\n')) styleCell(cell,true); else styleCell(cell);
+      // 关闭对齐：insertRow 会自动继承模板列样式（边框/底色），显式清除以真正不对齐
+      cell.border=undefined; cell.fill=undefined;
     }
   });
 }
