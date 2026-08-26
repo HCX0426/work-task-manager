@@ -27,6 +27,7 @@ if(dropEl){
 
 $('#excelFile').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
+  if(!/\.xlsx$/i.test(f.name)){ toast('仅支持 .xlsx 文件（旧版 .xls 请先在 Excel 里另存为 .xlsx）'); e.target.value=''; return; }
   excelFileName = f.name;
   $('#excelName').textContent=f.name;
   try{

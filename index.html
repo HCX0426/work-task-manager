@@ -537,10 +537,10 @@ WE01出货单查询"></textarea>
     <div class="hint">上传你的周报 excel → 自动识别表头并<b>可手动校正列名映射</b> → 选时间范围（默认本周）→ 预览将写入的内容 → 追加到表最后一行 → 另存新文件（原名加「_已追加」），不覆盖原文件。映射会记住，下次同结构文件自动套用。</div>
 
     <div class="file-drop" id="excelDrop">
-      <input type="file" id="excelFile" accept=".xlsx,.xls" class="hidden">
+      <input type="file" id="excelFile" accept=".xlsx" class="hidden">
       <div class="fd-inner">
         <span class="fd-icon">📄</span>
-        <span class="fd-text"><b>点击选择周报 excel 文件</b><br><span class="muted">本行任意位置均可点击 · 支持 .xlsx / .xls</span></span>
+        <span class="fd-text"><b>点击选择周报 excel 文件</b><br><span class="muted">本行任意位置均可点击 · 支持 .xlsx（如需 .xls 请先在 Excel 里另存为 .xlsx）</span></span>
         <span class="fd-name muted" id="excelName"></span>
       </div>
     </div>
