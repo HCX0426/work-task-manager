@@ -242,11 +242,18 @@ $('#doExport').onclick=async ()=>{
 function appendMode(){ const el=$('#appendMode'); return el?el.value:'append'; }
 function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
 
-/* 复制源行样式（行高 + 各单元格边框/填充/字体/对齐/数字格式）到目标行 */
+/* 复制源行样式（行高 + 各单元格边框/填充/字体/对齐/数字格式）到目标行。
+   遍历全部列（含「有样式但值空」的单元格，如测试/结案日期、备注等），确保整行视觉对齐 */
 function copyRowStyle(ws, target, source){
   const src=ws.getRow(source), tgt=ws.getRow(target);
   tgt.height=src.height;
-  src.eachCell({includeEmpty:false},(sc,cn)=>{ tgt.getCell(cn).style=JSON.parse(JSON.stringify(sc.style)); });
+  const cols=Math.max(src.cellCount||0, excelHeaders.length, 20);
+  for(let c=1;c<=cols;c++){
+    const sc=src.getCell(c);
+    if(sc.style && Object.keys(sc.style).length>0){
+      tgt.getCell(c).style=JSON.parse(JSON.stringify(sc.style));
+    }
+  }
 }
 
 /* 向指定行写入一个任务（seqVal 为 null 表示项次列暂不填，由调用方统一处理） */
