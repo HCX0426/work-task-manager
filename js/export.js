@@ -246,7 +246,7 @@ async function doExportInner(){
   let lastSeq=0;
   const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
   const seqCol=seqHd?excelHeaders.indexOf(seqHd)+1:0;
-  if(seqCol){ for(let r=excelHeaderRow+1;r<=origRowCount;r++){ const v=ws.getRow(r).getCell(seqCol).value; if(typeof v==='number') lastSeq=Math.max(lastSeq,v); } }
+  if(seqCol){ for(let r=excelHeaderRow+1;r<=origRowCount;r++){ const v=ws.getRow(r).getCell(seqCol).value; const n=(typeof v==='number')?v:((typeof v==='string'&&/^\d+$/.test(String(v).trim()))?parseInt(v,10):0); if(n>lastSeq)lastSeq=n; } }
   let nextR=origRowCount+1;
   const t=getRangeTasks();
   t.forEach((task,idx)=>{
