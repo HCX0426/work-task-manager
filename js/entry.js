@@ -1,4 +1,13 @@
 /* ============ 每日录入（entry.js） ============ */
+/* 表单脏状态跟踪（切换 Tab 时提示未保存修改） */
+let formBaseline=null, formDirty=false;
+function snapshotForm(){
+  const vals={};
+  schema.forEach(c=>{ if(c.type==='auto')return; const el=$('#entryForm').querySelector(`[name="${CSS.escape(c.name)}"]`); if(el) vals[c.name]=el.value; });
+  return JSON.stringify({vals, date:$('#entryDate').value});
+}
+function markBaseline(){ formBaseline=snapshotForm(); formDirty=false; }
+function checkDirty(){ formDirty = (snapshotForm()!==formBaseline); }
 /* 自动计算开发天数：开发日期~结案日期（含首尾）；两个日期任一为空则不动 */
 function autoFillDays(){
   const dev=$('#entryForm').querySelector('[name="开发日期"]');
@@ -115,6 +124,12 @@ function renderEntry(prefill){
   });
   $('#saveEntry').textContent = (editingId && prefill) ? '保存修改' : '保存任务';
   $('#cancelEdit').style.display = (editingId && prefill) ? 'inline-block' : 'none';
+  // 脏状态跟踪：记录初始值并监听变化
+  markBaseline();
+  f.addEventListener('input',checkDirty);
+  f.addEventListener('change',checkDirty);
+  $('#entryDate').addEventListener('input',checkDirty);
+  $('#entryDate').addEventListener('change',checkDirty);
 }
 
 /* C. 字段级校验 */

@@ -133,12 +133,17 @@ $('#batchDelete').onclick=()=>{
   ids.forEach(id=>{const i=tasks.findIndex(t=>t.id===id);if(i>=0){trash.push(tasks[i]);tasks.splice(i,1);}});
   trimTrash();save(LS_TASKS,tasks);save(LS_TRASH,trash);window.__batchSel=new Set();renderList();toast('已移入回收站 '+ids.length+' 条');
 };
+/* 批量补录结案日期后，联动回填开发天数（开发日期~结案日期含首尾） */
+function autoCalcDays(t){
+  const d1=parseDateAny(t.values['开发日期']), d2=parseDateAny(t.values['结案日期']);
+  if(d1&&d2){ const diff=Math.round((d2-d1)/86400000)+1; if(diff>=1) t.values['开发天数']=diff+'天'; }
+}
 $('#batchApply').onclick=()=>{
   const ids=[...document.querySelectorAll('.tcheck:checked')].map(c=>c.dataset.id);
   if(!ids.length){toast('请先勾选任务');return;}
   const test=$('#batchTest').value, close=$('#batchClose').value, st=$('#batchStatus').value;
   if(!test && !close && !st){toast('请填写要补的日期或状态');return;}
-  ids.forEach(id=>{const t=tasks.find(x=>x.id===id);if(t){if(test)t.values['测试日期']=test;if(close)t.values['结案日期']=close;if(st)t.values['完成状态']=st;}});
+  ids.forEach(id=>{const t=tasks.find(x=>x.id===id);if(t){if(test)t.values['测试日期']=test;if(close){t.values['结案日期']=close;autoCalcDays(t);}if(st)t.values['完成状态']=st;}});
   save(LS_TASKS,tasks);renderList();toast('已批量补录 '+ids.length+' 条');
 };
 
@@ -146,6 +151,10 @@ $('#batchApply').onclick=()=>{
 $('#toggleTrash').onclick=()=>{
   const p=$('#trashPanel'); p.classList.toggle('hidden');
   if(!p.classList.contains('hidden')) renderTrash();
+};
+$('#clearTrash').onclick=()=>{
+  if(!trash.length){toast('回收站已空');return;}
+  if(confirm('彻底清空回收站？不可恢复。')){ trash=[]; save(LS_TRASH,trash); renderTrash(); renderList(); toast('已清空回收站'); }
 };
 function renderTrash(){
   const wrap=$('#trashList');

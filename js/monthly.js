@@ -26,6 +26,8 @@ function renderMonthly(){
   $('#monthListCount').textContent='（去重后 '+data.length+' 个）';
   const box=$('#monthResult');
   if(!data.length){ box.textContent='该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。'; return; }
+  const closed=data.filter(r=>String(r.完成状态||'')==='Closed').length;
+  const rate=data.length?Math.round(closed/data.length*100):0;
   const showCust=$('#mf_cust').checked, showOwner=$('#mf_owner').checked, showStatus=$('#mf_status').checked;
   const lines=data.map((r,i)=>{
     let s=(i+1)+'. '+r.name;
@@ -36,7 +38,7 @@ function renderMonthly(){
     if(extras.length)s+='（'+extras.join('，')+'）';
     return s;
   });
-  box.textContent=lines.join('\n');
+  box.textContent='【'+mv+'】共 '+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%\n\n'+lines.join('\n');
 }
 $('#monthPick').onchange=renderMonthly;
 $('#monthThis').onclick=()=>{ setMonthDefault(); renderMonthly(); };
@@ -44,7 +46,11 @@ $('#monthThis').onclick=()=>{ setMonthDefault(); renderMonthly(); };
 $('#exportMonthly').onclick=()=>{
   const data=getMonthlyData();
   if(!data.length){toast('该月没有可汇总的任务');return;}
-  const text=data.map((r,i)=>{
+  const mv=$('#monthPick').value||'monthly';
+  const closed=data.filter(r=>String(r.完成状态||'')==='Closed').length;
+  const rate=data.length?Math.round(closed/data.length*100):0;
+  const head='【'+mv+'】共 '+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%';
+  const text=head+'\n\n'+data.map((r,i)=>{
     let s=(i+1)+'. '+r.name;
     const extras=[];
     if($('#mf_cust').checked&&r.客户)extras.push('客户：'+r.客户);
@@ -54,7 +60,6 @@ $('#exportMonthly').onclick=()=>{
     return s;
   }).join('\n');
   const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
-  const mv=$('#monthPick').value||'monthly';
   downloadBlob(blob,'月报汇总_'+mv+'.txt');
   toast('已导出纯文本');
 };
@@ -81,6 +86,11 @@ $('#exportMonthlyXlsx').onclick=async ()=>{
     const row=ws.addRow(rowVals);
     row.eachCell(cell=>{ cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
   });
+  // 底部汇总行
+  const closed=data.filter(r=>String(r.完成状态||'')==='Closed').length;
+  const rate=data.length?Math.round(closed/data.length*100):0;
+  const sumRow=ws.addRow(['', '合计：'+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%']);
+  sumRow.eachCell(cell=>{ cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
   const out=await wb.xlsx.writeBuffer();
   const mv=$('#monthPick').value||'monthly';
   downloadBlob(new Blob([out],{type:'application/octet-stream'}),'月报汇总_'+mv+'.xlsx');

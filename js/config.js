@@ -105,7 +105,7 @@ $('#saveColCfg').onclick=()=>{
   else renderEntry(null);
   toast('列配置已保存');
 };
-$('#resetColCfg').onclick=()=>{ if(confirm('恢复默认15列表结构？当前列配置会被覆盖。')){schema=DEFAULT_SCHEMA.map(c=>({...c}));save(LS_SCHEMA,schema);renderConfig();if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}else renderEntry(null);toast('已恢复');} };
+$('#resetColCfg').onclick=()=>{ if(confirm('恢复默认15列表结构？当前列配置会被覆盖。')){schema=DEFAULT_SCHEMA.map(c=>({...c}));const names=schema.map(c=>c.name);Object.keys(dropdowns).forEach(k=>{if(!names.includes(k))delete dropdowns[k];});save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);renderConfig();if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}else renderEntry(null);toast('已恢复');} };
 $('#exportCfg').onclick=()=>{ downloadJSON({schema,dropdowns},'周报配置备份.json'); markBackup(); toast('配置已备份'); };
 $('#importCfg').onclick=()=>$('#importCfgFile').click();
 $('#importCfgFile').onchange=e=>{
