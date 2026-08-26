@@ -87,17 +87,35 @@ function renderConfig(){
 }
 $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); renderConfig(); };
 
-/* 导出默认设置（对齐上一行样式 / 追加模式）——配置中心可改默认值，导出页单次可临时覆盖 */
+/* 默认设置（配置中心可改默认值，各页面临时可覆盖单次） */
 (function(){
-  const saveCfg=(patch)=>{ const cfg=load(LS_EXPORTCFG,{})||{}; Object.assign(cfg,patch); save(LS_EXPORTCFG,cfg); toast('导出默认设置已保存'); };
+  const saveCfg=(patch)=>{ const cfg=load(LS_EXPORTCFG,{})||{}; Object.assign(cfg,patch); save(LS_EXPORTCFG,cfg); toast('默认设置已保存'); };
+  const st=loadSettings();
+
   const copy=$('#cfgCopyRowStyle'); if(copy){
-    copy.checked = (load(LS_EXPORTCFG,{}).copyRowStyle!==false);
+    copy.checked = !!st.copyRowStyle;
     copy.onchange=()=>saveCfg({copyRowStyle:copy.checked});
   }
   const mode=$('#cfgAppendMode'); if(mode){
-    mode.value = (load(LS_EXPORTCFG,{}).appendMode==='append') ? 'append' : 'group';
+    mode.value = st.appendMode;
     mode.onchange=()=>saveCfg({appendMode:mode.value});
   }
+  const rangeBy=$('#cfgRangeBy'); if(rangeBy){
+    rangeBy.value = st.rangeBy;
+    rangeBy.onchange=()=>saveCfg({rangeBy:rangeBy.value});
+  }
+  const listSort=$('#cfgListSort'); if(listSort){
+    listSort.value = st.listSort;
+    listSort.onchange=()=>saveCfg({listSort:listSort.value});
+  }
+  const dedup=$('#cfgMonthDedup'); if(dedup){
+    dedup.checked = !!st.monthDedup;
+    dedup.onchange=()=>saveCfg({monthDedup:dedup.checked});
+  }
+  document.querySelectorAll('.cfgWk').forEach(cb=>{
+    cb.checked = (st.weeklyFields||[]).includes(cb.value);
+    cb.onchange=()=>{ const fields=[...document.querySelectorAll('.cfgWk:checked')].map(x=>x.value); saveCfg({weeklyFields:fields}); };
+  });
 })();
 $('#saveColCfg').onclick=()=>{
   const rows=[...document.querySelectorAll('#colCfgList .col-grid')];

@@ -94,13 +94,20 @@ $('#thisWeek').onclick=setDefaultRange;
 $('#thisWeekToToday').onclick=()=>{ setDefaultRange(); $('#rangeEnd').value=todayStr(); };
 
 function skipExportedChecked(){const el=$('#skipExported');return el&&el.checked;}
+/* 取任务的筛选日期：按范围日期类型（录入/提出/开发） */
+function taskRangeDate(t){
+  const by=($('#rangeBy') && $('#rangeBy').value) || 'entryDate';
+  if(by==='提出日期') return t.values['提出日期'];
+  if(by==='开发日期') return t.values['开发日期'];
+  return t.entryDate;
+}
 function getRangeTasks(){
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
   if(!s||!e)return [];
   const st=parseDateAny(s), en=parseDateAny(e);
   if(!st||!en){ toast('日期格式无效'); return []; }
   st.setHours(0,0,0,0); en.setHours(23,59,59,999);
-  return tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d>=st&&d<=en && (!skipExportedChecked()||!t.exported);});
+  return tasks.filter(t=>{const d=parseDateAny(taskRangeDate(t));return d&&d>=st&&d<=en && (!skipExportedChecked()||!t.exported);});
 }
 function renderPreview(){
   const t=getRangeTasks();
@@ -242,11 +249,12 @@ $('#doExport').onclick=async ()=>{
 function appendMode(){ const el=$('#appendMode'); return el?el.value:'group'; }
 function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
 
-/* 初始化导出页「对齐上一行样式 / 追加模式」为配置中心的默认值（导出页仍可临时调整单次） */
+/* 初始化导出页「追加模式 / 对齐样式 / 范围日期类型」为配置中心默认值（导出页仍可临时调整单次） */
 (function(){
-  const cfg=load(LS_EXPORTCFG,{})||{};
-  const m=$('#appendMode'); if(m && cfg.appendMode) m.value=cfg.appendMode;
-  const c=$('#copyRowStyle'); if(c && cfg.copyRowStyle!==undefined) c.checked=cfg.copyRowStyle;
+  const st=loadSettings();
+  const m=$('#appendMode'); if(m) m.value=st.appendMode;
+  const c=$('#copyRowStyle'); if(c) c.checked=!!st.copyRowStyle;
+  const r=$('#rangeBy'); if(r) r.value=st.rangeBy;
 })();
 
 /* 复制源行样式（行高 + 各单元格边框/填充/字体/对齐/数字格式）到目标行。

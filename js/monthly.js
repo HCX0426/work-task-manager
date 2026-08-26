@@ -8,12 +8,13 @@ function getMonthlyData(){
   const mv=$('#monthPick').value;
   if(!mv)return [];
   const [y,m]=mv.split('-').map(Number);
+  const dedup=$('#mf_dedup') ? $('#mf_dedup').checked : true; // 去重开关（配置默认，可临时改）
   const seen={}, out=[];
   tasks.forEach(t=>{
     const d=parseDateAny(t.entryDate); if(!d)return;
     if(d.getFullYear()===y && d.getMonth()+1===m){
       const name=(t.values['专案名称']||'').trim();
-      if(name && !seen[name]){ seen[name]=true; out.push({name, 客户:t.values['客户']||'', 负责人:t.values['负责人']||'', 完成状态:t.values['完成状态']||''}); }
+      if(name && (!dedup || !seen[name])){ seen[name]=true; out.push({name, 客户:t.values['客户']||'', 负责人:t.values['负责人']||'', 完成状态:t.values['完成状态']||''}); }
     }
   });
   return out;
@@ -42,7 +43,13 @@ function renderMonthly(){
 }
 $('#monthPick').onchange=renderMonthly;
 $('#monthThis').onclick=()=>{ setMonthDefault(); renderMonthly(); };
-['mf_cust','mf_owner','mf_status'].forEach(id=>$('#'+id).onchange=renderMonthly);
+['mf_cust','mf_owner','mf_status','mf_dedup'].forEach(id=>{ const el=$('#'+id); if(el) el.onchange=renderMonthly; });
+/* 月报设置初始化（去重开关 / 周报字段）来自配置中心默认 */
+(function(){
+  const st=loadSettings();
+  const d=$('#mf_dedup'); if(d) d.checked=!!st.monthDedup;
+  document.querySelectorAll('.wkField').forEach(cb=>{ cb.checked=(st.weeklyFields||[]).includes(cb.value); cb.onchange=genWeekly; });
+})();
 $('#exportMonthly').onclick=()=>{
   const data=getMonthlyData();
   if(!data.length){toast('该月没有可汇总的任务');return;}
@@ -107,13 +114,18 @@ function genWeekly(){
   const list=tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d>=st&&d<=en;}).sort((a,b)=>a.entryDate.localeCompare(b.entryDate));
   if(!list.length){$('#wpText').value='该范围内没有任务。';return;}
   let out='本周工作小结（'+s+' ~ '+e+'）：\n';
+  // 段落包含字段（按勾选，来自配置默认，可临时改）
+  const fields=[...document.querySelectorAll('.wkField:checked')].map(cb=>cb.value);
+  const show=n=>fields.includes(n);
   list.forEach(t=>{
     const v=t.values;
     const parts=[];
-    if(v['客户'])parts.push('客户：'+v['客户']);
-    if(v['专案名称'])parts.push(v['专案名称']);
-    if(v['需求说明'])parts.push('（'+v['需求说明']+'）');
-    if(v['开发进度'])parts.push('进度：'+v['开发进度'].replace(/\n/g,'；'));
+    if(show('客户')&&v['客户'])parts.push('客户：'+v['客户']);
+    if(show('专案名称')&&v['专案名称'])parts.push(v['专案名称']);
+    if(show('需求说明')&&v['需求说明'])parts.push('（'+v['需求说明']+'）');
+    if(show('开发进度')&&v['开发进度'])parts.push('进度：'+v['开发进度'].replace(/\n/g,'；'));
+    if(show('负责人')&&v['负责人'])parts.push('负责人：'+v['负责人']);
+    if(show('完成状态')&&v['完成状态'])parts.push('状态：'+v['完成状态']);
     out+='· '+parts.join(' ')+'\n';
   });
   $('#wpText').value=out;

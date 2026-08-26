@@ -232,6 +232,7 @@ WE01出货单查询"></textarea>
       <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
       <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option></select>
       <select id="listExportFilter" style="flex:0 0 150px"><option value="">全部(含已追加)</option><option value="not_exported">未追加</option><option value="exported">已追加</option></select>
+      <select id="listSort" style="flex:0 0 160px"><option value="dateDesc">录入时间↓</option><option value="dateAsc">录入时间↑</option><option value="status">完成状态</option><option value="cust">客户</option><option value="devDate">开发日期</option></select>
     </div>
     <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" id="batchToggle">批量模式</button>
@@ -517,15 +518,60 @@ WE01出货单查询"></textarea>
       <input type="file" id="importCfgFile" accept=".json" class="hidden">
     </div>
 
-    <h3>导出默认设置</h3>
-    <label class="inline-check" style="margin-top:6px"><input type="checkbox" id="cfgCopyRowStyle" checked=""> 导出追加时默认「对齐上一行样式」</label>
-    <label class="inline-check" style="margin-top:10px">导出追加模式默认：
-      <select id="cfgAppendMode" style="width:auto">
-        <option value="append">末尾追加</option>
-        <option value="group" selected="">按状态分组插入</option>
-      </select>
-    </label>
-    <p class="muted" style="margin:6px 0 0">对齐样式：勾选后追加/插入的行自动复制上一行的边框、底色、行高；追加模式：分组插入按「完成状态」插到模板对应状态区末尾。导出页均可临时调整单次。</p>
+    <h3>默认设置（各页面可临时覆盖单次）</h3>
+
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">导出</span></div>
+      <div style="padding:4px 2px">
+        <label class="inline-check"><input type="checkbox" id="cfgCopyRowStyle" checked=""> 对齐上一行样式（边框/底色/行高）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px">
+          <label class="inline-check">追加模式：
+            <select id="cfgAppendMode" style="width:auto">
+              <option value="append">末尾追加</option>
+              <option value="group" selected="">按状态分组插入</option>
+            </select>
+          </label>
+          <label class="inline-check">范围日期类型：
+            <select id="cfgRangeBy" style="width:auto">
+              <option value="entryDate">录入日期</option>
+              <option value="提出日期">提出日期</option>
+              <option value="开发日期">开发日期</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">任务列表</span></div>
+      <div style="padding:4px 2px">
+        <label class="inline-check">排序默认：
+          <select id="cfgListSort" style="width:auto">
+            <option value="dateDesc">录入时间↓（最新）</option>
+            <option value="dateAsc">录入时间↑（最早）</option>
+            <option value="status">完成状态</option>
+            <option value="cust">客户</option>
+            <option value="devDate">开发日期</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">月报</span></div>
+      <div style="padding:4px 2px">
+        <label class="inline-check"><input type="checkbox" id="cfgMonthDedup" checked=""> 汇总去重（同名专案只保留一条）</label>
+        <div class="muted" style="margin-top:8px">周报段落包含字段：</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px">
+          <label class="inline-check"><input type="checkbox" class="cfgWk" value="客户" checked=""> 客户</label>
+          <label class="inline-check"><input type="checkbox" class="cfgWk" value="专案名称" checked=""> 专案名称</label>
+          <label class="inline-check"><input type="checkbox" class="cfgWk" value="需求说明" checked=""> 需求说明</label>
+          <label class="inline-check"><input type="checkbox" class="cfgWk" value="开发进度" checked=""> 开发进度</label>
+          <label class="inline-check"><input type="checkbox" class="cfgWk" value="负责人"> 负责人</label>
+          <label class="inline-check"><input type="checkbox" class="cfgWk" value="完成状态"> 完成状态</label>
+        </div>
+      </div>
+    </div>
 
     <h3>下拉选项（按列名管理，可增删、可去重排序）</h3>
     <div id="dropdownCfg"><div class="dd-block"><div class="dd-head">
@@ -557,7 +603,13 @@ WE01出货单查询"></textarea>
     <div id="excelInfo" class="muted"></div>
     <div id="colMap"></div>
 
-    <div class="lab" style="margin-top:14px">2. 时间范围（只追加该范围内录入日期的任务）</div>
+    <div class="lab" style="margin-top:14px">2. 时间范围（按所选日期类型筛选该范围内的任务） <label class="inline-check" style="margin-left:8px">按
+      <select id="rangeBy" style="width:auto">
+        <option value="entryDate">录入日期</option>
+        <option value="提出日期">提出日期</option>
+        <option value="开发日期">开发日期</option>
+      </select>
+    </label></div>
     <div class="range-grid">
       <div class="rg-field"><span class="lab muted">起始</span><input type="date" id="rangeStart"></div>
       <div class="rg-field"><span class="lab muted">结束</span><input type="date" id="rangeEnd"></div>
@@ -611,6 +663,7 @@ WE01出货单查询"></textarea>
       <label class="inline-check"><input type="checkbox" id="mf_cust"> 客户</label>
       <label class="inline-check"><input type="checkbox" id="mf_owner"> 负责人</label>
       <label class="inline-check"><input type="checkbox" id="mf_status"> 完成状态</label>
+      <label class="inline-check" style="margin-left:8px"><input type="checkbox" id="mf_dedup" checked=""> 去重（同名专案只保留一条）</label>
     </div>
 
     <h3>去重汇总 <span class="muted" id="monthListCount">（去重后 0 个）</span></h3>
@@ -628,6 +681,15 @@ WE01出货单查询"></textarea>
       <div style="flex:0 0 150px"><span class="lab muted">结束</span><input type="date" id="wpEnd"></div>
       <button class="btn sec" id="wpThisWeek" style="align-self: flex-end;">本周</button>
       <button class="btn sec" id="wpThisMonth" style="align-self: flex-end;">本月</button>
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:10px;margin-bottom:8px">
+      <span class="muted">段落包含字段：</span>
+      <label class="inline-check"><input type="checkbox" class="wkField" value="客户" checked=""> 客户</label>
+      <label class="inline-check"><input type="checkbox" class="wkField" value="专案名称" checked=""> 专案名称</label>
+      <label class="inline-check"><input type="checkbox" class="wkField" value="需求说明" checked=""> 需求说明</label>
+      <label class="inline-check"><input type="checkbox" class="wkField" value="开发进度" checked=""> 开发进度</label>
+      <label class="inline-check"><input type="checkbox" class="wkField" value="负责人"> 负责人</label>
+      <label class="inline-check"><input type="checkbox" class="wkField" value="完成状态"> 完成状态</label>
     </div>
     <textarea id="wpText" class="weekly-preview" style="min-height: 150px; width: 100%;" readonly placeholder="点击上方范围后自动生成周报段落"></textarea>
     <div class="row" style="margin-top:8px">

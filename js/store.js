@@ -1,5 +1,16 @@
 /* ============ 存储与全局状态（store.js） ============ */
 const LS_SCHEMA='wb_schema', LS_DROPDOWNS='wb_dropdowns', LS_TASKS='wb_tasks', LS_TRASH='wb_trash', LS_LASTBACKUP='wb_lastbackup', LS_MAPPING='wb_mapping', LS_EXPORTCFG='wb_exportcfg';
+
+/* 默认设置（配置中心可改默认，各页面运行时临时可覆盖单次） */
+const DEF_SETTINGS={
+  copyRowStyle:true,            // 导出：对齐上一行样式
+  appendMode:'group',           // 导出：追加模式（末尾/分组）
+  rangeBy:'entryDate',          // 导出：范围日期类型（entryDate/提出日期/开发日期）
+  listSort:'dateDesc',          // 列表：排序（dateDesc/dateAsc/status/cust/devDate）
+  monthDedup:true,              // 月报：去重
+  weeklyFields:['客户','专案名称','需求说明','开发进度'] // 周报段落包含字段
+};
+function loadSettings(){ return Object.assign({}, DEF_SETTINGS, load(LS_EXPORTCFG,{})||{}); }
 function load(k,def){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;} }
 function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ if(e.name==='QuotaExceededError'||e.code===22){ toast('本地存储已满！请删除部分数据或导出备份后清空'); } throw e; } }
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
