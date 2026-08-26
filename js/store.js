@@ -66,9 +66,9 @@ function parseDateAny(v){
   if(!v)return null;
   if(v instanceof Date)return v;
   let s=String(v).trim();
-  if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)){const [y,m,d]=s.split('-');return new Date(+y,+m-1,+d);}
-  if(/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)){const [y,m,d]=s.split('/');return new Date(+y,+m-1,+d);}
-  if(/^\d{1,2}\/\d{1,2}$/.test(s)){const [m,d]=s.split('/');return new Date(new Date().getFullYear(),+m-1,+d);}
+  if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)){const [y,m,d]=s.split('-').map(Number);const x=new Date(y,m-1,d);return (x.getFullYear()===y&&x.getMonth()+1===m&&x.getDate()===d)?x:null;}
+  if(/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)){const [y,m,d]=s.split('/').map(Number);const x=new Date(y,m-1,d);return (x.getFullYear()===y&&x.getMonth()+1===m&&x.getDate()===d)?x:null;}
+  if(/^\d{1,2}\/\d{1,2}$/.test(s)){const [m,d]=s.split('/').map(Number);const x=new Date(new Date().getFullYear(),m-1,d);return (x.getMonth()+1===m&&x.getDate()===d)?x:null;}
   const x=new Date(s); return isNaN(x)?null:x;
 }
 function toInputDate(v){ if(!v)return ''; const d=parseDateAny(v); if(!d)return ''; const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
@@ -87,6 +87,7 @@ function checkBackupReminder(){
 function matchCol(headerName){
   if(!headerName)return null;
   const h=headerName.trim();
+  if(!h)return null;
   const names=schema.map(c=>c.name);
   if(names.includes(h))return h;
   const norm=s=>s.replace(/[\s()（）]/g,'');
