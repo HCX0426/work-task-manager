@@ -53,6 +53,8 @@ function renderStats(){
     <div class="stat${overdue?' warn':''}"><div class="num">${overdue}</div><div class="lab">逾期未完成</div></div>
     <div class="stat"><div class="num">${exported}</div><div class="lab">已追加</div></div>
     <div class="stat"><div class="num">${trash.length}</div><div class="lab">回收站</div></div>`;
+  // 同步顶部「回收站 (N)」按钮计数（删除/恢复后立即刷新，无需展开面板）
+  $('#trashCount').textContent=trash.length;
   $('#custStats').innerHTML = custRows?`<div class="cust-title muted">按客户完成率</div>${custRows}`:'';
 }
 
