@@ -34,13 +34,20 @@ function renderDashboard(){
     return `<div class="t-col"><div class="t-val">${t.n}</div><div class="t-bar${t.n?'':' zero'}" style="height:${pct}%"></div><div class="t-lab">${t.mm}月</div></div>`;
   }).join('');
 
-  // 按客户分布
+  // 按客户：数量 + 完成率
   const byCust={};
-  tasks.forEach(t=>{const c=(t.values['客户']||'').trim()||'未填';byCust[c]=(byCust[c]||0)+1;});
-  const custArr=Object.entries(byCust).sort((a,b)=>b[1]-a[1]);
-  const custMax=Math.max(1,...custArr.map(x=>x[1]));
+  tasks.forEach(t=>{
+    const c=(t.values['客户']||'').trim()||'未填';
+    byCust[c]=byCust[c]||{total:0,closed:0};
+    byCust[c].total++;
+    if(String(t.values['完成状态']||'')==='Closed')byCust[c].closed++;
+  });
+  const custArr=Object.entries(byCust).sort((a,b)=>b[1].total-a[1].total);
   $('#dashCust').innerHTML=custArr.length
-    ? custArr.map(([k,n])=>`<div class="dash-bar-row"><span class="bk">${esc(k)}</span><div class="bt"><i style="width:${Math.round(n/custMax*100)}%"></i></div><span class="bn">${n}</span></div>`).join('')
+    ? custArr.map(([k,v])=>{
+        const r=v.total?Math.round(v.closed/v.total*100):0;
+        return `<div class="cust-row"><span class="cust-name" title="${esc(k)}">${esc(k)}</span><div class="cust-bar"><i style="width:${r}%"></i></div><span class="cust-rate">${r}%</span><span class="cust-n muted">${v.closed}/${v.total}</span></div>`;
+      }).join('')
     : '<p class="muted" style="padding:20px 0;text-align:center">暂无任务</p>';
 
   // 按完成状态分布

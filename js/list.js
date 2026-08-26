@@ -33,19 +33,6 @@ function renderStats(){
     const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
     return d && todayStr()>toInputDate(d);
   }).length;
-  // 按客户分组完成率
-  const byCust={};
-  tasks.forEach(t=>{
-    const c=(t.values['客户']||'').trim()||'未填';
-    (byCust[c]=byCust[c]||{total:0,closed:0});
-    byCust[c].total++;
-    if(String(t.values['完成状态']||'')==='Closed')byCust[c].closed++;
-  });
-  const custRows=Object.keys(byCust).sort().map(c=>{
-    const {total,closed}=byCust[c];
-    const r=Math.round(closed/total*100);
-    return `<div class="cust-row"><span class="cust-name">${esc(c)}</span><div class="cust-bar"><i style="width:${r}%"></i></div><span class="cust-rate">${r}%</span><span class="cust-n muted">${closed}/${total}</span></div>`;
-  }).join('');
   $('#statsStrip').innerHTML=`
     <div class="stat"><div class="num">${total}</div><div class="lab">任务总数</div></div>
     <div class="stat"><div class="num">${monthTasks.length}</div><div class="lab">本月任务</div></div>
@@ -55,16 +42,6 @@ function renderStats(){
     <div class="stat"><div class="num">${trash.length}</div><div class="lab">回收站</div></div>`;
   // 同步顶部「回收站 (N)」按钮计数（删除/恢复后立即刷新，无需展开面板）
   $('#trashCount').textContent=trash.length;
-  $('#custStats').innerHTML = custRows?`<div class="cust-title muted">按客户完成率</div>${custRows}`:'';
-  // 状态分布条
-  const dist={};
-  tasks.forEach(t=>{ const s=String(t.values['完成状态']||'').trim()||'未填'; dist[s]=(dist[s]||0)+1; });
-  const distTotal=tasks.length||1;
-  const distHtml=Object.keys(dist).map(s=>{
-    const n=dist[s], pct=Math.round(n/distTotal*100);
-    return `<div class="dist-row"><span class="dist-name">${esc(s)}</span><div class="dist-bar"><i style="width:${pct}%"></i></div><span class="dist-n">${n}（${pct}%）</span></div>`;
-  }).join('');
-  $('#statusDist').innerHTML = tasks.length?`<div class="cust-title muted">按完成状态分布</div>${distHtml}`:'';
 }
 
 function renderList(){

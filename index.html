@@ -99,14 +99,6 @@
   .cust-rate{flex:0 0 40px;text-align:right;font-weight:600}
   .cust-n{flex:0 0 52px;text-align:right}
 
-  /* 状态分布条 */
-  .dist-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px}
-  .dist-row:last-child{margin-bottom:0}
-  .dist-name{flex:0 0 80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .dist-bar{flex:1;height:8px;background:#eef1f5;border-radius:999px;overflow:hidden}
-  .dist-bar i{display:block;height:100%;background:var(--blue);border-radius:999px}
-  .dist-n{flex:0 0 72px;text-align:right;color:var(--mut)}
-
   /* ============ 批量工具条 ============ */
   .batch-bar{margin:0 0 12px;background:#f3f7ff;border:1px solid #dbe6fb;border-radius:10px;padding:10px}
   .batch-bar input,.batch-bar select{width:auto;flex:0 0 auto}
@@ -294,8 +286,8 @@ WE01出货单查询"></textarea>
         <div id="dashTrend" class="dash-trend"></div>
       </div>
       <div class="dash-box">
-        <h3>按客户分布</h3>
-        <div id="dashCust" class="dash-bars"></div>
+        <h3>按客户（数量 / 完成率）</h3>
+        <div id="dashCust" class="cust-stats" style="display:block"></div>
       </div>
       <div class="dash-box">
         <h3>按完成状态分布</h3>
@@ -319,8 +311,6 @@ WE01出货单查询"></textarea>
     <div class="stat"><div class="num">0</div><div class="lab">逾期未完成</div></div>
     <div class="stat"><div class="num">0</div><div class="lab">已追加</div></div>
     <div class="stat"><div class="num">0</div><div class="lab">回收站</div></div></div>
-    <div id="custStats" class="cust-stats"></div>
-    <div id="statusDist" class="cust-stats"></div>
     <div class="row" style="margin-bottom:10px;gap:10px">
       <input type="text" id="listSearch" placeholder="搜索（专案/需求/客户…）" style="flex:1;min-width:180px">
       <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
