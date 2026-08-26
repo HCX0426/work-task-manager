@@ -95,7 +95,7 @@ $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); rend
     copy.onchange=()=>saveCfg({copyRowStyle:copy.checked});
   }
   const mode=$('#cfgAppendMode'); if(mode){
-    mode.value = (load(LS_EXPORTCFG,{}).appendMode==='group') ? 'group' : 'append';
+    mode.value = (load(LS_EXPORTCFG,{}).appendMode==='append') ? 'append' : 'group';
     mode.onchange=()=>saveCfg({appendMode:mode.value});
   }
 })();

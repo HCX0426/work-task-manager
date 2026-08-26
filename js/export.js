@@ -239,7 +239,7 @@ $('#doExport').onclick=async ()=>{
   await doExportInner();
 };
 
-function appendMode(){ const el=$('#appendMode'); return el?el.value:'append'; }
+function appendMode(){ const el=$('#appendMode'); return el?el.value:'group'; }
 function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
 
 /* 初始化导出页「对齐上一行样式 / 追加模式」为配置中心的默认值（导出页仍可临时调整单次） */
