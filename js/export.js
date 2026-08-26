@@ -1,6 +1,7 @@
 /* ============ 导出追加（export.js，基于 ExcelJS 写样式） ============ */
 /* 样式：等线 11 字体；进度列含换行时自动换行（SheetJS 社区版不写样式，故换 ExcelJS） */
 let excelFileName = ''; // 保存上传的文件名
+let lastExportedIds = []; // 最近一次导出追加/生成新周报涉及的任务 id，供「撤销本次追加」
 
 function styleCell(cell, wrap){
   cell.font=EXCEL_FONT;
@@ -362,6 +363,7 @@ async function doExportInner(){
   const base=(excelFileName||'周报').replace(/\.xlsx?$/i,'');
   downloadBlob(new Blob([out],{type:'application/octet-stream'}), base+'_已追加.xlsx');
   t.forEach(x=>{x.exported=true;}); save(LS_TASKS,tasks);
+  lastExportedIds=t.map(x=>x.id); // 记录本次，供「撤销本次追加」
   $('#exportMsg').textContent=`已追加 ${t.length} 条，另存为「${base}_已追加.xlsx」（已标记防重复）`;
   renderPreview();
   toast('生成成功，已下载');
@@ -399,6 +401,7 @@ $('#genNew').onclick=async ()=>{
   const out=await wb.xlsx.writeBuffer();
   downloadBlob(new Blob([out],{type:'application/octet-stream'}), `周报_${s}_${e}.xlsx`);
   t.forEach(x=>{ x.exported=true; }); save(LS_TASKS,tasks);
+  lastExportedIds=t.map(x=>x.id); // 记录本次，供「撤销本次追加」
   $('#genNewMsg').textContent=`已生成 ${t.length} 条，另存为「周报_${s}_${e}.xlsx」（已标记防重复）`;
   toast('已生成新周报');
 };

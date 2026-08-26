@@ -238,10 +238,14 @@ WE01出货单查询"></textarea>
     <div class="row" style="margin-bottom:10px">
       <button class="btn sec sm" id="batchToggle">批量模式</button>
       <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
+      <button class="btn sec sm" id="exportAll">全量备份</button>
+      <button class="btn sec sm" id="importAll">全量恢复</button>
+      <input type="file" id="importAllFile" accept=".json" class="hidden">
       <button class="btn sec sm" id="exportTasks">导出任务库(备份)</button>
       <button class="btn sec sm" id="exportCsv">导出CSV</button>
       <button class="btn sec sm" id="importTasks">覆盖导入</button>
       <button class="btn sec sm" id="mergeTasks">合并导入</button>
+      <button class="btn sec sm" id="undoLastExport">撤销本次追加</button>
       <button class="btn sec sm" id="undoExported">撤销已追加</button>
       <input type="file" id="importTasksFile" accept=".json" class="hidden">
       <button class="btn del sm" id="clearTasks">清空任务库</button>
