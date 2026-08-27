@@ -10,6 +10,7 @@ const DEF_SETTINGS={
   listSortDir:'desc',           // 列表：排序方向（asc/desc）
   monthDedup:true,              // 月报：去重
   weeklyFields:['客户','专案名称','需求说明','开发进度'], // 周报段落包含字段
+  phrases:['开发中','已完成，待测试','已上线','联调中，等待验证','等待测试'], // 常用短语（开发进度一键插入）
   aiKey:'',                     // AI 润色：用户自己的 Key（BYOK，数据只发往用户填写的服务商）
   aiBaseUrl:'https://api.deepseek.com', // AI 润色：OpenAI 兼容服务地址
   aiModel:'deepseek-chat',      // AI 润色：模型名
@@ -40,8 +41,12 @@ const DEFAULT_SCHEMA=[
 ];
 const DEFAULT_DROPDOWNS={
   '客户':['所有','N客户','太白山','其他'],
-  '完成状态':['Ongoing','Closed','planning']
+  '完成状态':['Ongoing','Closed','planning','暂停','取消']
 };
+/* 完成状态语义：结案与取消都视为"已了结"，不计逾期/今日/进行中 */
+const STATUS_DONE='Closed';
+const STATUS_CANCEL='取消';
+const STATUS_PAUSE='暂停';
 
 function guessType(name){
   if(name==='项次')return 'auto';
@@ -53,19 +58,32 @@ function guessType(name){
 
 function loadSchema(){
   let raw=load(LS_SCHEMA,null);
-  if(!raw)return DEFAULT_SCHEMA.map(c=>({...c}));
-  if(raw.some(c=>c.type==='default')){
+  let arr;
+  if(!raw){
+    arr=DEFAULT_SCHEMA.map(c=>({...c}));
+  }else if(raw.some(c=>c.type==='default')){
     const oldDef=load('wb_defaults',{});
-    return raw.map(c=> c.type==='default'
+    arr=raw.map(c=> c.type==='default'
       ? {name:c.name, type:guessType(c.name), def:oldDef[c.name]||''}
       : {name:c.name, type:c.type, def:c.def||''});
+  }else{
+    arr=raw.map(c=>({...c, def:c.def||''}));
   }
-  return raw.map(c=>({...c, def:c.def||''}));
+  // 迁移：去掉历史遗留的「结案日志」列（结案不再要求写日志）
+  arr=arr.filter(c=>c.name!=='结案日志');
+  return arr;
 }
 
 /* ============ 全局状态 ============ */
 let schema=loadSchema();
 let dropdowns=load(LS_DROPDOWNS,JSON.parse(JSON.stringify(DEFAULT_DROPDOWNS)));
+/* 迁移：老用户已存储的下拉可能缺新默认状态（暂停/取消），合并进去并持久化 */
+(function(){
+  if(!Array.isArray(dropdowns['完成状态'])) dropdowns['完成状态']=[];
+  let changed=false;
+  (DEFAULT_DROPDOWNS['完成状态']||[]).forEach(s=>{ if(!dropdowns['完成状态'].includes(s)){ dropdowns['完成状态'].push(s); changed=true; } });
+  if(changed) save(LS_DROPDOWNS,dropdowns);
+})();
 let tasks=load(LS_TASKS,[]); // [{id, entryDate, values:{colName:value}, exported:false}]
 let trash=load(LS_TRASH,[]); // 回收站（软删除）
 let editingId=null;
@@ -230,3 +248,82 @@ function effMap(h){ return (h in colMapping) ? (colMapping[h]||'') : (matchCol(h
 /* ============ 回收站清理上限 ============ */
 const TRASH_CAP=50; // 回收站最多保留条数，超出自动清理最旧记录
 function trimTrash(){ if(trash.length>TRASH_CAP) trash.splice(0, trash.length-TRASH_CAP); }
+
+/* ============ 子任务 + 任务历史（共享 helper） ============ */
+const HISTORY_CAP=50; // 每条任务最多保留历史条数
+function subtasksOf(t){ return Array.isArray(t&&t.subtasks)?t.subtasks:[]; }
+/* 子任务进度：无子任务返回 null；否则 {done,total,pct} */
+function subtaskProgress(t){
+  const st=subtasksOf(t);
+  if(!st.length) return null;
+  const done=st.filter(x=>x&&x.done).length;
+  return {done, total:st.length, pct:Math.round(done/st.length*100)};
+}
+/* 进度推导（主路径）：开发进度每行一个推进节点，行首「✓ 」= 已完成，自动统计；
+   仅当出现 ✓ 标记行时才按行统计，否则回退到历史子任务进度 */
+function devProgressOf(t){
+  const v=t&&t.values?String(t.values['开发进度']||'').trim():'';
+  if(v){
+    const arr=parseSubtasks(v);
+    if(arr.length && arr.some(x=>x.done)){
+      const done=arr.filter(x=>x.done).length;
+      return {done, total:arr.length, pct:Math.round(done/arr.length*100)};
+    }
+  }
+  return subtaskProgress(t);
+}
+/* 子任务文本 <-> 数组：每行一条，行首「✓ 」或「[x] 」= 已完成 */
+function parseSubtasks(text){
+  return String(text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{
+    const m=/^(?:✓|[xX]\]?)\s*/.exec(s);
+    if(m && (s[0]==='✓'||s[0]==='[')) return {text:s.slice(m[0].length).trim(), done:true};
+    return {text:s, done:false};
+  });
+}
+/* 本周（周一~周日）起止日期 */
+function weekRange(now){
+  const d=now||new Date();
+  const day=d.getDay();
+  const diff=day===0?-6:1-day;
+  const start=new Date(d); start.setDate(d.getDate()+diff);
+  const end=new Date(start); end.setDate(start.getDate()+6);
+  return {start, end, startStr:toInputDate(start), endStr:toInputDate(end)};
+}
+/* 开发天数：开发日期~结案日期（含首尾）；任一为空返回 null */
+function calcDevDays(d1,d2){
+  if(!d1||!d2) return null;
+  const diff=Math.round((d2-d1)/86400000)+1;
+  return diff>=1?diff:null;
+}
+/* 打开任务到每日录入页编辑（公共跳转，供卡片/看板/日历/今日待办复用） */
+function openTaskEdit(id){
+  const tk=tasks.find(x=>x.id===id);
+  if(!tk) return;
+  editingId=tk.id;
+  document.querySelector('nav button[data-tab="entry"]').click();
+  renderEntry({...tk.values, entryDate:tk.entryDate});
+  window.scrollTo(0,0);
+}
+/* 追加一条任务历史：{ts, a:动作, d:详情}，超上限自动裁旧 */
+function addHistory(t, action, detail){
+  if(!t) return;
+  t.history=t.history||[];
+  t.history.push({ts:Date.now(), a:action, d:detail||''});
+  if(t.history.length>HISTORY_CAP) t.history.splice(0, t.history.length-HISTORY_CAP);
+}
+function fmtHistoryTime(ts){
+  const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+/* 逾期判断：未结案/未取消/未暂停 且开发/提出日期早于今天（暂停=暂停，不催） */
+function isTaskOverdue(t){
+  const s=String(t.values['完成状态']||'').trim();
+  if(s===STATUS_DONE || s===STATUS_CANCEL || s===STATUS_PAUSE) return false;
+  const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
+  return d && toInputDate(d) < todayStr();
+}
+/* 是否"已了结"（结案或取消），用于排除出今日/进行中等口径 */
+function isTaskDone(t){
+  const s=String(t.values['完成状态']||'').trim();
+  return s===STATUS_DONE || s===STATUS_CANCEL;
+}

@@ -16,6 +16,7 @@ const ASSETS=[
   './js/export.js',
   './js/monthly.js',
   './js/dashboard.js',
+  './js/help.js',
   './js/app.js'
 ];
 /* 网络优先的业务资源（经常更新，绕过 HTTP 缓存强制取最新） */

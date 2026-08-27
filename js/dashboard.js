@@ -4,15 +4,11 @@ function getDashboardData(){
   const total=tasks.length;
   const now=new Date(); const y=now.getFullYear(),m=now.getMonth()+1;
   const monthTasks=tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d.getFullYear()===y&&d.getMonth()+1===m;});
-  const closedAll=tasks.filter(t=>String(t.values['完成状态']||'')==='Closed').length;
-  const closedMonth=monthTasks.filter(t=>String(t.values['完成状态']||'')==='Closed').length;
+  const closedAll=tasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
+  const closedMonth=monthTasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
   const rate=monthTasks.length?Math.round(closedMonth/monthTasks.length*100):0;
-  const ongoing=tasks.filter(t=>{const s=String(t.values['完成状态']||'').trim();return s && s.toLowerCase()!=='closed';}).length;
-  const overdue=tasks.filter(t=>{
-    if(String(t.values['完成状态']||'')==='Closed')return false;
-    const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
-    return d && todayStr()>toInputDate(d);
-  });
+  const ongoing=tasks.filter(t=>{ const s=String(t.values['完成状态']||'').trim(); return s && !isTaskDone(t) && s!==STATUS_PAUSE; }).length;
+  const overdue=tasks.filter(t=>isTaskOverdue(t));
   // 近 6 个月趋势
   const trend=[];
   for(let i=5;i>=0;i--){
@@ -27,7 +23,7 @@ function getDashboardData(){
     const c=(t.values['客户']||'').trim()||'未填';
     byCust[c]=byCust[c]||{total:0,closed:0};
     byCust[c].total++;
-    if(String(t.values['完成状态']||'')==='Closed')byCust[c].closed++;
+    if(String(t.values['完成状态']||'')===STATUS_DONE)byCust[c].closed++;
   });
   // 按完成状态
   const bySt={};
@@ -50,8 +46,8 @@ function getDashboardData(){
 function avgDevDays(){
   const days=[];
   tasks.forEach(t=>{
-    const d1=parseDateAny(t.values['开发日期']), d2=parseDateAny(t.values['结案日期']);
-    if(d1&&d2){ const diff=Math.round((d2-d1)/86400000)+1; if(diff>0) days.push(diff); }
+    const n=calcDevDays(parseDateAny(t.values['开发日期']), parseDateAny(t.values['结案日期']));
+    if(n!=null) days.push(n);
   });
   if(!days.length) return null;
   return Math.round(days.reduce((a,b)=>a+b,0)/days.length);
@@ -65,8 +61,8 @@ function getHealthIssues(){
     const name=String(v['专案名称']||'').trim()||'(未填专案)';
     const st=String(v['完成状态']||'').trim();
     if(!String(v['专案名称']||'').trim()) issues.push({name, why:'缺「专案名称」（月报无法统计）'});
-    if(st==='Closed' && !String(v['结案日期']||'').trim()) issues.push({name, why:'已完成但缺「结案日期」'});
-    if(st==='Closed' && !String(v['开发日期']||'').trim() && !String(v['提出日期']||'').trim()) issues.push({name, why:'已完成但缺日期'});
+    if(st===STATUS_DONE && !String(v['结案日期']||'').trim()) issues.push({name, why:'已完成但缺「结案日期」'});
+    if(st===STATUS_DONE && !String(v['开发日期']||'').trim() && !String(v['提出日期']||'').trim()) issues.push({name, why:'已完成但缺日期'});
     if(String(v['开发进度']||'').trim() && st==='' ) issues.push({name, why:'有进度但状态未填'});
   });
   return issues;
@@ -76,7 +72,7 @@ function getHealthIssues(){
 function getStorageInfo(){
   try{
     let total=0;
-    const keys=['wb_tasks','wb_trash','wb_schema','wb_dropdowns','wb_exportcfg','wb_mapping','wb_col_templates','wb_lastbackup','wb_theme'];
+    const keys=[LS_TASKS,LS_TRASH,LS_SCHEMA,LS_DROPDOWNS,LS_EXPORTCFG,LS_MAPPING,LS_COL_TMPL,LS_LASTBACKUP,'wb_draft','wb_theme'];
     const sizes={};
     keys.forEach(k=>{ const v=localStorage.getItem(k); if(v){ sizes[k]=v.length*2; total+=v.length*2; } });
     return {total, sizes, bytes:total};
@@ -134,7 +130,52 @@ function renderDashboard(){
   $('#dashStorage').innerHTML=st!=null
     ? `<div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">${(st.total/1024).toFixed(1)} KB（约 ${st.total} 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 5MB</span><span class="od-meta">${(st.total/1048576*100).toFixed(1)}% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p>`
     : '<div class="dash-overdue-empty">无法读取存储用量</div>';
+
+  renderYearBox();
 }
+
+/* ============ 年度/季度汇总对比：按录入月份聚合，全年+分季度 ============ */
+function renderYearBox(){
+  const sel=$('#dashYearSel'); if(!sel)return;
+  const curY=new Date().getFullYear();
+  const prev=sel.value?+sel.value:curY; // 重建下拉前记住当前选择
+  const years=[];
+  tasks.forEach(t=>{ const d=parseDateAny(t.entryDate); if(d&&!years.includes(d.getFullYear())) years.push(d.getFullYear()); });
+  if(!years.includes(curY)) years.push(curY);
+  years.sort((a,b)=>b-a);
+  const cur=years.includes(prev)?prev:curY;
+  sel.innerHTML=years.map(y=>`<option value="${y}"${y===cur?' selected':''}>${y}年</option>`).join('');
+  const body=$('#dashYearBody');
+  if(!tasks.length){ body.innerHTML='<p class="muted" style="padding:14px 0;text-align:center">暂无任务数据</p>'; return; }
+  // 月度聚合
+  const months=[];
+  for(let m=1;m<=12;m++){
+    const list=tasks.filter(t=>{ const d=parseDateAny(t.entryDate); return d&&d.getFullYear()===cur&&d.getMonth()+1===m; });
+    const closed=list.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
+    months.push({m, n:list.length, closed, rate:list.length?Math.round(closed/list.length*100):null});
+  }
+  // 季度聚合
+  const qDefs=[['Q1',1,2,3],['Q2',4,5,6],['Q3',7,8,9],['Q4',10,11,12]];
+  const qRows=qDefs.map(([label,a,b,c])=>{
+    const seg=months.filter(mm=>mm.m>=a&&mm.m<=c);
+    const n=seg.reduce((s,mm)=>s+mm.n,0);
+    const closed=seg.reduce((s,mm)=>s+mm.closed,0);
+    return `<tr style="background:#f0f3f7"><td style="text-align:center"><b>${label}</b><span class="muted">（${a}-${c}月）</span></td><td class="c"><b>${n}</b></td><td class="c">${closed}</td><td class="c">${n?Math.round(closed/n*100)+'%':'—'}</td></tr>`;
+  }).join('');
+  const yearN=months.reduce((s,m)=>s+m.n,0);
+  const yearClosed=months.reduce((s,m)=>s+m.closed,0);
+  const monthRows=months.map(m=>`<tr><td style="text-align:center">${m.m}月</td><td class="c">${m.n}</td><td class="c">${m.closed}</td><td class="c">${m.rate==null?'—':m.rate+'%'}</td></tr>`).join('');
+  body.innerHTML=`
+  <table>
+    <thead><tr><th style="width:110px">月份</th><th class="c">任务数</th><th class="c">已完成</th><th class="c">完成率</th></tr></thead>
+    <tbody>
+      ${monthRows}
+      <tr style="background:#eaf1ff"><td style="text-align:center"><b>${cur}年合计</b></td><td class="c"><b>${yearN}</b></td><td class="c">${yearClosed}</td><td class="c">${yearN?Math.round(yearClosed/yearN*100)+'%':'—'}</td></tr>
+      ${qRows}
+    </tbody>
+  </table>`;
+}
+$('#dashYearSel').onchange=renderYearBox;
 
 /* ============ 导出 PDF 汇报（打印成 PDF，中文渲染完美、零外部依赖） ============ */
 function exportReportPDF(){

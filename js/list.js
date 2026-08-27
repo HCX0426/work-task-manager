@@ -24,15 +24,11 @@ function renderStats(){
   const now=new Date(); const y=now.getFullYear(),m=now.getMonth()+1;
   const today=todayStr();
   const monthTasks=tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d.getFullYear()===y&&d.getMonth()+1===m;});
-  const closed=monthTasks.filter(t=>String(t.values['完成状态']||'')==='Closed').length;
+  const closed=monthTasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
   const rate=monthTasks.length?Math.round(closed/monthTasks.length*100):0;
   const exported=tasks.filter(t=>t.exported).length;
-  // 逾期未完成：有提出/开发日期且早于今天，且完成状态不是 Closed
-  const overdue=tasks.filter(t=>{
-    if(String(t.values['完成状态']||'')==='Closed')return false;
-    const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
-    return d && todayStr()>toInputDate(d);
-  }).length;
+  // 逾期未完成：统一走 isTaskOverdue（结案/取消/暂停不计）
+  const overdue=tasks.filter(t=>isTaskOverdue(t)).length;
   $('#statsStrip').innerHTML=`
     <div class="stat"><div class="num">${total}</div><div class="lab">任务总数</div></div>
     <div class="stat"><div class="num">${monthTasks.length}</div><div class="lab">本月任务</div></div>
@@ -65,7 +61,7 @@ function renderList(){
   list.sort((a,b)=>{ const r=sortKey(a).localeCompare(sortKey(b)); return sortDir==='desc'?-r:r; });
   if(q)list=list.filter(t=>Object.values(t.values).some(v=>String(v).toLowerCase().includes(q)));
   if(cf)list=list.filter(t=>(t.values['客户']||'')===cf);
-  if(sf==='__not_closed')list=list.filter(t=>String(t.values['完成状态']||'')!=='Closed');
+  if(sf==='__not_closed')list=list.filter(t=>!isTaskDone(t)); // 未完成=未结案且未取消
   else if(sf)list=list.filter(t=>(t.values['完成状态']||'')===sf);
   if(ef==='exported')list=list.filter(t=>t.exported);
   else if(ef==='not_exported')list=list.filter(t=>!t.exported);
@@ -76,22 +72,38 @@ function renderList(){
   const cols=schema.filter(c=>c.type!=='auto').map(c=>c.name);
   let h='<div class="task-list'+(batchOn?' list-batch':'')+'">';
   list.forEach(t=>{
-    const done=String(t.values['完成状态']||'')==='Closed';
+    const done=String(t.values['完成状态']||'')===STATUS_DONE;
+    const overdue=isTaskOverdue(t);
     const checked=window.__batchSel && window.__batchSel.has(t.id)?'checked':'';
     h+=`<div class="task-card${done?' done':''}" data-id="${t.id}">
       ${batchOn?`<label class="tcheck-wrap"><input type="checkbox" class="tcheck" data-id="${t.id}" ${checked}></label>`:''}
-      <div class="tc-date">📅 ${t.entryDate}${t.exported?'<span class="tc-exported">已追加</span>':''}</div>
-      <div class="tc-actions">
-        <button class="btn sec sm" data-edit="${t.id}">编辑</button>
-        <button class="btn del sm" data-del="${t.id}">删除</button>
+      <div class="tc-date"><span class="tc-pill">📅 ${t.entryDate}${t.exported?'<span class="tc-exported">已追加</span>':''}${overdue?'<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span>':''}</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="${t.id}">编辑</button>
+          <button class="btn del sm" data-del="${t.id}">删除</button>
+        </span>
       </div>
       <div class="tc-fields">`;
-    cols.forEach(c=>{
-      let v=t.values[c]||'';
-      const empty=!String(v).trim();
-      h+=`<div class="tc-row"><span class="tc-k">${esc(c)}</span><span class="tc-v${empty?' empty':''}">${empty?'未填':esc(v).replace(/\n/g,'<br>')}</span></div>`;
-    });
-    h+='</div></div>';
+    const filled=cols.filter(c=>String(t.values[c]||'').trim()!=='');
+    if(filled.length){
+      filled.forEach(c=>{
+        h+=`<div class="tc-row"><span class="tc-k">${esc(c)}</span><span class="tc-v">${esc(t.values[c]).replace(/\n/g,'<br>')}</span></div>`;
+      });
+    }else{
+      h+=`<div class="tc-row"><span class="tc-k">内容</span><span class="tc-v empty">未填</span></div>`;
+    }
+    h+='</div>';
+    const prog=devProgressOf(t);
+    if(prog) h+=`<div class="tc-progress"><span class="sp-bar"><i style="width:${prog.pct}%"></i></span><span class="sp-txt">${prog.done}/${prog.total}</span></div>`;
+    if(Array.isArray(t.history)&&t.history.length){
+      h+=`<details class="tc-history"><summary>🕘 历史（${t.history.length}）</summary>`
+        +t.history.slice().reverse().slice(0,15).map(x=>{
+          return `<div class="th-item"><span class="th-time">${fmtHistoryTime(x.ts)}</span><span>${esc(x.a)}${x.d?('：'+esc(x.d)):''}</span></div>`;
+        }).join('')
+        +(t.history.length>15?'<div class="muted">…仅显示最近 15 条</div>':'')
+        +'</details>';
+    }
+    h+='</div>';
   });
   h+='</div>';wrap.innerHTML=h;
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
@@ -99,13 +111,7 @@ function renderList(){
     const i=tasks.findIndex(t=>t.id===b.dataset.del);
     if(i>=0){trash.push(tasks[i]);trimTrash();tasks.splice(i,1);save(LS_TASKS,tasks);save(LS_TRASH,trash);renderList();toast('已移入回收站');}
   });
-  wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
-    const tk=tasks.find(x=>x.id===b.dataset.edit); if(!tk)return;
-    editingId=tk.id;
-    document.querySelector('nav button[data-tab="entry"]').click();
-    renderEntry({...tk.values, entryDate:tk.entryDate});
-    window.scrollTo(0,0);
-  });
+  wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openTaskEdit(b.dataset.edit));
   wrap.querySelectorAll('.tcheck').forEach(c=>c.onchange=()=>{
     window.__batchSel=window.__batchSel||new Set();
     if(c.checked)window.__batchSel.add(c.dataset.id); else window.__batchSel.delete(c.dataset.id);
@@ -157,15 +163,36 @@ $('#batchDelete').onclick=()=>{
 };
 /* 批量补录结案日期后，联动回填开发天数（开发日期~结案日期含首尾） */
 function autoCalcDays(t){
-  const d1=parseDateAny(t.values['开发日期']), d2=parseDateAny(t.values['结案日期']);
-  if(d1&&d2){ const diff=Math.round((d2-d1)/86400000)+1; if(diff>=1) t.values['开发天数']=diff+'天'; }
+  const n=calcDevDays(parseDateAny(t.values['开发日期']), parseDateAny(t.values['结案日期']));
+  if(n!=null) t.values['开发天数']=n+'天';
 }
-$('#batchApply').onclick=()=>{
+$('#batchApply').onclick=async ()=>{
   const ids=[...document.querySelectorAll('.tcheck:checked')].map(c=>c.dataset.id);
   if(!ids.length){toast('请先勾选任务');return;}
   const test=$('#batchTest').value, close=$('#batchClose').value, st=$('#batchStatus').value;
   if(!test && !close && !st){toast('请填写要补的日期或状态');return;}
-  ids.forEach(id=>{const t=tasks.find(x=>x.id===id);if(t){if(test)t.values['测试日期']=test;if(close){t.values['结案日期']=close;autoCalcDays(t);}if(st)t.values['完成状态']=st;}});
+  // 批量改为「暂停/取消」时必须填备注（一条备注应用到全部选中任务）
+  let note='';
+  if(st===STATUS_PAUSE || st===STATUS_CANCEL){
+    note=(await uiPrompt('改状态为「'+st+'」需填写备注（必填）——将应用到全部选中任务，说明原因：')||'').trim();
+    if(!note){ toast('已取消：改状态为「'+st+'」需先填写「备注」'); return; }
+  }
+  ids.forEach(id=>{
+    const t=tasks.find(x=>x.id===id);
+    if(t){
+      if(test)t.values['测试日期']=test;
+      if(close){t.values['结案日期']=close;autoCalcDays(t);}
+      if(st===STATUS_DONE){
+        t.values['完成状态']=st;
+        if(!String(t.values['结案日期']||'').trim()){ t.values['结案日期']=close||todayStr(); autoCalcDays(t); }
+      }else if(st){
+        t.values['完成状态']=st;
+        if(st===STATUS_PAUSE || st===STATUS_CANCEL) t.values['备注']=note;
+      }
+      const parts=[]; if(test)parts.push('测试日期='+test); if(close)parts.push('结案日期='+close); if(st)parts.push('状态='+st);
+      addHistory(t,'批量补录',parts.join('、'));
+    }
+  });
   save(LS_TASKS,tasks);renderList();toast('已批量补录 '+ids.length+' 条');
 };
 
@@ -185,10 +212,11 @@ function renderTrash(){
   let h='<div class="task-list">';
   trash.slice().reverse().forEach(t=>{
     h+=`<div class="task-card" data-id="${t.id}">
-      <div class="tc-date">📅 ${t.entryDate} <span class="tc-exported">已删除</span></div>
-      <div class="tc-actions">
-        <button class="btn sec sm" data-restore="${t.id}">恢复</button>
-        <button class="btn del sm" data-purge="${t.id}">彻底删除</button>
+      <div class="tc-date"><span class="tc-pill">📅 ${t.entryDate} <span class="tc-exported">已删除</span></span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-restore="${t.id}">恢复</button>
+          <button class="btn del sm" data-purge="${t.id}">彻底删除</button>
+        </span>
       </div>
       <div class="tc-fields">
         <div class="tc-row"><span class="tc-k">专案</span><span class="tc-v">${esc(t.values['专案名称']||'未填')}</span></div>
@@ -241,7 +269,7 @@ $('#importAllFile').onchange=e=>{
       if(d.type!=='wb_full' || !Array.isArray(d.tasks)) throw new Error('不是有效的全量备份文件');
       if(!Array.isArray(d.schema) || !d.schema.length) throw new Error('备份缺少列配置');
       if(!confirm('将恢复备份中的全部数据（任务库/回收站/列配置/下拉/导出设置），当前数据会被覆盖。\n建议先「全量备份」当前数据。\n仍要恢复？')) return;
-      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported}));
+      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported, subtasks:Array.isArray(t.subtasks)?t.subtasks:[], history:Array.isArray(t.history)?t.history:[]}));
       trash=Array.isArray(d.trash)?d.trash:[];
       schema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||'')}));
       dropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
@@ -279,7 +307,7 @@ $('#restoreEncFile').onchange=e=>{
       if(d.type!=='wb_full' || !Array.isArray(d.tasks)) throw new Error('不是有效的全量备份');
       if(!Array.isArray(d.schema) || !d.schema.length) throw new Error('备份缺少列配置');
       if(!confirm('将恢复加密备份中的全部数据（任务库/回收站/列配置/下拉/导出设置），当前数据会被覆盖。\n建议先「全量备份」当前数据。\n仍要恢复？')) return;
-      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported}));
+      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported, subtasks:Array.isArray(t.subtasks)?t.subtasks:[], history:Array.isArray(t.history)?t.history:[]}));
       trash=Array.isArray(d.trash)?d.trash:[];
       schema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||'')}));
       dropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
@@ -325,7 +353,9 @@ $('#importTasksFile').onchange=e=>{
           id:String(t.id),
           entryDate:String(t.entryDate),
           values,
-          exported:!!t.exported
+          exported:!!t.exported,
+          subtasks:Array.isArray(t.subtasks)?t.subtasks.map(s=>({text:String(s&&s.text!=null?s.text:''), done:!!(s&&s.done)})):[],
+          history:Array.isArray(t.history)?t.history:[]
         };
       });
       if(importMode==='merge'){
@@ -403,24 +433,18 @@ let currentView = 'card';
 
 function switchView(view){
   currentView = view;
-  const cardBtn = $('#viewCard');
-  const ganttBtn = $('#viewGantt');
-  const cardContainer = $('#viewCardContainer');
-  const ganttContainer = $('#viewGanttContainer');
-  
-  if(view === 'gantt'){
-    cardBtn.classList.remove('active');
-    ganttBtn.classList.add('active');
-    cardContainer.classList.add('hidden');
-    ganttContainer.classList.remove('hidden');
-    renderGantt();
-  } else {
-    ganttBtn.classList.remove('active');
-    cardBtn.classList.add('active');
-    ganttContainer.classList.add('hidden');
-    cardContainer.classList.remove('hidden');
-    renderList();
-  }
+  const map={card:{btn:'viewCard',ctr:'viewCardContainer'},gantt:{btn:'viewGantt',ctr:'viewGanttContainer'},kanban:{btn:'viewKanban',ctr:'viewKanbanContainer'},calendar:{btn:'viewCalendar',ctr:'viewCalendarContainer'}};
+  Object.values(map).forEach(({btn,ctr})=>{
+    const b=$('#'+btn); if(b) b.classList.remove('active');
+    const c=$('#'+ctr); if(c) c.classList.add('hidden');
+  });
+  const m=map[view]; if(!m)return;
+  const b=$('#'+m.btn); if(b) b.classList.add('active');
+  const c=$('#'+m.ctr); if(c) c.classList.remove('hidden');
+  if(view==='gantt') renderGantt();
+  else if(view==='kanban') renderKanban();
+  else if(view==='calendar') renderCalendar();
+  else renderList();
 }
 
 function renderGantt(){
@@ -519,7 +543,7 @@ function renderGantt(){
       let start = parseDateAny(t.values['开发日期']) || parseDateAny(t.values['提出日期']) || minDate;
       let end = parseDateAny(t.values['结案日期']);
       if(!end){
-        if(status === 'Closed') end = start; // 已完成但无结案日期，用开始日期
+        if(status === STATUS_DONE) end = start; // 已完成但无结案日期，用开始日期
         else end = new Date(today.getTime() + 7 * 86400000); // 未完成，预估7天
       }
       
@@ -531,13 +555,16 @@ function renderGantt(){
       const left = ((displayStart - minDate) / (maxDate - minDate)) * 100;
       const width = Math.max(((displayEnd - displayStart) / (maxDate - minDate)) * 100, 1);
       
-      // 状态颜色
+      // 状态颜色：逾期（未结案/未取消且日期已过）优先红色，其次按状态
       let statusClass = 'status_other';
       const statusLower = status.toLowerCase();
+      const overdueEarly = (start < today && statusLower !== 'closed' && statusLower !== STATUS_CANCEL && statusLower !== STATUS_PAUSE);
       if(statusLower === 'closed') statusClass = 'status_closed';
+      else if(overdueEarly) statusClass = 'status_overdue';
       else if(statusLower === 'ongoing') statusClass = 'status_ongoing';
+      else if(statusLower === STATUS_PAUSE) statusClass = 'status_pause';
+      else if(statusLower === STATUS_CANCEL) statusClass = 'status_cancel';
       else if(statusLower === 'planning') statusClass = 'status_planning';
-      else if(start < today && statusLower !== 'closed') statusClass = 'status_overdue';
       
       const dateRange = `${toInputDate(start)} ~ ${toInputDate(end)}`;
       
@@ -569,7 +596,9 @@ function renderGantt(){
     <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--blue)"></span>进行中</div>
     <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--warn)"></span>规划中</div>
     <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:var(--del)"></span>逾期</div>
-    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:#888"></span>其他</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:#b7791f"></span>暂停</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:#888"></span>已取消</div>
+    <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:#b9bfc7"></span>其他</div>
   </div>`;
   
   chart.innerHTML = headerHtml + bodyHtml + legendHtml;
@@ -589,22 +618,198 @@ function renderGantt(){
   
   // 绑定点击编辑
   chart.querySelectorAll('[data-edit]').forEach(b => {
-    b.onclick = () => {
-      const tk = tasks.find(x => x.id === b.dataset.edit);
-      if(!tk) return;
-      editingId = tk.id;
-      document.querySelector('nav button[data-tab="entry"]').click();
-      renderEntry({...tk.values, entryDate:tk.entryDate});
-      window.scrollTo(0,0);
-    };
+    b.onclick = () => openTaskEdit(b.dataset.edit);
   });
 }
+
+/* ============ 看板视图：按完成状态分列，拖动卡片直接改状态 ============ */
+function kanbanColumns(){
+  const cfg=dropdowns['完成状态']||[];
+  const priority=['planning','Ongoing','Closed'];
+  const cols=[];
+  // 状态已必填，默认不显示「未填」列；仅当存在历史空状态任务时才保留，避免列堆叠
+  const hasEmpty=tasks.some(t=>!String(t.values['完成状态']||'').trim());
+  if(hasEmpty) cols.push({key:'',label:'未填'});
+  cfg.slice().sort((a,b)=>{
+    const ia=priority.indexOf(a), ib=priority.indexOf(b);
+    return (ia<0?99:ia)-(ib<0?99:ib) || String(a).localeCompare(String(b));
+  }).forEach(s=>{ if(!cols.some(c=>c.key===s)) cols.push({key:s,label:s}); });
+  // 配置里没有但数据里存在的自定义状态，追加在最后
+  tasks.forEach(t=>{ const s=String(t.values['完成状态']||'').trim(); if(s && !cols.some(c=>c.key===s)) cols.push({key:s,label:s}); });
+  return cols;
+}
+function renderKanban(){
+  const board=$('#kanbanBoard');
+  if(!board)return;
+  const q=$('#listSearch').value.trim().toLowerCase();
+  const cf=$('#listCustFilter').value;
+  let list=tasks.slice();
+  if(q)list=list.filter(t=>Object.values(t.values).some(v=>String(v).toLowerCase().includes(q)));
+  if(cf)list=list.filter(t=>(t.values['客户']||'')===cf);
+  if(!tasks.length){ board.innerHTML='<p class="muted">没有任务（去「每日录入」添加）。</p>'; return; }
+  const cols=kanbanColumns();
+  const bySt={};
+  cols.forEach(c=>bySt[c.key]=[]);
+  list.forEach(t=>{
+    const s=String(t.values['完成状态']||'').trim();
+    const key=cols.some(c=>c.key===s)?s:'';
+    bySt[key].push(t);
+  });
+  board.innerHTML=cols.map(c=>{
+    const items=bySt[c.key]||[];
+    return `<div class="kanban-col" data-status="${esc(c.key)}" data-label="${esc(c.label)}">
+      <div class="kanban-head">${esc(c.label||'未填')}<span class="kcnt">${items.length}</span></div>
+      <div class="kanban-cards">${
+        items.length?items.map(t=>{
+          const name=String(t.values['专案名称']||'').trim()||'未命名任务';
+          const desc=String(t.values['需求说明']||'').trim();
+          const dev=String(t.values['开发日期']||'').trim();
+          const cust=String(t.values['客户']||'').trim();
+          const done=String(t.values['完成状态']||'').trim()===STATUS_DONE;
+          const overdue=isTaskOverdue(t);
+          const prog=devProgressOf(t);
+          return `<div class="kanban-card${done?' done':''}${overdue?' overdue':''}" draggable="true" data-id="${t.id}" title="点击编辑：${esc(name)}">
+            <span class="kc-name">${esc(name)}</span>
+            ${prog?`<div class="tc-progress" style="margin:0"><span class="sp-bar"><i style="width:${prog.pct}%"></i></span><span class="sp-txt">${prog.done}/${prog.total}</span></div>`:''}
+            ${desc?`<span class="kc-desc">${esc(desc)}</span>`:''}
+            <span class="kc-meta">${dev?`<span class="kc-date">📅 ${esc(dev)}</span>`:''}${cust?`<span>${esc(cust)}</span>`:''}${overdue?`<span style="color:var(--del)">⏰ 逾期</span>`:''}</span>
+          </div>`;
+        }).join(''):'<div class="kanban-empty">拖到这里</div>'
+      }</div>
+    </div>`;
+  }).join('');
+  board.querySelectorAll('.kanban-card').forEach(card=>{
+    card.onclick=()=>openTaskEdit(card.dataset.id);
+    card.ondragstart=e=>{
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+      e.dataTransfer.effectAllowed='move';
+    };
+    card.ondragend=()=>card.classList.remove('dragging');
+  });
+}
+/* 看板拖拽：丢到列即改「完成状态」；绑定一次，渲染时列/卡片重画不影响 */
+(function(){
+  const board=document.getElementById('kanbanBoard');
+  if(!board)return;
+  board.addEventListener('dragover',e=>{
+    const col=e.target.closest('.kanban-col');
+    if(!col)return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect='move';
+    board.querySelectorAll('.kanban-col.drag-over').forEach(c=>{ if(c!==col)c.classList.remove('drag-over'); });
+    col.classList.add('drag-over');
+  });
+  board.addEventListener('dragleave',e=>{
+    const col=e.target.closest('.kanban-col');
+    if(col && !col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+  });
+  board.addEventListener('drop', async e=>{
+    e.preventDefault();
+    const col=e.target.closest('.kanban-col');
+    if(!col)return;
+    col.classList.remove('drag-over');
+    const id=e.dataTransfer.getData('text/plain');
+    if(!id)return;
+    const t=tasks.find(x=>x.id===id);
+    if(!t)return;
+    const ns=col.dataset.status;
+    const oldSt=(String(t.values['完成状态']||'').trim()||'未填');
+    if(oldSt===ns){ toast('状态未变化'); return; }
+    // 拖到「暂停/取消」：必须先填备注（弹窗输入，取消则本次回退）
+    if(ns===STATUS_PAUSE || ns===STATUS_CANCEL){
+      const note=(await uiPrompt('改状态为「'+ns+'」需填写备注（必填）——说明原因：')||'').trim();
+      if(!note){ toast('已取消：改状态为「'+ns+'」需先填写「备注」'); return; }
+      t.values['备注']=note;
+    }
+    // 拖到 Closed：自动补结案日期（已填则不动）
+    if(ns===STATUS_DONE && !String(t.values['结案日期']||'').trim()){
+      t.values['结案日期']=todayStr();
+      autoCalcDays(t);
+    }
+    t.values['完成状态']=ns;
+    addHistory(t,'状态变更',oldSt+' → '+(col.dataset.label||'未填'));
+    save(LS_TASKS,tasks);
+    renderKanban();
+    renderStats();
+    toast('已更新状态 →「'+(col.dataset.label||'未填')+'」');
+  });
+})();
 
 // 视图切换事件绑定
 $('#viewCard').onclick = () => switchView('card');
 $('#viewGantt').onclick = () => switchView('gantt');
+$('#viewKanban').onclick = () => switchView('kanban');
+$('#viewCalendar').onclick = () => switchView('calendar');
 $('#ganttGroupBy').onchange = renderGantt;
 $('#ganttRange').onchange = renderGantt;
+
+/* ============ 日历视图：按录入日期回看 + 补录跳转 ============ */
+let calY=new Date().getFullYear(), calM=new Date().getMonth();
+function calItemHtml(t){
+  const name=String(t.values['专案名称']||'').trim()||'未命名';
+  const closed=String(t.values['完成状态']||'').trim()===STATUS_DONE;
+  return `<span class="cal-item${closed?' closed':''}" data-id="${t.id}" title="${esc(name)}（点击编辑）">${esc(name)}</span>`;
+}
+function renderCalendar(){
+  const grid=$('#calGrid'); if(!grid) return;
+  const p=n=>String(n).padStart(2,'0');
+  const y=calY, m=calM;
+  const dim=new Date(y,m+1,0).getDate();
+  const offset=(new Date(y,m,1).getDay()+6)%7; // 周一=0
+  const byDate={};
+  tasks.forEach(t=>{
+    const d=parseDateAny(t.entryDate);
+    if(d){ const k=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); (byDate[k]=byDate[k]||[]).push(t); }
+  });
+  const todayK=todayStr();
+  const monthCount=tasks.filter(t=>{ const d=parseDateAny(t.entryDate); return d&&d.getFullYear()===calY&&d.getMonth()===calM; }).length;
+  $('#calTitle').textContent=y+'年'+(m+1)+'月'+(monthCount?`　·　本月收录 ${monthCount} 条`:'');
+  let h='';
+  ['周一','周二','周三','周四','周五','周六','周日'].forEach(w=>h+=`<div class="cal-head">${w}</div>`);
+  const prev=new Date(y,m,0);
+  const prevDim=prev.getDate();
+  const prevY=prev.getFullYear(), prevM=prev.getMonth();
+  for(let i=offset-1;i>=0;i--){
+    const d=prevDim-i;
+    const k=prevY+'-'+p(prevM+1)+'-'+p(d);
+    const list=byDate[k]||[];
+    h+=`<div class="cal-cell other-month"><div class="cal-day"><span class="cal-num">${d}</span></div>${list.slice(0,3).map(calItemHtml).join('')}</div>`;
+  }
+  for(let d=1;d<=dim;d++){
+    const k=y+'-'+p(m+1)+'-'+p(d);
+    const list=byDate[k]||[];
+    h+=`<div class="cal-cell${k===todayK?' today':''}">
+      <div class="cal-day"><span class="cal-num">${d}</span><span class="cal-add" data-add="${k}" title="补录该天：打开录入页并把录入日期设为这一天">补录</span></div>
+      ${list.slice(0,4).map(calItemHtml).join('')}
+      ${list.length>4?`<span class="cal-more">…还有 ${list.length-4} 条</span>`:''}
+    </div>`;
+  }
+  const used=offset+dim;
+  let tail=42-used;
+  if(tail<0) tail=7-Math.abs(tail)%7||0; // 不足6行时补齐
+  for(let d=1;d<=tail;d++){
+    const nd=new Date(y,m+1,d);
+    const k=nd.getFullYear()+'-'+p(nd.getMonth()+1)+'-'+p(nd.getDate());
+    const list=byDate[k]||[];
+    h+=`<div class="cal-cell other-month"><div class="cal-day"><span class="cal-num">${d}</span></div>${list.slice(0,3).map(calItemHtml).join('')}</div>`;
+  }
+  grid.innerHTML=h;
+  grid.querySelectorAll('.cal-item').forEach(el=>{
+    el.onclick=()=>openTaskEdit(el.dataset.id);
+  });
+  grid.querySelectorAll('[data-add]').forEach(el=>{
+    el.onclick=()=>{
+      document.querySelector('nav button[data-tab="entry"]').click();
+      $('#entryDate').value=el.dataset.add;
+      markBaseline();
+      toast('录入日期已设为 '+el.dataset.add+'，填完提交即可补录');
+    };
+  });
+}
+$('#calPrev').onclick=()=>{ calM--; if(calM<0){ calM=11; calY--; } renderCalendar(); };
+$('#calNext').onclick=()=>{ calM++; if(calM>11){ calM=0; calY++; } renderCalendar(); };
+$('#calToday').onclick=()=>{ calY=new Date().getFullYear(); calM=new Date().getMonth(); renderCalendar(); };
 
 // 默认显示卡片视图
 $('#viewCard').classList.add('active');

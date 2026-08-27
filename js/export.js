@@ -83,12 +83,9 @@ function mapTaskToRow(task){
 }
 
 function setDefaultRange(){
-  const now=new Date();
-  const day=now.getDay();
-  const diff=(day===0?-6:1-day);
-  const mon=new Date(now);mon.setDate(now.getDate()+diff);
-  const fri=new Date(mon);fri.setDate(mon.getDate()+4);
-  $('#rangeStart').value=toInputDate(mon);
+  const {start}=weekRange();
+  const fri=new Date(start); fri.setDate(start.getDate()+4);
+  $('#rangeStart').value=toInputDate(start);
   $('#rangeEnd').value=toInputDate(fri);
 }
 $('#thisWeek').onclick=setDefaultRange;

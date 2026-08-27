@@ -27,7 +27,7 @@ function renderMonthly(){
   $('#monthListCount').textContent='（去重后 '+data.length+' 个）';
   const box=$('#monthResult');
   if(!data.length){ box.textContent='该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。'; return; }
-  const closed=data.filter(r=>String(r.完成状态||'')==='Closed').length;
+  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
   const rate=data.length?Math.round(closed/data.length*100):0;
   const showCust=$('#mf_cust').checked, showOwner=$('#mf_owner').checked, showStatus=$('#mf_status').checked;
   const lines=data.map((r,i)=>{
@@ -40,6 +40,7 @@ function renderMonthly(){
     return s;
   });
   box.textContent='【'+mv+'】共 '+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%\n\n'+lines.join('\n');
+  genReview();
 }
 $('#monthPick').onchange=renderMonthly;
 $('#monthThis').onclick=()=>{ setMonthDefault(); renderMonthly(); };
@@ -54,7 +55,7 @@ $('#exportMonthly').onclick=()=>{
   const data=getMonthlyData();
   if(!data.length){toast('该月没有可汇总的任务');return;}
   const mv=$('#monthPick').value||'monthly';
-  const closed=data.filter(r=>String(r.完成状态||'')==='Closed').length;
+  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
   const rate=data.length?Math.round(closed/data.length*100):0;
   const head='【'+mv+'】共 '+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%';
   const text=head+'\n\n'+data.map((r,i)=>{
@@ -94,7 +95,7 @@ $('#exportMonthlyXlsx').onclick=async ()=>{
     row.eachCell(cell=>{ cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
   });
   // 底部汇总行
-  const closed=data.filter(r=>String(r.完成状态||'')==='Closed').length;
+  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
   const rate=data.length?Math.round(closed/data.length*100):0;
   const sumRow=ws.addRow(['', '合计：'+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%']);
   sumRow.eachCell(cell=>{ cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
@@ -131,9 +132,10 @@ function genWeekly(){
   $('#wpText').value=out;
 }
 function setDefaultRangeWp(){
-  const now=new Date();const day=now.getDay();const diff=(day===0?-6:1-day);
-  const mon=new Date(now);mon.setDate(now.getDate()+diff);const fri=new Date(mon);fri.setDate(mon.getDate()+4);
-  $('#wpStart').value=toInputDate(mon);$('#wpEnd').value=toInputDate(fri);
+  const {start}=weekRange();
+  const fri=new Date(start); fri.setDate(start.getDate()+4);
+  $('#wpStart').value=toInputDate(start);
+  $('#wpEnd').value=toInputDate(fri);
 }
 function fallbackCopy(txt){ const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){} ta.remove();toast('已复制'); }
 $('#wpStart').onchange=genWeekly;
@@ -142,3 +144,101 @@ $('#wpThisWeek').onclick=()=>{ setDefaultRangeWp(); genWeekly(); };
 $('#wpThisMonth').onclick=()=>{ const now=new Date();const p=n=>String(n).padStart(2,'0'); const y=now.getFullYear(),m=now.getMonth()+1; const first=y+'-'+p(m)+'-01'; const last=new Date(y,m+1,0); $('#wpStart').value=first; $('#wpEnd').value=toInputDate(last); genWeekly(); };
 $('#wpCopy').onclick=()=>{ const txt=$('#wpText').value; if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('已复制'),()=>fallbackCopy(txt));}else fallbackCopy(txt); };
 $('#wpPrint').onclick=()=>{ const txt=$('#wpText').value; const w=window.open('','_blank'); if(!w){toast('浏览器拦截了打印窗口');return;} const p=w.document.createElement('pre'); p.style.cssText='font-family:inherit;white-space:pre-wrap;padding:24px;line-height:1.7'; p.textContent=txt; w.document.body.appendChild(p); w.document.title='周报段落'; setTimeout(()=>{w.focus();w.print();},100); };
+
+/* 周报段落一键导出 Word（.doc，Word/WPS 可直接打开） */
+$('#wpWord').onclick=()=>{
+  const txt=$('#wpText').value;
+  if(!txt || !txt.trim() || txt==='该范围内没有任务。'){ toast('请先在上方选择日期范围生成周报段落'); return; }
+  const s=$('#wpStart').value, e=$('#wpEnd').value;
+  const body=txt.split('\n').map(line=>{
+    const t=line.trim();
+    if(!t) return '<p style="margin:6pt 0">&nbsp;</p>';
+    if(/^本周工作小结/.test(t)) return '<h3 style="font-size:14pt;margin:12pt 0 6pt">'+esc(t)+'</h3>';
+    return '<p style="margin:2pt 0;line-height:1.7">'+esc(t)+'</p>';
+  }).join('\n');
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="utf-8"><title>工作周报</title></head>
+<body style="font-family:微软雅黑,Arial,sans-serif;font-size:12pt;color:#222">
+<h1 style="text-align:center;font-size:18pt;margin:6pt 0 2pt">工作周报</h1>
+<p style="text-align:center;color:#666;font-size:10.5pt;margin-bottom:14pt">时间范围：${s} ~ ${e}</p>
+${body}
+<p style="color:#999;font-size:9pt;margin-top:24pt;border-top:1px solid #e3e6eb;padding-top:6pt">由「工作任务管理」生成 · 数据存于本地浏览器</p>
+</body></html>`;
+  const blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  downloadBlob(blob,'工作周报_'+todayStr()+'.doc');
+  toast('已导出 Word 周报（.doc）');
+};
+
+/* ============ 月度复盘总结：按所选月份生成完成/进行中/待处理 + 关键产出 ============ */
+function monthTasksOf(mv){
+  if(!mv) return [];
+  const [y,m]=mv.split('-').map(Number);
+  return tasks.filter(t=>{ const d=parseDateAny(t.entryDate); return d && d.getFullYear()===y && d.getMonth()+1===m; });
+}
+function genReview(){
+  const mv=$('#monthPick').value;
+  const box=$('#reviewText'); if(!box) return;
+  const msg=$('#reviewMsg');
+  if(!mv){ box.value=''; if(msg)msg.textContent=''; return; }
+  const mon=monthTasksOf(mv);
+  if(!mon.length){ box.value='该月没有任务数据。'; if(msg)msg.textContent=''; return; }
+  const today0=new Date(); today0.setHours(0,0,0,0);
+  const closed=[], doing=[], pending=[], paused=[], cancelled=[];
+  mon.forEach(t=>{
+    const s=String(t.values['完成状态']||'').trim();
+    if(s===STATUS_DONE) closed.push(t);
+    else if(s===STATUS_CANCEL) cancelled.push(t);
+    else if(s===STATUS_PAUSE) paused.push(t);
+    else if(s.toLowerCase()==='ongoing') doing.push(t);
+    else pending.push(t);
+  });
+  const overdue=pending.filter(t=>{ const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']); return d && d<today0; }).length;
+  const [y2,m2]=mv.split('-').map(Number);
+  const line=t=>{
+    const name=String(t.values['专案名称']||'').trim()||'未命名任务';
+    const cust=String(t.values['客户']||'').trim();
+    const prog=String(t.values['开发进度']||'').trim().split('\n')[0];
+    const head=[name, cust?('['+cust+']'):''].filter(Boolean).join(' ');
+    return prog ? '· '+head+'｜'+prog : '· '+head;
+  };
+  const sec=(title,arr)=> arr.length ? '\n▎'+title+'（'+arr.length+'）\n'+arr.map(line).join('\n') : '';
+  box.value=`【${y2}年${m2}月 月度复盘】\n`
+    +`本月录入 ${mon.length} 项，完成 ${closed.length} 项，完成率 ${mon.length?Math.round(closed.length/mon.length*100):0}%`
+    +sec('已完成', closed)
+    +sec('进行中', doing)
+    +sec('待处理（含逾期 '+overdue+' 项）', pending)
+    +sec('已暂停', paused)
+    +sec('已取消', cancelled)
+    +`\n\n复盘要点（可自行补充）：\n`;
+  if(msg) msg.textContent=`完成 ${closed.length} · 进行中 ${doing.length} · 待处理 ${pending.length}${paused.length?' · 已暂停 '+paused.length:''}${cancelled.length?' · 已取消 '+cancelled.length:''}`;
+}
+$('#genReview').onclick=genReview;
+$('#reviewCopy').onclick=()=>{
+  const txt=$('#reviewText').value;
+  if(!txt || !txt.trim()){ toast('请先生成月度复盘'); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>toast('已复制'),()=>fallbackCopy(txt)); }
+  else fallbackCopy(txt);
+};
+$('#reviewWord').onclick=()=>{
+  const txt=$('#reviewText').value;
+  if(!txt || !txt.trim()){ toast('请先生成月度复盘'); return; }
+  const mv=$('#monthPick').value||'month';
+  const body=txt.split('\n').map(l=>{
+    const t=l.trim();
+    if(!t) return '<p style="margin:4pt 0">&nbsp;</p>';
+    if(/^【/.test(t)) return '<h3 style="font-size:14pt;margin:10pt 0 4pt">'+esc(t)+'</h3>';
+    if(/^▎/.test(t)) return '<h4 style="font-size:12pt;margin:8pt 0 3pt;color:#2f6fed">'+esc(t)+'</h4>';
+    return '<p style="margin:1.5pt 0;line-height:1.7">'+esc(t)+'</p>';
+  }).join('\n');
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="utf-8"><title>月度复盘</title></head>
+<body style="font-family:微软雅黑,Arial,sans-serif;font-size:12pt;color:#222">
+<h1 style="text-align:center;font-size:18pt;margin:6pt 0 2pt">月度复盘</h1>
+<p style="text-align:center;color:#666;font-size:10.5pt;margin-bottom:12pt">${mv}</p>
+${body}
+<p style="color:#999;font-size:9pt;margin-top:24pt;border-top:1px solid #e3e6eb;padding-top:6pt">由「工作任务管理」生成 · 数据存于本地浏览器</p>
+</body></html>`;
+  const blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  downloadBlob(blob,'月度复盘_'+mv+'.doc');
+  toast('已导出 Word（.doc）');
+};

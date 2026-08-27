@@ -19,28 +19,28 @@
   html[data-theme=dark] nav button{background:#2a2e35;color:#cfd5dd}
   html[data-theme=dark] .btn.sec{background:#2a2e35;color:#cfd5dd}
   html[data-theme=dark] .hint{background:#1f2838;color:#b8c4da;border-left-color:#5b8def}
-  html[data-theme=dark] .stat,.dash-box,.dd-block,.cust-stats{background:#20242b;border-color:#33373f}
+  html[data-theme=dark] .stat, html[data-theme=dark] .dash-box, html[data-theme=dark] .dd-block, html[data-theme=dark] .cust-stats{background:#20242b;border-color:#33373f}
   html[data-theme=dark] .stat{background:#222837}
   html[data-theme=dark] .task-card{background:#202329}
   html[data-theme=dark] .task-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.35)}
   html[data-theme=dark] th{background:#262b33}
-  html[data-theme=dark] input,select,textarea{background:#262b33;color:#e6e8eb;border-color:#3a3f48}
-  html[data-theme=dark] .file-drop,.col-grid,.cm-row,.batch-bar{background:#20242b;border-color:#33373f}
+  html[data-theme=dark] input, html[data-theme=dark] select, html[data-theme=dark] textarea{background:#262b33;color:#e6e8eb;border-color:#3a3f48}
+  html[data-theme=dark] .file-drop, html[data-theme=dark] .col-grid, html[data-theme=dark] .cm-row, html[data-theme=dark] .batch-bar{background:#20242b;border-color:#33373f}
   html[data-theme=dark] .gantt-chart{background:#202329}
   html[data-theme=dark] .gantt-row:nth-child(even){background:#23262d}
   html[data-theme=dark] .gantt-group-title{background:#222837}
   html[data-theme=dark] .gantt-header-row{background:#262b33}
   html[data-theme=dark] .gantt-week-col,.gantt-month-col{background:#262b33;border-color:#33373f}
-  html[data-theme=dark] .tc-date{background:#222837;color:#5b8def}
+  html[data-theme=dark] .tc-pill{background:#222837;color:#5b8def}
   html[data-theme=dark] .dd-chip{background:#222837;border-color:#34406b;color:#8fb0f5}
   html[data-theme=dark] .dd-chip input{color:#8fb0f5}
   html[data-theme=dark] .weekly-preview{background:#20242b;border-color:#33373f}
   html[data-theme=dark] .val-report.ok{background:#1c2a22;border-color:#2a4a35;color:#7fd6a0}
   html[data-theme=dark] .val-report.has-err{background:#2c2020;border-color:#4a2a27;color:#f0a29a}
   html[data-theme=dark] .val-report.has-warn{background:#2a2419;border-color:#4a3a1f;color:#eac486}
-  html[data-theme=dark] .cust-row,.dist-row{color:#dfe3e8}
+  html[data-theme=dark] .cust-row{color:#dfe3e8}
   html[data-theme=dark] #toast{background:#e8ebee;color:#222}
-  html[data-theme=dark] .cust-bar,.dash-bar-row .bt{background:#33373f}
+  html[data-theme=dark] .cust-bar, html[data-theme=dark] .dash-bar-row .bt{background:#33373f}
   html[data-theme=dark] .task-card.done{border-left-color:#2fbe76}
   *{box-sizing:border-box}
   body{margin:0;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
@@ -56,7 +56,7 @@
   .card h3{margin:18px 0 8px;font-size:13px;color:var(--mut)}
   label{display:block;margin-bottom:10px}
   label .lab{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
-  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;font-family:inherit}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;color:var(--txt);font-family:inherit}
   textarea{min-height:60px;resize:vertical}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
   .btn{display:inline-block;background:var(--blue);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:14px}
@@ -106,14 +106,15 @@
   .task-card{position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;transition:box-shadow .15s,border-color .15s}
   .task-card:hover{box-shadow:0 4px 14px rgba(47,111,237,.12);border-color:#c5d4f5}
   .task-card.done{border-left:4px solid var(--ok)}
-  .task-card .tc-date{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--blue);background:#eef3ff;padding:2px 9px;border-radius:999px;margin-bottom:8px}
-  .task-card .tc-exported{font-size:11px;color:var(--mut);margin-left:8px}
+  .task-card .tc-date{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;background:none;padding:0;color:inherit;border-radius:0}
+  .task-card .tc-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--blue);background:#eef3ff;padding:2px 9px;border-radius:999px}
+  .task-card .tc-exported{font-size:11px;color:var(--mut);margin-left:0}
   .task-card .tc-fields{display:flex;flex-direction:column;gap:5px}
   .task-card .tc-row{display:flex;gap:8px;font-size:13px;line-height:1.45}
   .task-card .tc-k{flex:0 0 76px;color:var(--mut);text-align:right}
   .task-card .tc-v{flex:1;color:var(--txt);word-break:break-word;white-space:pre-wrap}
   .task-card .tc-v.empty{color:#b9bfc7}
-  .task-card .tc-actions{position:absolute;top:10px;right:10px;display:flex;gap:6px}
+  .task-card .tc-actions{display:flex;gap:6px;margin-left:auto}
   .task-card .tc-actions .btn{box-shadow:none}
   .tcheck-wrap{position:absolute;left:12px;top:12px}
   .list-batch .task-card{padding-left:36px}
@@ -171,13 +172,105 @@
   .gantt-bar.status_ongoing{background:var(--blue)}
   .gantt-bar.status_planning{background:var(--warn)}
   .gantt-bar.status_overdue{background:var(--del)}
-  .gantt-bar.status_other{background:#888}
+  .gantt-bar.status_pause{background:#b7791f}
+  .gantt-bar.status_cancel{background:#888}
+  .gantt-bar.status_other{background:#b9bfc7}
   .gantt-bar .bar-label{overflow:hidden;text-overflow:ellipsis}
   .gantt-bar .bar-date{opacity:.8;margin-left:4px;font-size:10px}
   .gantt-legend{display:flex;gap:12px;margin-top:10px;font-size:12px;color:var(--mut)}
   .gantt-legend-item{display:flex;align-items:center;gap:4px}
   .gantt-legend-dot{width:12px;height:12px;border-radius:3px}
   .gantt-empty{padding:24px;text-align:center;color:var(--mut)}
+
+  /* ============ 今日待办 ============ */
+  #todayPanel{border:1px dashed var(--line);border-radius:12px;padding:12px 16px;margin-bottom:16px;background:var(--card)}
+  #todayPanel summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;user-select:none}
+  #todayPanel summary::-webkit-details-marker{display:none}
+  #todayPanel summary h2{margin:0}
+  .today-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .today-col{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  html[data-theme=dark] .today-col{background:#20242b;border-color:#33373f}
+  .today-col h3{font-size:12px;margin:0 0 8px;color:var(--mut);display:flex;align-items:center;gap:6px}
+  .today-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12.5px;border:1px solid transparent}
+  .today-item:hover{background:#eef3ff;border-color:#d8e2fb}
+  html[data-theme=dark] .today-item:hover{background:#222837;border-color:#34406b}
+  .today-item .ti-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .today-item .ti-cust{flex:0 0 auto;color:var(--mut);font-size:11px}
+  .today-empty{color:var(--mut);font-size:12px;padding:6px 0}
+  @media (max-width:600px){.today-grid{grid-template-columns:1fr}}
+
+  /* 本周已录（防漏录） */
+  .week-item{display:flex;gap:8px;align-items:center;padding:3px 6px;border-radius:6px;font-size:12px}
+  .week-item:hover{background:#eef3ff}
+  html[data-theme=dark] .week-item:hover{background:#222837}
+  .week-item .wi-date{flex:0 0 auto;color:var(--mut);font-size:11px}
+  .week-item .wi-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .week-item .wi-st{flex:0 0 auto;font-size:11px;color:var(--mut)}
+
+  /* 子任务进度条（录入页预览 / 卡片 / 看板共用） */
+  .sp-bar{flex:1;height:6px;background:#eef1f5;border-radius:999px;overflow:hidden}
+  html[data-theme=dark] .sp-bar{background:#33373f}
+  .sp-bar i{display:block;height:100%;background:var(--ok);border-radius:999px}
+  .sp-txt{flex:0 0 auto;color:var(--mut);font-size:11.5px}
+  .subtask-progress,.tc-progress{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--mut)}
+  .tc-progress{margin:4px 0 2px}
+
+  /* 卡片内历史记录 */
+  .tc-history{font-size:11.5px;color:var(--mut);border-top:1px dashed var(--line);margin-top:8px;padding-top:6px}
+  .tc-history summary{cursor:pointer;user-select:none;font-size:11px}
+  .tc-history .th-item{display:flex;gap:8px;padding:3px 0;line-height:1.45}
+  .tc-history .th-time{flex:0 0 auto;color:#9aa3ae}
+  .tc-history .th-item span:last-child{flex:1;word-break:break-word}
+
+  /* ============ 看板视图 ============ */
+  .kanban-board{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:8px}
+  .kanban-col{flex:1;min-width:236px;max-width:320px;background:#f4f6f9;border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;max-height:68vh}
+  html[data-theme=dark] .kanban-col{background:#1c2026;border-color:#33373f}
+  .kanban-col.drag-over{border-color:var(--blue);background:#eef4ff}
+  html[data-theme=dark] .kanban-col.drag-over{background:#232a38}
+  .kanban-head{display:flex;align-items:center;gap:6px;padding:0 4px 8px;font-size:13px;font-weight:600}
+  .kanban-head .kcnt{margin-left:auto;background:#e8eefc;color:var(--blue);border-radius:999px;padding:0 8px;font-size:11px;font-weight:600}
+  html[data-theme=dark] .kanban-head .kcnt{background:#222837;color:#8fb0f5}
+  .kanban-cards{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:30px;flex:1}
+  .kanban-card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:12px;transition:box-shadow .12s;display:flex;flex-direction:column;gap:4px}
+  .kanban-card:hover{box-shadow:0 3px 10px rgba(47,111,237,.15);border-color:#c5d4f5}
+  .kanban-card.overdue{border-left:3px solid var(--del)}
+  html[data-theme=dark] .kanban-card.overdue{border-left-color:var(--del)}
+  .kanban-card.dragging{opacity:.4}
+  .kanban-card .kc-name{font-weight:600;font-size:12.5px;word-break:break-word}
+  .kanban-card .kc-desc{color:var(--mut);font-size:11.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+  .kanban-card .kc-meta{display:flex;gap:8px;align-items:center;font-size:10.5px;color:var(--mut);flex-wrap:wrap}
+  .kanban-card .kc-meta .kc-date{color:var(--blue)}
+  .kanban-empty{color:var(--mut);font-size:11.5px;padding:12px 4px;text-align:center;border:1px dashed var(--line);border-radius:8px}
+  @media (max-width:600px){.kanban-col{min-width:200px;max-width:240px}}
+
+  /* ============ 日历视图 ============ */
+  .cal-controls{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .cal-title{font-size:14px;font-weight:600;color:var(--txt)}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .cal-head{background:#f0f3f7;padding:6px 4px;text-align:center;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+  html[data-theme=dark] .cal-head{background:#262b33}
+  .cal-head:nth-child(7n){border-right:none}
+  .cal-cell{min-height:92px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 6px;font-size:11.5px;display:flex;flex-direction:column;gap:3px;background:#fff}
+  html[data-theme=dark] .cal-cell{background:#20242b}
+  .cal-cell:nth-child(7n){border-right:none}
+  .cal-cell.other-month{background:#f7f8fa;opacity:.65}
+  html[data-theme=dark] .cal-cell.other-month{background:#1a1d22}
+  .cal-cell.today{border:1.5px solid var(--blue)}
+  .cal-cell .cal-day{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:11px;color:var(--txt);margin-bottom:2px}
+  .cal-cell.today .cal-day .cal-num{background:var(--blue);color:#fff;border-radius:999px;padding:0 7px;line-height:18px}
+  .cal-add{font-size:10px;color:var(--mut);cursor:pointer;border:1px dashed var(--line);border-radius:6px;padding:0 5px;line-height:15px;font-weight:400}
+  .cal-add:hover{color:var(--blue);border-color:var(--blue)}
+  .cal-item{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;border-radius:5px;padding:1px 5px;color:var(--txt);background:#eef3ff}
+  html[data-theme=dark] .cal-item{background:#2a3448}
+  .cal-item.closed{background:#e8f6ee;color:#1a7a44}
+  html[data-theme=dark] .cal-item.closed{background:#1f2e26;color:#7fd6a0}
+  .cal-item:hover{opacity:.8}
+  .cal-more{color:var(--mut);font-size:10.5px}
+
+  /* ============ 数据看板：年度汇总表 ============ */
+  .dash-box table{font-size:12px}
+  .dash-box table .c{text-align:center}
 
   /* ============ 配置中心：下拉选项 chip 样式 ============ */
   .dd-block{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafbfc}
@@ -231,7 +324,7 @@
   .val-report li{margin:3px 0}
 
   /* ============ 数据看板 ============ */
-  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;margin-top:6px}
   .dash-box{background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .dash-box h3{font-size:13px;margin:0 0 10px;color:var(--txt)}
   .dash-trend{display:flex;align-items:flex-end;gap:8px;height:150px;padding-top:8px}
@@ -302,6 +395,15 @@
     header{flex-wrap:wrap}
     .dash-grid{grid-template-columns:1fr}
   }
+
+  /* 大屏（Web 全屏）优化：加宽主容器、网格按宽度自动填满、看板列可拉伸 */
+  @media (min-width:1300px){
+    main{max-width:1560px;padding:26px 32px}
+    .today-grid{grid-template-columns:repeat(3,1fr)}
+    .kanban-col{min-width:280px;max-width:none}
+    .help-card{grid-template-columns:repeat(3,1fr)}
+    #colCfgList{max-width:1250px}
+  }
 </style>
 </head>
 <body>
@@ -328,6 +430,23 @@
     <h2>每日录入</h2>
     <div class="hint">录入日期默认今天，可改成历史日期<b>补录</b>；一天可录多条（每条独立保存）。带 <span class="badge">预填</span> 的字段是默认带出的，<b>都可改、可清空</b>。测试/结案日期默认留空，可留到任务列表里补。<br>快捷键：在输入框按 <b>回车</b> 保存；多行框内 <b>Ctrl+回车</b> 保存。输入内容会自动保存草稿，误关/刷新不丢失。</div>
     <div id="draftBar" class="hint hidden" style="display:none;margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap">📝 <span class="draft-info"></span><button type="button" class="btn sec sm" id="draftRestore">恢复草稿</button><button type="button" class="btn sec sm" id="draftDiscard">丢弃</button></div>
+    <details id="todayPanel" open>
+      <summary class="today-summary"><h2>📌 今日待办 <span class="muted" style="font-weight:400;font-size:12px">今日需推进 / 逾期 / 本周已录，点条目载入编辑</span></h2></summary>
+      <div class="today-grid">
+        <div class="today-col">
+          <h3>今日需推进 <span id="todayCount" class="badge">—</span></h3>
+          <div id="todayTodo"></div>
+        </div>
+        <div class="today-col">
+          <h3>逾期未完成 <span id="todayOverdueCount" class="badge">—</span></h3>
+          <div id="todayOverdue"></div>
+        </div>
+        <div class="today-col" style="grid-column:1/-1">
+          <h3>本周已录（防漏录，周一~周日） <span class="muted" style="font-weight:400">共 <span id="weekCount">0</span> 条</span></h3>
+          <div id="weekList"></div>
+        </div>
+      </div>
+    </details>
     <form id="entryForm" class="grid"><label><span class="lab">厂区 <span class="badge">预填</span></span><input type="text" name="厂区" value="东莞"></label><label><span class="lab">提出日期 <span class="badge">预填</span></span><input type="date" name="提出日期" value="2026-08-25"></label><label><span class="lab">提出部门 <span class="badge">预填</span></span><input type="text" name="提出部门" value="仓库"></label><div class="field"><span class="lab">客户</span><div class="dd-inline"><select name="客户"><option value="">请选择</option><option>所有</option><option>N客户</option><option>太白山</option><option>其他</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「客户」新增选项">+ 新增</button></div></div><label><span class="lab">专案名称</span><input type="text" name="专案名称" value=""></label><label><span class="lab">需求说明</span><input type="text" name="需求说明" value=""></label><label><span class="lab">负责人 <span class="badge">预填</span></span><input type="text" name="负责人" value="黄崇璇"></label><label><span class="lab">开发进度</span><textarea name="开发进度" placeholder="可多行，如：08/20 完成，等待测试"></textarea><div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」，多行可用换行</div></label><div class="field"><span class="lab">完成状态</span><div class="dd-inline"><select name="完成状态"><option value="">请选择</option><option>Ongoing</option><option>Closed</option><option>planning</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「完成状态」新增选项">+ 新增</button></div></div><label><span class="lab">开发日期 <span class="badge">预填</span></span><input type="date" name="开发日期" value="2026-08-25"></label><label><span class="lab">测试日期</span><input type="date" name="测试日期" value=""></label><label><span class="lab">开发天数 <span class="badge">预填</span></span><input type="text" name="开发天数" value="1天"></label><label><span class="lab">结案日期</span><input type="date" name="结案日期" value=""></label><label><span class="lab">备注</span><input type="text" name="备注" value=""></label></form>
     <div class="row" style="margin-top:14px;align-items:flex-end">
       <div style="flex:0 0 210px"><span class="lab muted">录入日期（可改，用于补录）</span><input type="date" id="entryDate"></div>
@@ -360,6 +479,10 @@ WE01出货单查询"></textarea>
       <div class="dash-box">
         <h3>任务趋势（近 6 个月录入）</h3>
         <div id="dashTrend" class="dash-trend"></div>
+      </div>
+      <div class="dash-box" style="grid-column:1/-1">
+        <h3 style="display:flex;align-items:center;gap:10px">年度/季度汇总对比 <span class="muted" style="font-weight:400;font-size:12px">看每月与每季度的工作量和完成情况</span><span style="margin-left:auto">年份：<select id="dashYearSel" style="width:auto;padding:4px 8px;font-size:12px"></select></span></h3>
+        <div id="dashYearBody"></div>
       </div>
       <div class="dash-box">
         <h3>按客户（数量 / 完成率）</h3>
@@ -406,12 +529,16 @@ WE01出货单查询"></textarea>
     <div class="row" style="margin-bottom:8px">
       <button class="btn sec sm" id="viewCard" title="卡片视图">📋 卡片</button>
       <button class="btn sec sm" id="viewGantt" title="甘特视图">📊 甘特</button>
+      <button class="btn sec sm" id="viewKanban" title="看板视图：拖动卡片可直接变更完成状态">🗂 看板</button>
+      <button class="btn sec sm" id="viewCalendar" title="日历视图：按录入日期回看">📅 日历</button>
       <button class="btn sec sm" id="batchToggle">批量模式</button>
       <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
       <button class="btn sec sm" id="undoLastExport">撤销本次追加</button>
       <button class="btn sec sm" id="undoExported">撤销已追加</button>
     </div>
-    <div class="row" style="margin-bottom:10px">
+    <details id="backupPanel" class="row" style="margin-bottom:10px;gap:10px">
+      <summary class="btn sec sm" style="cursor:pointer;list-style:none;flex:0 0 auto;user-select:none">🗄 备份 / 导入 / 导出 ▾</summary>
+      <div class="row" style="gap:8px;flex-wrap:wrap;width:100%;margin-top:6px;padding:10px;border:1px dashed var(--line);border-radius:10px;background:var(--card)">
       <button class="btn sec sm" id="exportAll">全量备份</button>
       <button class="btn sec sm" id="importAll">全量恢复</button>
       <input type="file" id="importAllFile" accept=".json" class="hidden">
@@ -426,7 +553,9 @@ WE01出货单查询"></textarea>
       <button class="btn sec sm" id="importExcelBtn" title="把历史周报Excel的表读成任务库（表头自动映射）">📥 从Excel导入</button>
       <input type="file" id="importExcelFile" accept=".xlsx" class="hidden">
       <button class="btn del sm" id="clearTasks">清空任务库</button>
-    </div>
+      <span class="muted" style="width:100%;padding-left:2px">全量备份＝任务+配置+回收站，换机迁移用它；任务库备份只含任务；加密备份需密码才能恢复。</span>
+      </div>
+    </details>
     <div id="batchBar" class="row batch-bar hidden">
       <button class="btn sec sm" id="batchAll">全选</button>
       <button class="btn sec sm" id="batchExport">导出选中</button>
@@ -434,7 +563,7 @@ WE01出货单查询"></textarea>
       <span class="muted">补录：</span>
       <input type="date" id="batchTest" title="测试日期">
       <input type="date" id="batchClose" title="结案日期">
-      <select id="batchStatus"><option value="">不改状态</option><option value="Closed">Closed</option><option value="Ongoing">Ongoing</option><option value="planning">planning</option></select>
+      <select id="batchStatus"><option value="">不改状态</option><option value="Closed">Closed</option><option value="Ongoing">Ongoing</option><option value="planning">planning</option><option value="暂停">暂停</option><option value="取消">取消</option></select>
       <button class="btn sec sm" id="batchApply">应用到选中</button>
     </div>
     <div id="viewCardContainer">
@@ -448,6 +577,20 @@ WE01出货单查询"></textarea>
         <select id="ganttRange" style="width:auto"><option value="all">全部时间</option><option value="30">最近30天</option><option value="90">最近90天</option><option value="year">今年</option></select>
       </div>
       <div id="ganttChart" class="gantt-chart"></div>
+    </div>
+    <div id="viewKanbanContainer" class="hidden">
+      <div class="hint">拖动卡片到其他列，可直接变更「完成状态」；点卡片打开编辑。搜索与客户筛选仍然生效（状态筛选在看板视图不适用）。拖到「Closed」且未填结案日期时，会自动补今天为结案日期。</div>
+      <div id="kanbanBoard" class="kanban-board"></div>
+    </div>
+    <div id="viewCalendarContainer" class="hidden">
+      <div class="cal-controls">
+        <button class="btn sec sm" id="calPrev">◀ 上月</button>
+        <span id="calTitle" class="cal-title"></span>
+        <button class="btn sec sm" id="calNext">下月 ▶</button>
+        <button class="btn sec sm" id="calToday">本月</button>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div class="hint">按任务「录入日期」摆放到日历（周一~周日）· 点任务可编辑 · 点日期右上角「补录」直接打开该天的录入页 · 有任务的日期最多列出 4 条。</div>
     </div>
     <div id="trashPanel" class="hidden">
       <h3>回收站（可恢复） <button class="btn del sm" id="clearTrash" style="margin-left:8px">清空回收站</button></h3>
@@ -812,6 +955,12 @@ WE01出货单查询"></textarea>
       </div>
     </div>
 
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">常用短语</span><button class="btn sec sm" id="phSort" title="去重排序">去重排序</button></div>
+      <div class="hint" style="margin:0 0 8px">「开发进度」一键插入的常用话术（录入页也有「+ 新增」快捷入口），可增删、回车确认修改。</div>
+      <div class="dd-chips" id="phraseChips"></div>
+    </div>
+
     <h3>下拉选项（按列名管理，可增删、可去重排序）</h3>
     <div id="dropdownCfg"><div class="dd-block"><div class="dd-head">
         <span class="dd-name">客户</span>
@@ -914,6 +1063,15 @@ WE01出货单查询"></textarea>
       <span class="muted">纯文本可直接粘到月报模板</span>
     </div>
 
+    <div class="hint" style="margin-top:18px">月度复盘总结：按所选月份一键生成本月的「完成 / 进行中 / 待处理（含逾期）」+ 关键产出，方便自查与写月报。</div>
+    <div class="row" style="margin:10px 0">
+      <button class="btn" id="genReview">生成月度复盘</button>
+      <button class="btn sec" id="reviewCopy">复制</button>
+      <button class="btn sec" id="reviewWord" title="导出为 Word（.doc）文档">📝 导出 Word</button>
+      <span class="muted" id="reviewMsg"></span>
+    </div>
+    <textarea id="reviewText" class="weekly-preview" style="min-height:180px;width:100%" readonly placeholder="点「生成月度复盘」或切换月份后自动生成"></textarea>
+
     <div class="hint" style="margin-top:18px">周报段落：把指定范围内本人负责的本周/本月任务，拼成可直接粘进周报正文的段落。</div>
     <div class="row" style="margin-bottom: 10px">
       <div style="flex:0 0 150px"><span class="lab muted">起始</span><input type="date" id="wpStart"></div>
@@ -934,7 +1092,8 @@ WE01出货单查询"></textarea>
     <div class="row" style="margin-top:8px">
       <button class="btn" id="wpCopy">复制</button>
       <button class="btn sec" id="wpPrint">打印</button>
-      <span class="muted">生成后可直接复制或打印</span>
+      <button class="btn sec" id="wpWord" title="把上方周报段落生成排版好的 Word（.doc）文档">📝 导出 Word</button>
+      <span class="muted">生成后可直接复制、打印或导出 Word</span>
     </div>
   </section>
 </main>

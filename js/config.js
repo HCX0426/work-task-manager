@@ -175,7 +175,42 @@ function renderConfig(){
     };
     dd.appendChild(box);
   });
+
+  renderPhraseCfg();
 }
+/* 常用短语：读取/保存（存于导出默认设置里） */
+function savePhrases(arr){
+  const cfg=load(LS_EXPORTCFG,{})||{};
+  cfg.phrases=arr;
+  save(LS_EXPORTCFG,cfg);
+}
+function renderPhraseCfg(){
+  const box=$('#phraseChips'); if(!box) return;
+  box.innerHTML='';
+  (loadSettings().phrases||[]).slice().forEach((p,i)=>{
+    const chip=document.createElement('span'); chip.className='dd-chip';
+    chip.innerHTML=`<input value="${esc(p)}" data-i="${i}"><span class="x" data-i="${i}">×</span>`;
+    box.appendChild(chip);
+  });
+  const add=document.createElement('span'); add.className='dd-add'; add.textContent='+ 加短语';
+  box.appendChild(add);
+  box.querySelectorAll('.x').forEach(x=>{ x.onclick=()=>{
+    const a=(loadSettings().phrases||[]).slice(); a.splice(+x.dataset.i,1); savePhrases(a); renderPhraseCfg();
+  }; });
+  box.querySelectorAll('input').forEach(inp=>{ inp.onchange=()=>{
+    const a=(loadSettings().phrases||[]).slice(); a[+inp.dataset.i]=inp.value.trim(); savePhrases(a.filter(Boolean));
+  }; });
+  add.onclick=async ()=>{
+    const v=(await uiPrompt('新增常用短语（用于「开发进度」一键插入）：')||'').trim();
+    if(!v) return;
+    const a=(loadSettings().phrases||[]).slice();
+    if(!a.includes(v)){ a.push(v); savePhrases(a); renderPhraseCfg(); }
+  };
+}
+$('#phSort').onclick=()=>{
+  const arr=[...new Set((loadSettings().phrases||[]).map(s=>s.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
+  savePhrases(arr); renderPhraseCfg(); toast('已去重排序');
+};
 $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); renderConfig(); };
 
 /* 默认设置（配置中心可改默认值，各页面临时可覆盖单次） */
