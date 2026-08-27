@@ -33,15 +33,15 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'
 /* ============ 默认列 schema（来自 DG周报20260817-20260821.xlsx） ============ */
 const DEFAULT_SCHEMA=[
   {name:'项次',    type:'auto',     def:''},
-  {name:'厂区',    type:'text',     def:'东莞'},
+  {name:'厂区',    type:'dropdown', def:'东莞'},
   {name:'提出日期', type:'date',     def:'{{today}}'},
-  {name:'提出部门', type:'text',     def:'仓库'},
+  {name:'提出部门', type:'dropdown', def:'仓库'},
   {name:'客户',    type:'dropdown', def:''},
   {name:'专案名称', type:'text',     def:''},
   {name:'需求说明', type:'text',     def:''},
-  {name:'负责人',  type:'text',     def:'黄崇璇'},
+  {name:'负责人',  type:'text',     def:''},
   {name:'开发进度', type:'textarea', def:''},
-  {name:'完成状态', type:'dropdown', def:''},
+  {name:'完成状态', type:'dropdown', def:'Ongoing'},
   {name:'开发日期', type:'date',     def:'{{today}}'},
   {name:'测试日期', type:'date',     def:''},
   {name:'开发天数', type:'text',     def:'1天'},
@@ -49,8 +49,10 @@ const DEFAULT_SCHEMA=[
   {name:'备注',    type:'text',     def:''}
 ];
 const DEFAULT_DROPDOWNS={
-  '客户':['所有','N客户','太白山','其他'],
-  '完成状态':['Ongoing','Closed','planning','暂停','取消']
+  '客户':['所有'],
+  '完成状态':['Ongoing','Closed','planning','暂停','取消'],
+  '厂区':['东莞','苏州','厦门','咸阳','重庆'],
+  '提出部门':['仓库','IQC','SQE']
 };
 /* 完成状态语义：结案与取消都视为"已了结"，不计逾期/今日/进行中 */
 const STATUS_DONE='Closed';
@@ -61,7 +63,7 @@ function guessType(name){
   if(name==='项次')return 'auto';
   if(['提出日期','开发日期','测试日期','结案日期'].includes(name))return 'date';
   if(name==='开发进度')return 'textarea';
-  if(['客户','完成状态'].includes(name))return 'dropdown';
+  if(['客户','完成状态','厂区','提出部门'].includes(name))return 'dropdown';
   return 'text';
 }
 
@@ -86,12 +88,32 @@ function loadSchema(){
 /* ============ 全局状态 ============ */
 let schema=loadSchema();
 let dropdowns=load(LS_DROPDOWNS,JSON.parse(JSON.stringify(DEFAULT_DROPDOWNS)));
-/* 迁移：老用户已存储的下拉可能缺新默认状态（暂停/取消），合并进去并持久化 */
+/* 迁移（v2）：老用户按新默认更新同名列类型/默认值；下拉按固定列表覆盖一次，标记后不再动（配置中心仍可改） */
 (function(){
+  const VER='2';
+  if(load('wb_cfg_v','')===VER) return;
   if(!Array.isArray(dropdowns['完成状态'])) dropdowns['完成状态']=[];
-  let changed=false;
-  (DEFAULT_DROPDOWNS['完成状态']||[]).forEach(s=>{ if(!dropdowns['完成状态'].includes(s)){ dropdowns['完成状态'].push(s); changed=true; } });
-  if(changed) save(LS_DROPDOWNS,dropdowns);
+  const defByName={}; DEFAULT_SCHEMA.forEach(c=>defByName[c.name]=c);
+  const sc=load(LS_SCHEMA,null);
+  if(Array.isArray(sc)&&sc.length){
+    let changed=false;
+    const ns=sc.map(c=>{
+      const nd=defByName[c.name];
+      if(nd && (c.type!==nd.type || c.def!==nd.def)){
+        changed=true;
+        return Object.assign({}, c, {type:nd.type, def:nd.def});
+      }
+      return c;
+    });
+    if(changed) save(LS_SCHEMA, ns);
+  }
+  schema=loadSchema(); // 内存同步为新 schema（类型/默认值生效）
+  (DEFAULT_DROPDOWNS['完成状态']||[]).forEach(s=>{ if(!dropdowns['完成状态'].includes(s)) dropdowns['完成状态'].push(s); });
+  dropdowns['客户']=(DEFAULT_DROPDOWNS['客户']||[]).slice();
+  dropdowns['厂区']=(DEFAULT_DROPDOWNS['厂区']||[]).slice();
+  dropdowns['提出部门']=(DEFAULT_DROPDOWNS['提出部门']||[]).slice();
+  save(LS_DROPDOWNS,dropdowns);
+  save('wb_cfg_v',VER);
 })();
 let tasks=load(LS_TASKS,[]); // [{id, entryDate, values:{colName:value}, exported:false}]
 let trash=load(LS_TRASH,[]); // 回收站（软删除）

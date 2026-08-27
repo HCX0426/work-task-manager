@@ -75,6 +75,12 @@ function autoFillDays(){
 }
 function renderEntry(prefill){
   const f=$('#entryForm'); f.innerHTML='';
+  const legend=document.createElement('div');
+  legend.className='muted';
+  legend.style.gridColumn='1 / -1';
+  legend.style.marginBottom='2px';
+  legend.innerHTML='<b style="color:var(--del)">*</b> 为必填项';
+  f.appendChild(legend);
   const t=todayStr();
   const useDate = prefill ? prefill.entryDate : t;
   $('#entryDate').value = toInputDate(useDate)||t;
@@ -84,7 +90,9 @@ function renderEntry(prefill){
     const wrap=document.createElement('div');
     wrap.className='field';
     const hasVal = prefill ? (prefill[col.name]!=null && prefill[col.name]!=='') : (col.def && col.def!=='{{today}}' ? true : col.def==='{{today}}');
-    let inner=`<span class="lab">${esc(col.name)}${hasVal?' <span class="badge">预填</span>':''}</span>`;
+    // 必填列（专案名称/完成状态）在标签右上角标红星
+    const req=(col.name==='专案名称'||col.name==='完成状态');
+    let inner=`<span class="lab">${esc(col.name)}${req?'<sup class="req-star" style="color:var(--del);font-weight:700;margin-left:2px">*</sup>':''}${hasVal?' <span class="badge">预填</span>':''}</span>`;
     let val='';
     if(prefill){ val=prefill[col.name]||''; }
     else {
@@ -315,9 +323,15 @@ $('#saveEntry').onclick=()=>{
   // 状态与备注校验（放在红标拦截之前，提示更明确）
   const st=String(values['完成状态']||'').trim();
   const note=String(values['备注']||'').trim();
+  const pn=String(values['专案名称']||'').trim();
   if(!st){
     toast('请选择「完成状态」（不能为空）');
     const el=form.querySelector('[name="完成状态"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); }
+    return;
+  }
+  if(!pn){
+    toast('请填写「专案名称」（不能为空）');
+    const el=form.querySelector('[name="专案名称"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); }
     return;
   }
   if((st===STATUS_PAUSE || st===STATUS_CANCEL) && !note){
@@ -333,7 +347,6 @@ $('#saveEntry').onclick=()=>{
   const v=validateEntry(values, ed);
   if(!v.ok){ if(v.msg)toast(v.msg); return; }
   // 重复专案检测：与已有任务同名（排除当前编辑的）时提示，防重复录入
-  const pn=String(values['专案名称']||'').trim();
   if(pn){
     const dupCount=tasks.filter(t=>t.id!==editingId && String(t.values['专案名称']||'').trim()===pn).length;
     if(dupCount>0 && !confirm(`「${pn}」已存在 ${dupCount} 条记录，可能是同名不同任务，仍要保存吗？`)) return;
