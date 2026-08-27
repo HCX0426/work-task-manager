@@ -441,7 +441,7 @@
 
 <main>
   <!-- 每日录入 -->
-  <section id="tab-entry" class="card hidden">
+  <section id="tab-entry" class="card">
     <h2>每日录入</h2>
     <div class="hint">录入日期默认今天，可改成历史日期<b>补录</b>；一天可录多条（每条独立保存）。带 <span class="badge">预填</span> 的字段是默认带出的，<b>都可改、可清空</b>。测试/结案日期默认留空，可留到任务列表里补。<br>快捷键：在输入框按 <b>回车</b> 保存；多行框内 <b>Ctrl+回车</b> 保存。输入内容会自动保存草稿，误关/刷新不丢失。</div>
     <div id="draftBar" class="hint hidden" style="display:none;margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap">📝 <span class="draft-info"></span><button type="button" class="btn sec sm" id="draftRestore">恢复草稿</button><button type="button" class="btn sec sm" id="draftDiscard">丢弃</button></div>
@@ -501,7 +501,7 @@ WE01出货单查询"></textarea>
   </section>
 
   <!-- 数据看板 -->
-  <section id="tab-dashboard" class="card">
+  <section id="tab-dashboard" class="card hidden">
     <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">数据看板 <span class="muted">一屏总览：工作量、进度、分布与逾期</span><span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec sm" id="dashExportWord" title="生成 Word 汇报文档（.doc，Word/WPS 可直接打开）">📝 导出 Word</button><button class="btn sec sm" id="dashExportPdf" title="生成排版好的汇报文档，打印时选择「另存为 PDF」">📄 导出 PDF</button></span></h2>
     <div class="hint">「导出 PDF 汇报」会打开排版好的汇报文档（封面 + 统计图表 + 本月任务明细），在打印对话框选择「另存为 PDF」即可保存，适合上交/汇报。</div>
     <div id="dashKpis" class="stats">
