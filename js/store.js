@@ -18,7 +18,16 @@ const DEF_SETTINGS={
 };
 function loadSettings(){ return Object.assign({}, DEF_SETTINGS, load(LS_EXPORTCFG,{})||{}); }
 function load(k,def){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;} }
-function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ if(e.name==='QuotaExceededError'||e.code===22){ toast('本地存储已满！请删除部分数据或导出备份后清空'); } throw e; } }
+function save(k,v){
+  try{ localStorage.setItem(k,JSON.stringify(v)); return true; }
+  catch(e){
+    // 存储写入失败（空间满/浏览器限制）：明确提示且不抛出，避免中断后续流程；
+    // 返回 false 供关键保存点判断，防止误报「已保存」
+    const isQuota=(e.name==='QuotaExceededError'||e.code===22);
+    toast(isQuota?'本地存储已满！本次修改未保存，请导出备份后清理':'本地存储写入失败！本次修改未保存');
+    return false;
+  }
+}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 /* ============ 默认列 schema（来自 DG周报20260817-20260821.xlsx） ============ */

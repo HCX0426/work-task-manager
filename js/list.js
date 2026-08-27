@@ -177,23 +177,29 @@ $('#batchApply').onclick=async ()=>{
     note=(await uiPrompt('改状态为「'+st+'」需填写备注（必填）——将应用到全部选中任务，说明原因：')||'').trim();
     if(!note){ toast('已取消：改状态为「'+st+'」需先填写「备注」'); return; }
   }
-  ids.forEach(id=>{
-    const t=tasks.find(x=>x.id===id);
-    if(t){
-      if(test)t.values['测试日期']=test;
-      if(close){t.values['结案日期']=close;autoCalcDays(t);}
-      if(st===STATUS_DONE){
-        t.values['完成状态']=st;
-        if(!String(t.values['结案日期']||'').trim()){ t.values['结案日期']=close||todayStr(); autoCalcDays(t); }
-      }else if(st){
-        t.values['完成状态']=st;
-        if(st===STATUS_PAUSE || st===STATUS_CANCEL) t.values['备注']=note;
-      }
-      const parts=[]; if(test)parts.push('测试日期='+test); if(close)parts.push('结案日期='+close); if(st)parts.push('状态='+st);
-      addHistory(t,'批量补录',parts.join('、'));
+  const parts=[]; if(test)parts.push('测试日期='+test); if(close)parts.push('结案日期='+close); if(st)parts.push('状态='+st);
+  // 构建改动后的任务副本并整体保存，成功后才替换内存（存储失败时列表与数据保持不变）
+  const next=tasks.map(t2=>{
+    if(!ids.includes(t2.id)) return t2;
+    const nv=Object.assign({}, t2.values);
+    if(test) nv['测试日期']=test;
+    if(close) nv['结案日期']=close;
+    if(st===STATUS_DONE){
+      nv['完成状态']=st;
+      if(!String(nv['结案日期']||'').trim()) nv['结案日期']=close||todayStr();
+    }else if(st){
+      nv['完成状态']=st;
+      if(st===STATUS_PAUSE || st===STATUS_CANCEL) nv['备注']=note;
     }
+    const nt=Object.assign({}, t2, {values:nv});
+    if(nv['结案日期']!==(t2.values['结案日期']||'')) autoCalcDays(nt);
+    nt.history=(nt.history||[]).slice();
+    addHistory(nt,'批量补录',parts.join('、'));
+    return nt;
   });
-  save(LS_TASKS,tasks);renderList();toast('已批量补录 '+ids.length+' 条');
+  if(!save(LS_TASKS,next)) return;
+  tasks=next;
+  renderList();toast('已批量补录 '+ids.length+' 条');
 };
 
 /* E. 回收站（软删除恢复） */
@@ -717,19 +723,22 @@ function renderKanban(){
     const oldSt=(String(t.values['完成状态']||'').trim()||'未填');
     if(oldSt===ns){ toast('状态未变化'); return; }
     // 拖到「暂停/取消」：必须先填备注（弹窗输入，取消则本次回退）
+    let note='';
     if(ns===STATUS_PAUSE || ns===STATUS_CANCEL){
-      const note=(await uiPrompt('改状态为「'+ns+'」需填写备注（必填）——说明原因：')||'').trim();
+      note=(await uiPrompt('改状态为「'+ns+'」需填写备注（必填）——说明原因：')||'').trim();
       if(!note){ toast('已取消：改状态为「'+ns+'」需先填写「备注」'); return; }
-      t.values['备注']=note;
     }
-    // 拖到 Closed：自动补结案日期（已填则不动）
-    if(ns===STATUS_DONE && !String(t.values['结案日期']||'').trim()){
-      t.values['结案日期']=todayStr();
-      autoCalcDays(t);
-    }
-    t.values['完成状态']=ns;
-    addHistory(t,'状态变更',oldSt+' → '+(col.dataset.label||'未填'));
-    save(LS_TASKS,tasks);
+    // 构建改动后的任务副本并整体保存，成功后才替换内存（存储失败时看板与数据保持不变）
+    const nv=Object.assign({}, t.values, {'完成状态':ns});
+    if(ns===STATUS_PAUSE || ns===STATUS_CANCEL) nv['备注']=note;
+    if(ns===STATUS_DONE && !String(nv['结案日期']||'').trim()) nv['结案日期']=todayStr();
+    const nt=Object.assign({}, t, {values:nv});
+    if(nv['结案日期']!==t.values['结案日期']) autoCalcDays(nt);
+    nt.history=(nt.history||[]).slice();
+    addHistory(nt,'状态变更',oldSt+' → '+(col.dataset.label||'未填'));
+    const next=tasks.map(x=>x.id===id?nt:x);
+    if(!save(LS_TASKS,next)) return;
+    tasks=next;
     renderKanban();
     renderStats();
     toast('已更新状态 →「'+(col.dataset.label||'未填')+'」');

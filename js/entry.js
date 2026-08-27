@@ -344,14 +344,26 @@ $('#saveEntry').onclick=()=>{
       // 记录本次变更了哪些字段（如完成状态/开发进度/备注等），写入历史
       const changes=[];
       schema.forEach(col=>{ if(col.type==='auto')return; const o=String(tk.values[col.name]||''), n=String(values[col.name]||''); if(o!==n) changes.push(col.name); });
-      tk.values=values; tk.entryDate=ed;
-      if(changes.length) addHistory(tk,'编辑更新',changes.join('、'));
-      save(LS_TASKS,tasks); editingId=null; toast('已更新任务');
+      // 先构建下一版数据并保存，成功后才替换内存（失败时表单与数据保持原样，可安全重试）
+      const updated=Object.assign({}, tk, {values:Object.assign({}, values), entryDate:ed});
+      if(changes.length){ updated.history=(updated.history||[]).slice(); addHistory(updated,'编辑更新',changes.join('、')); }
+      const next=tasks.map(t=>t.id===tk.id?updated:t);
+      if(!save(LS_TASKS,next)) return;
+      tasks=next; editingId=null; toast('已更新任务');
     }
-    else { editingId=null; toast('原任务已被删除，已作为新任务保存'); tasks.push({id:uid(),entryDate:ed,values,exported:false}); save(LS_TASKS,tasks); }
+    else {
+      // 原任务已被删除：作为新任务保存
+      const nt={id:uid(),entryDate:ed,values:Object.assign({}, values),exported:false};
+      const next=tasks.concat(nt);
+      editingId=null;
+      if(!save(LS_TASKS,next)) return;
+      tasks=next; toast('原任务已被删除，已作为新任务保存');
+    }
   }else{
-    tasks.push({id:uid(),entryDate:ed,values,exported:false});
-    save(LS_TASKS,tasks); toast('已保存，可在「任务列表」查看');
+    const nt={id:uid(),entryDate:ed,values:Object.assign({}, values),exported:false};
+    const next=tasks.concat(nt);
+    if(!save(LS_TASKS,next)) return;
+    tasks=next; toast('已保存，可在「任务列表」查看');
   }
   clearDraft();
   renderEntry(null);
@@ -383,7 +395,7 @@ $('#bulkSave').onclick=()=>{
   lines.forEach(line=>{ const i=line.indexOf('|'); const nm=(i>=0?line.slice(0,i):'').trim(); if(nm && existing.has(nm)) dupCount++; });
   if(dupCount>0 && !confirm(`有 ${dupCount} 行专案名称与现有任务重复（可能同名不同任务）。\n仍要保存吗？`)){ return; }
   const d=$('#entryDate').value||todayStr();
-  let n=0;
+  const newTasks=[];
   lines.forEach(line=>{
     const values={};
     schema.forEach(col=>{
@@ -398,9 +410,13 @@ $('#bulkSave').onclick=()=>{
       const stArr=dropdowns['完成状态']||[];
       if(stArr.length) values['完成状态']=stArr[0];
     }
-    tasks.push({id:uid(),entryDate:d,values,exported:false}); n++;
+    newTasks.push({id:uid(),entryDate:d,values,exported:false});
   });
-  save(LS_TASKS,tasks); $('#bulkText').value=''; $('#bulkMsg').textContent='已批量保存 '+n+' 条'; clearDraft(); renderEntry(null); toast('批量保存 '+n+' 条');
+  // 先保存（快照数组），成功后再并入内存；失败保留文本框内容以便重试
+  const next=tasks.concat(newTasks);
+  if(!save(LS_TASKS,next)) return;
+  tasks=next;
+  $('#bulkText').value=''; $('#bulkMsg').textContent='已批量保存 '+newTasks.length+' 条'; clearDraft(); renderEntry(null); toast('批量保存 '+newTasks.length+' 条');
 };
 
 /* 初始化：检测是否有未保存的草稿（页面加载时显示恢复提示） */
