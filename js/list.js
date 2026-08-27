@@ -205,6 +205,7 @@ $('#batchApply').onclick=async ()=>{
 /* E. 回收站（软删除恢复） */
 $('#toggleTrash').onclick=()=>{
   const p=$('#trashPanel'); p.classList.toggle('hidden');
+  $('#toggleTrash').classList.toggle('active', !p.classList.contains('hidden'));
   if(!p.classList.contains('hidden')) renderTrash();
 };
 $('#clearTrash').onclick=()=>{
