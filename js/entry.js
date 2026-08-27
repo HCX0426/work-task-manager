@@ -8,6 +8,62 @@ function snapshotForm(){
 }
 function markBaseline(){ formBaseline=snapshotForm(); formDirty=false; }
 function checkDirty(){ formDirty = (snapshotForm()!==formBaseline); }
+
+/* ============ 草稿自动保存（防误关/刷新丢失） ============ */
+const LS_DRAFT='wb_draft';
+let draftTimer=null;
+function saveDraft(){
+  clearTimeout(draftTimer);
+  draftTimer=setTimeout(()=>{
+    const form=$('#entryForm'); if(!form) return;
+    const values={};
+    schema.forEach(col=>{
+      if(col.type==='auto')return;
+      const el=form.querySelector(`[name="${CSS.escape(col.name)}"]`);
+      if(el) values[col.name]=el.value;
+    });
+    const date=$('#entryDate').value||todayStr();
+    const hasContent=Object.values(values).some(v=>String(v).trim()!=='')||date!==todayStr();
+    if(hasContent){ save(LS_DRAFT,{values, date, ts:Date.now()}); }
+    else { localStorage.removeItem(LS_DRAFT); }
+    updateDraftBar();
+  },800);
+}
+function clearDraft(){
+  clearTimeout(draftTimer);
+  localStorage.removeItem(LS_DRAFT);
+  updateDraftBar();
+}
+function updateDraftBar(){
+  const bar=$('#draftBar'); if(!bar) return;
+  const d=load(LS_DRAFT,null);
+  const has=d&&d.values&&Object.values(d.values).some(v=>String(v).trim()!=='');
+  if(!has){ bar.classList.add('hidden'); bar.style.display='none'; return; }
+  const t=new Date(d.ts||Date.now());
+  const hh=String(t.getHours()).padStart(2,'0'), mm=String(t.getMinutes()).padStart(2,'0');
+  const info=bar.querySelector('.draft-info');
+  if(info) info.textContent='检测到自动保存的草稿（'+hh+':'+mm+'），可恢复继续编辑';
+  bar.classList.remove('hidden');
+  bar.style.display='flex';
+}
+function restoreDraft(){
+  const d=load(LS_DRAFT,null);
+  if(!d||!d.values){ toast('没有可恢复的草稿'); return; }
+  const form=$('#entryForm');
+  if(form){
+    Object.keys(d.values).forEach(nm=>{
+      const el=form.querySelector(`[name="${CSS.escape(nm)}"]`);
+      if(el) el.value=d.values[nm];
+    });
+  }
+  if(d.date) $('#entryDate').value=d.date;
+  clearDraft();
+  markBaseline();
+  toast('已恢复草稿，可继续编辑');
+}
+$('#draftRestore').onclick=restoreDraft;
+$('#draftDiscard').onclick=()=>{ clearDraft(); toast('已丢弃草稿'); };
+
 /* 自动计算开发天数：开发日期~结案日期（含首尾）；两个日期任一为空则不动 */
 function autoFillDays(){
   const dev=$('#entryForm').querySelector('[name="开发日期"]');
@@ -87,7 +143,7 @@ function renderEntry(prefill){
       };
     }
     const input=wrap.querySelector('input,select,textarea');
-    if(input) input.addEventListener('input',()=>validateField(col.name));
+    if(input){ input.addEventListener('input',()=>validateField(col.name)); input.addEventListener('input',saveDraft); input.addEventListener('change',saveDraft); }
     const aiBtn=wrap.querySelector('.ai-polish-btn');
     if(aiBtn) aiBtn.onclick=()=>aiPolishField(wrap, col.name);
     const voiceBtn=wrap.querySelector('.voice-btn');
@@ -140,6 +196,8 @@ function renderEntry(prefill){
   f.addEventListener('change',checkDirty);
   $('#entryDate').addEventListener('input',checkDirty);
   $('#entryDate').addEventListener('change',checkDirty);
+  $('#entryDate').addEventListener('input',saveDraft);
+  $('#entryDate').addEventListener('change',saveDraft);
 }
 
 /* 语音录入：Web Speech API 转文字填入「开发进度」（Chrome 浏览器支持，识别在本地进行） */
@@ -256,9 +314,10 @@ $('#saveEntry').onclick=()=>{
     tasks.push({id:uid(),entryDate:ed,values,exported:false});
     save(LS_TASKS,tasks); toast('已保存，可在「任务列表」查看');
   }
+  clearDraft();
   renderEntry(null);
 };
-$('#cancelEdit').onclick=()=>{ editingId=null; renderEntry(null); toast('已取消编辑'); };
+$('#cancelEdit').onclick=()=>{ editingId=null; clearDraft(); renderEntry(null); toast('已取消编辑'); };
 $('#cloneLast').onclick=()=>{
   if(!tasks.length){toast('还没有可克隆的任务');return;}
   const last=tasks[tasks.length-1];
@@ -297,8 +356,11 @@ $('#bulkSave').onclick=()=>{
     else { values['需求说明']=line; }
     tasks.push({id:uid(),entryDate:d,values,exported:false}); n++;
   });
-  save(LS_TASKS,tasks); $('#bulkText').value=''; $('#bulkMsg').textContent='已批量保存 '+n+' 条'; renderEntry(null); toast('批量保存 '+n+' 条');
+  save(LS_TASKS,tasks); $('#bulkText').value=''; $('#bulkMsg').textContent='已批量保存 '+n+' 条'; clearDraft(); renderEntry(null); toast('批量保存 '+n+' 条');
 };
+
+/* 初始化：检测是否有未保存的草稿（页面加载时显示恢复提示） */
+updateDraftBar();
 
 /* G. 录入快捷键：Enter 保存（textarea 内换行，Ctrl+Enter 保存） */
 $('#entryForm').addEventListener('keydown',e=>{
