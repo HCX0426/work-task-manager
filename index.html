@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head>
+<html lang="zh-CN" data-theme="dark"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#2f6fed">
@@ -42,6 +42,21 @@
   html[data-theme=dark] #toast{background:#e8ebee;color:#222}
   html[data-theme=dark] .cust-bar, html[data-theme=dark] .dash-bar-row .bt{background:#33373f}
   html[data-theme=dark] .task-card.done{border-left-color:#2fbe76}
+  html[data-theme=dark] .badge{background:#222837;color:#8fb0f5}
+  html[data-theme=dark] .dd-add{background:#2a2e35;color:#cfd5dd;border-color:#3a3f48}
+  html[data-theme=dark] .cm-row.mapped{background:#1c2a22}
+  html[data-theme=dark] .cm-row.unmatched{background:#2c2020}
+  html[data-theme=dark] .dash-over-item .od-days{background:#2c2020;color:#f0655c}
+  html[data-theme=dark] .stat.warn{background:#2c2020;border-color:#4a2a27}
+  html[data-theme=dark] .gantt-row:hover{background:#23262d}
+  html[data-theme=dark] .gantt-row:nth-child(even):hover{background:#26292f}
+  html[data-theme=dark] .file-drop:hover{background:#1f2838}
+  html[data-theme=dark] .dash-trend .t-bar.zero{background:#33373f}
+  /* 年度/季度汇总表：季度行与合计行背景（深浅色各一套） */
+  .q-row{background:#f0f3f7}
+  .total-row{background:#eaf1ff}
+  html[data-theme=dark] .q-row{background:#23272f}
+  html[data-theme=dark] .total-row{background:#1e2a40}
   *{box-sizing:border-box}
   body{margin:0;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
   header{background:#fff;border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
@@ -413,41 +428,56 @@
     <div class="sub">本地工具 · 数据存浏览器 · 列结构可配置抗格式变化</div>
   </div>
   <nav>
-    <button data-tab="entry" class="active">每日录入</button>
-    <button data-tab="dashboard" class="">数据看板</button>
+    <button data-tab="entry" class="">每日录入</button>
+    <button data-tab="dashboard" class="active">数据看板</button>
     <button data-tab="list" class="">任务列表</button>
     <button data-tab="export" class="">导出追加</button>
     <button data-tab="monthly" class="">月报汇总</button>
     <button data-tab="config" class="">配置中心</button>
   </nav>
   <button id="helpBtn" class="btn sec sm" title="使用帮助" style="flex:0 0 auto">❓ 帮助</button>
-  <button id="themeToggle" class="btn sec sm" title="切换深色/浅色模式" style="flex:0 0 auto">🌙 深色</button>
+  <button id="themeToggle" class="btn sec sm" title="切换深色/浅色模式" style="flex:0 0 auto">☀️ 浅色</button>
 </header>
 
 <main>
   <!-- 每日录入 -->
-  <section id="tab-entry" class="card">
+  <section id="tab-entry" class="card hidden">
     <h2>每日录入</h2>
     <div class="hint">录入日期默认今天，可改成历史日期<b>补录</b>；一天可录多条（每条独立保存）。带 <span class="badge">预填</span> 的字段是默认带出的，<b>都可改、可清空</b>。测试/结案日期默认留空，可留到任务列表里补。<br>快捷键：在输入框按 <b>回车</b> 保存；多行框内 <b>Ctrl+回车</b> 保存。输入内容会自动保存草稿，误关/刷新不丢失。</div>
     <div id="draftBar" class="hint hidden" style="display:none;margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap">📝 <span class="draft-info"></span><button type="button" class="btn sec sm" id="draftRestore">恢复草稿</button><button type="button" class="btn sec sm" id="draftDiscard">丢弃</button></div>
-    <details id="todayPanel" open>
+    <details id="todayPanel" open="">
       <summary class="today-summary"><h2>📌 今日待办 <span class="muted" style="font-weight:400;font-size:12px">今日需推进 / 逾期 / 本周已录，点条目载入编辑</span></h2></summary>
       <div class="today-grid">
         <div class="today-col">
-          <h3>今日需推进 <span id="todayCount" class="badge">—</span></h3>
-          <div id="todayTodo"></div>
+          <h3>今日需推进 <span id="todayCount" class="badge">2</span></h3>
+          <div id="todayTodo"><div class="today-item" data-id="v1" title="点击编辑：供应商门户对接">
+    <span class="ti-name">供应商门户对接</span>
+    <span class="ti-cust">N客户 · Ongoing · 2026-08-27</span>
+  </div><div class="today-item" data-id="v15" title="点击编辑：报表水印功能">
+    <span class="ti-name">报表水印功能</span>
+    <span class="ti-cust">N客户 · Ongoing · 2026-08-27</span>
+  </div></div>
         </div>
         <div class="today-col">
-          <h3>逾期未完成 <span id="todayOverdueCount" class="badge">—</span></h3>
-          <div id="todayOverdue"></div>
+          <h3>逾期未完成 <span id="todayOverdueCount" class="badge">3</span></h3>
+          <div id="todayOverdue"><div class="today-item" data-id="v10" title="点击编辑：历史数据清洗">
+    <span class="ti-name">历史数据清洗</span>
+    <span class="ti-cust">N客户 · Ongoing · 2026-07-18</span>
+  </div><div class="today-item" data-id="v9" title="点击编辑：打印模板样式调整">
+    <span class="ti-name">打印模板样式调整</span>
+    <span class="ti-cust">其他 · Ongoing · 2026-07-25</span>
+  </div><div class="today-item" data-id="v3" title="点击编辑：条码打印机适配">
+    <span class="ti-name">条码打印机适配</span>
+    <span class="ti-cust">其他 · Ongoing · 2026-08-26</span>
+  </div></div>
         </div>
         <div class="today-col" style="grid-column:1/-1">
-          <h3>本周已录（防漏录，周一~周日） <span class="muted" style="font-weight:400">共 <span id="weekCount">0</span> 条</span></h3>
-          <div id="weekList"></div>
+          <h3>本周已录（防漏录，周一~周日） <span class="muted" style="font-weight:400">共 <span id="weekCount">6</span> 条</span></h3>
+          <div id="weekList"><div class="week-item"><span class="wi-date">08-24</span><span class="wi-name">新员工操作培训</span><span class="wi-st">Closed</span></div><div class="week-item"><span class="wi-date">08-26</span><span class="wi-name">库存预警短信</span><span class="wi-st">planning</span></div><div class="week-item"><span class="wi-date">08-26</span><span class="wi-name">条码打印机适配</span><span class="wi-st">Ongoing</span></div><div class="week-item"><span class="wi-date">08-27</span><span class="wi-name">供应商门户对接</span><span class="wi-st">Ongoing</span></div><div class="week-item"><span class="wi-date">08-27</span><span class="wi-name">看板交互优化</span><span class="wi-st">planning</span></div><div class="week-item"><span class="wi-date">08-27</span><span class="wi-name">报表水印功能</span><span class="wi-st">Ongoing</span></div></div>
         </div>
       </div>
     </details>
-    <form id="entryForm" class="grid"><label><span class="lab">厂区 <span class="badge">预填</span></span><input type="text" name="厂区" value="东莞"></label><label><span class="lab">提出日期 <span class="badge">预填</span></span><input type="date" name="提出日期" value="2026-08-25"></label><label><span class="lab">提出部门 <span class="badge">预填</span></span><input type="text" name="提出部门" value="仓库"></label><div class="field"><span class="lab">客户</span><div class="dd-inline"><select name="客户"><option value="">请选择</option><option>所有</option><option>N客户</option><option>太白山</option><option>其他</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「客户」新增选项">+ 新增</button></div></div><label><span class="lab">专案名称</span><input type="text" name="专案名称" value=""></label><label><span class="lab">需求说明</span><input type="text" name="需求说明" value=""></label><label><span class="lab">负责人 <span class="badge">预填</span></span><input type="text" name="负责人" value="黄崇璇"></label><label><span class="lab">开发进度</span><textarea name="开发进度" placeholder="可多行，如：08/20 完成，等待测试"></textarea><div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」，多行可用换行</div></label><div class="field"><span class="lab">完成状态</span><div class="dd-inline"><select name="完成状态"><option value="">请选择</option><option>Ongoing</option><option>Closed</option><option>planning</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「完成状态」新增选项">+ 新增</button></div></div><label><span class="lab">开发日期 <span class="badge">预填</span></span><input type="date" name="开发日期" value="2026-08-25"></label><label><span class="lab">测试日期</span><input type="date" name="测试日期" value=""></label><label><span class="lab">开发天数 <span class="badge">预填</span></span><input type="text" name="开发天数" value="1天"></label><label><span class="lab">结案日期</span><input type="date" name="结案日期" value=""></label><label><span class="lab">备注</span><input type="text" name="备注" value=""></label></form>
+    <form id="entryForm" class="grid"><div class="field"><span class="lab">厂区 <span class="badge">预填</span></span><input type="text" name="厂区" value="东莞"><div class="field-err"></div></div><div class="field"><span class="lab">提出日期 <span class="badge">预填</span></span><input type="date" name="提出日期" value="2026-08-27"><div class="field-err"></div></div><div class="field"><span class="lab">提出部门 <span class="badge">预填</span></span><input type="text" name="提出部门" value="仓库"><div class="field-err"></div></div><div class="field"><span class="lab">客户</span><div class="dd-inline"><select name="客户"><option value="">请选择</option><option>其他</option><option>所有</option><option>太白山</option><option>N客户</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「客户」新增选项">+ 新增</button></div><div class="field-err"></div></div><div class="field"><span class="lab">专案名称</span><input type="text" name="专案名称" value=""><div class="field-err"></div></div><div class="field"><span class="lab">需求说明</span><input type="text" name="需求说明" value=""><div class="field-err"></div></div><div class="field"><span class="lab">负责人 <span class="badge">预填</span></span><input type="text" name="负责人" value="黄崇璇"><div class="field-err"></div></div><div class="field" style="grid-column: 1 / -1;"><span class="lab">开发进度</span><textarea name="开发进度" placeholder="可多行，如：08/20 完成，等待测试"></textarea><div class="row" style="margin-top:6px;gap:8px"><button type="button" class="btn sec sm ai-polish-btn">AI 润色</button><button type="button" class="btn sec sm voice-btn" title="语音转文字填入（Chrome 浏览器支持）">🎤 语音</button><span class="muted ai-polish-msg"></span><span class="muted voice-status"></span></div><div class="phrase-row row" style="margin-top:6px;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:12px">常用：</span><button type="button" class="btn sec sm" data-p="开发中" title="点击插入">开发中</button><button type="button" class="btn sec sm" data-p="已完成，待测试" title="点击插入">已完成，待测试</button><button type="button" class="btn sec sm" data-p="已上线" title="点击插入">已上线</button><button type="button" class="btn sec sm" data-p="联调中，等待验证" title="点击插入">联调中，等待验证</button><button type="button" class="btn sec sm" data-p="等待测试" title="点击插入">等待测试</button><button type="button" class="btn sec sm phrase-add" title="新增常用短语">+ 新增</button></div><div class="subtask-progress hidden dev-progress" style="margin-top:6px"><span class="sp-bar"><i style="width:0%"></i></span><span class="sp-txt"></span><span class="muted" style="font-size:11px">每行一个推进节点，行首加「✓ 」表示已完成，进度自动统计</span></div><div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」；拆行的每行会被算作一个推进节点</div><div class="field-err"></div></div><div class="field"><span class="lab">完成状态</span><div class="dd-inline"><select name="完成状态"><option value="">请选择</option><option>Ongoing</option><option>Closed</option><option>planning</option><option>暂停</option><option>取消</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「完成状态」新增选项">+ 新增</button></div><div class="field-err"></div></div><div class="field"><span class="lab">开发日期 <span class="badge">预填</span></span><input type="date" name="开发日期" value="2026-08-27"><div class="field-err"></div></div><div class="field"><span class="lab">测试日期</span><input type="date" name="测试日期" value=""><div class="field-err"></div></div><div class="field"><span class="lab">开发天数 <span class="badge">预填</span></span><input type="text" name="开发天数" value="1天"><div class="field-err"></div></div><div class="field"><span class="lab">结案日期</span><input type="date" name="结案日期" value=""><div class="field-err"></div></div><div class="field"><span class="lab">备注</span><input type="text" name="备注" value=""><div class="field-err"></div></div></form>
     <div class="row" style="margin-top:14px;align-items:flex-end">
       <div style="flex:0 0 210px"><span class="lab muted">录入日期（可改，用于补录）</span><input type="date" id="entryDate"></div>
       <button class="btn" id="saveEntry">保存任务</button>
@@ -457,7 +487,7 @@
     </div>
     <span class="muted" id="entryDateLabel">新增任务（录入日期如上，可改）</span>
 
-    <div id="bulkPanel" class="hidden" style="margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:12px;background:#fafbfc">
+    <div id="bulkPanel" class="hidden" style="margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--card)">
       <div class="lab">批量录入：每行一条任务，其他字段用默认值（东莞/黄崇璇/仓库/1天等）。行内可用「<b>|</b>」分隔「专案名称 | 需求说明」。录入日期统一为上方所选日期。</div>
       <textarea id="bulkText" style="min-height:120px" placeholder="例：
 点数机接口 | 新增xx功能
@@ -471,63 +501,78 @@ WE01出货单查询"></textarea>
   </section>
 
   <!-- 数据看板 -->
-  <section id="tab-dashboard" class="card hidden">
+  <section id="tab-dashboard" class="card">
     <h2 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">数据看板 <span class="muted">一屏总览：工作量、进度、分布与逾期</span><span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec sm" id="dashExportWord" title="生成 Word 汇报文档（.doc，Word/WPS 可直接打开）">📝 导出 Word</button><button class="btn sec sm" id="dashExportPdf" title="生成排版好的汇报文档，打印时选择「另存为 PDF」">📄 导出 PDF</button></span></h2>
     <div class="hint">「导出 PDF 汇报」会打开排版好的汇报文档（封面 + 统计图表 + 本月任务明细），在打印对话框选择「另存为 PDF」即可保存，适合上交/汇报。</div>
-    <div id="dashKpis" class="stats"></div>
+    <div id="dashKpis" class="stats">
+    <div class="stat"><div class="num">15</div><div class="lab">任务总数</div></div>
+    <div class="stat"><div class="num">11</div><div class="lab">本月任务</div></div>
+    <div class="stat"><div class="num">36%</div><div class="lab">本月完成率</div></div>
+    <div class="stat"><div class="num">7</div><div class="lab">未结案</div></div>
+    <div class="stat"><div class="num">6</div><div class="lab">已结案</div></div>
+    <div class="stat"><div class="num">8天</div><div class="lab">平均开发天数</div></div>
+    <div class="stat warn"><div class="num">3</div><div class="lab">逾期未完成</div></div></div>
     <div class="dash-grid">
       <div class="dash-box">
         <h3>任务趋势（近 6 个月录入）</h3>
-        <div id="dashTrend" class="dash-trend"></div>
+        <div id="dashTrend" class="dash-trend"><div class="t-col"><div class="t-val">0</div><div class="t-bar zero" style="height:0%"></div><div class="t-lab">3月</div></div><div class="t-col"><div class="t-val">0</div><div class="t-bar zero" style="height:0%"></div><div class="t-lab">4月</div></div><div class="t-col"><div class="t-val">0</div><div class="t-bar zero" style="height:0%"></div><div class="t-lab">5月</div></div><div class="t-col"><div class="t-val">1</div><div class="t-bar" style="height:9%"></div><div class="t-lab">6月</div></div><div class="t-col"><div class="t-val">3</div><div class="t-bar" style="height:27%"></div><div class="t-lab">7月</div></div><div class="t-col"><div class="t-val">11</div><div class="t-bar" style="height:100%"></div><div class="t-lab">8月</div></div></div>
       </div>
       <div class="dash-box" style="grid-column:1/-1">
-        <h3 style="display:flex;align-items:center;gap:10px">年度/季度汇总对比 <span class="muted" style="font-weight:400;font-size:12px">看每月与每季度的工作量和完成情况</span><span style="margin-left:auto">年份：<select id="dashYearSel" style="width:auto;padding:4px 8px;font-size:12px"></select></span></h3>
-        <div id="dashYearBody"></div>
+        <h3 style="display:flex;align-items:center;gap:10px">年度/季度汇总对比 <span class="muted" style="font-weight:400;font-size:12px">看每月与每季度的工作量和完成情况</span><span style="margin-left:auto">年份：<select id="dashYearSel" style="width:auto;padding:4px 8px;font-size:12px"><option value="2026" selected="">2026年</option></select></span></h3>
+        <div id="dashYearBody">
+  <table>
+    <thead><tr><th style="width:110px">月份</th><th class="c">任务数</th><th class="c">已完成</th><th class="c">完成率</th></tr></thead>
+    <tbody>
+      <tr><td style="text-align:center">1月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">2月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">3月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">4月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">5月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">6月</td><td class="c">1</td><td class="c">1</td><td class="c">100%</td></tr><tr><td style="text-align:center">7月</td><td class="c">3</td><td class="c">1</td><td class="c">33%</td></tr><tr><td style="text-align:center">8月</td><td class="c">11</td><td class="c">4</td><td class="c">36%</td></tr><tr><td style="text-align:center">9月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">10月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">11月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr><tr><td style="text-align:center">12月</td><td class="c">0</td><td class="c">0</td><td class="c">—</td></tr>
+      <tr class="total-row"><td style="text-align:center"><b>2026年合计</b></td><td class="c"><b>15</b></td><td class="c">6</td><td class="c">40%</td></tr>
+      <tr class="q-row"><td style="text-align:center"><b>Q1</b><span class="muted">（1-3月）</span></td><td class="c"><b>0</b></td><td class="c">0</td><td class="c">—</td></tr><tr class="q-row"><td style="text-align:center"><b>Q2</b><span class="muted">（4-6月）</span></td><td class="c"><b>1</b></td><td class="c">1</td><td class="c">100%</td></tr><tr class="q-row"><td style="text-align:center"><b>Q3</b><span class="muted">（7-9月）</span></td><td class="c"><b>14</b></td><td class="c">5</td><td class="c">36%</td></tr><tr class="q-row"><td style="text-align:center"><b>Q4</b><span class="muted">（10-12月）</span></td><td class="c"><b>0</b></td><td class="c">0</td><td class="c">—</td></tr>
+    </tbody>
+  </table></div>
       </div>
       <div class="dash-box">
         <h3>按客户（数量 / 完成率）</h3>
-        <div id="dashCust" class="cust-stats" style="display:block"></div>
+        <div id="dashCust" class="cust-stats" style="display:block"><div class="cust-row"><span class="cust-name" title="N客户">N客户</span><div class="cust-bar"><i style="width:20%"></i></div><span class="cust-rate">20%</span><span class="cust-n muted">1/5</span></div><div class="cust-row"><span class="cust-name" title="所有">所有</span><div class="cust-bar"><i style="width:75%"></i></div><span class="cust-rate">75%</span><span class="cust-n muted">3/4</span></div><div class="cust-row"><span class="cust-name" title="太白山">太白山</span><div class="cust-bar"><i style="width:67%"></i></div><span class="cust-rate">67%</span><span class="cust-n muted">2/3</span></div><div class="cust-row"><span class="cust-name" title="其他">其他</span><div class="cust-bar"><i style="width:0%"></i></div><span class="cust-rate">0%</span><span class="cust-n muted">0/3</span></div></div>
       </div>
       <div class="dash-box">
         <h3>按完成状态分布</h3>
-        <div id="dashStatus" class="dash-bars"></div>
+        <div id="dashStatus" class="dash-bars"><div class="dash-bar-row"><span class="bk">Closed</span><div class="bt"><i style="width:100%"></i></div><span class="bn">6</span></div><div class="dash-bar-row"><span class="bk">Ongoing</span><div class="bt"><i style="width:83%"></i></div><span class="bn">5</span></div><div class="dash-bar-row"><span class="bk">planning</span><div class="bt"><i style="width:33%"></i></div><span class="bn">2</span></div><div class="dash-bar-row"><span class="bk">暂停</span><div class="bt"><i style="width:17%"></i></div><span class="bn">1</span></div><div class="dash-bar-row"><span class="bk">取消</span><div class="bt"><i style="width:17%"></i></div><span class="bn">1</span></div></div>
       </div>
       <div class="dash-box">
         <h3>逾期未完成</h3>
-        <div id="dashOverdue"></div>
+        <div id="dashOverdue"><div class="dash-over-item"><span class="od-name">历史数据清洗</span><span class="od-meta">N客户</span><span class="od-days">逾期 40 天</span></div><div class="dash-over-item"><span class="od-name">打印模板样式调整</span><span class="od-meta">其他</span><span class="od-days">逾期 33 天</span></div><div class="dash-over-item"><span class="od-name">条码打印机适配</span><span class="od-meta">其他</span><span class="od-days">逾期 1 天</span></div></div>
       </div>
       <div class="dash-box">
         <h3>数据健康检查 <span class="muted">（交月报前扫一遍）</span></h3>
-        <div id="dashHealth"></div>
+        <div id="dashHealth"><div class="dash-overdue-empty">✓ 数据健康，关键字段都齐</div></div>
       </div>
       <div class="dash-box">
         <h3>本地存储用量</h3>
-        <div id="dashStorage"></div>
+        <div id="dashStorage"><div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">8.7 KB（约 8864 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 5MB</span><span class="od-meta">0.8% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p></div>
       </div>
     </div>
   </section>
 
   <!-- 任务列表 -->
   <section id="tab-list" class="card hidden">
-    <h2>任务列表 <span class="muted" id="listCount">（共 0 条）</span></h2>
+    <h2>任务列表 <span class="muted" id="listCount">（共 15 条）</span></h2>
     <div class="hint">「编辑」可回录入页补日期，「删除」移入回收站（可恢复）。支持搜索/筛选/排序、批量模式、按客户/状态分布统计。「全量备份」含任务+配置+设置，换机迁移一次搞定。</div>
     <div id="statsStrip" class="stats">
-    <div class="stat"><div class="num">0</div><div class="lab">任务总数</div></div>
-    <div class="stat"><div class="num">0</div><div class="lab">本月任务</div></div>
-    <div class="stat"><div class="num">0%</div><div class="lab">本月完成率</div></div>
-    <div class="stat"><div class="num">0</div><div class="lab">逾期未完成</div></div>
+    <div class="stat"><div class="num">15</div><div class="lab">任务总数</div></div>
+    <div class="stat"><div class="num">11</div><div class="lab">本月任务</div></div>
+    <div class="stat"><div class="num">36%</div><div class="lab">本月完成率</div></div>
+    <div class="stat warn"><div class="num">3</div><div class="lab">逾期未完成</div></div>
     <div class="stat"><div class="num">0</div><div class="lab">已追加</div></div>
     <div class="stat"><div class="num">0</div><div class="lab">回收站</div></div></div>
     <div class="row" style="margin-bottom:10px;gap:10px">
       <input type="text" id="listSearch" placeholder="搜索（专案/需求/客户…）" style="flex:1;min-width:180px">
-      <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="所有">所有</option><option value="N客户">N客户</option><option value="太白山">太白山</option><option value="其他">其他</option></select>
-      <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option></select>
+      <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="其他">其他</option><option value="所有">所有</option><option value="太白山">太白山</option><option value="N客户">N客户</option></select>
+      <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option><option value="暂停">暂停</option><option value="取消">取消</option></select>
       <select id="listExportFilter" style="flex:0 0 150px"><option value="">全部(含已追加)</option><option value="not_exported">未追加</option><option value="exported">已追加</option></select>
       <select id="listSortBy" style="flex:0 0 120px"><option value="date">录入时间</option><option value="status">完成状态</option><option value="cust">客户</option><option value="devDate" selected="">开发日期</option></select>
       <select id="listSortDir" style="flex:0 0 120px"><option value="desc" selected="">降序</option><option value="asc">升序</option></select>
     </div>
     <div class="row" style="margin-bottom:8px">
-      <button class="btn sec sm" id="viewCard" title="卡片视图">📋 卡片</button>
+      <button class="btn sec sm active" id="viewCard" title="卡片视图">📋 卡片</button>
       <button class="btn sec sm" id="viewGantt" title="甘特视图">📊 甘特</button>
       <button class="btn sec sm" id="viewKanban" title="看板视图：拖动卡片可直接变更完成状态">🗂 看板</button>
       <button class="btn sec sm" id="viewCalendar" title="日历视图：按录入日期回看">📅 日历</button>
@@ -567,7 +612,127 @@ WE01出货单查询"></textarea>
       <button class="btn sec sm" id="batchApply">应用到选中</button>
     </div>
     <div id="viewCardContainer">
-      <div id="taskTableWrap"><p class="muted">没有任务（去「每日录入」添加）。</p></div>
+      <div id="taskTableWrap"><div class="task-list"><div class="task-card" data-id="v13">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-27</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v13">编辑</button>
+          <button class="btn del sm" data-del="v13">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-27</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">其他</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">看板交互优化</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">首页看板卡片拖拽排序</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">页面结构梳理</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">planning</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-29</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div></div></div><div class="task-card" data-id="v2">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-26</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v2">编辑</button>
+          <button class="btn del sm" data-del="v2">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-25</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">太白山</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">库存预警短信</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">库存低于阈值自动发短信</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">方案设计中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">planning</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-28</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div></div></div><div class="task-card" data-id="v1">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-27</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v1">编辑</button>
+          <button class="btn del sm" data-del="v1">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-20</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">N客户</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">供应商门户对接</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">对接供应商订单查询与回传接口</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 接口文档阅读<br>✓ 联调环境搭建<br>回传联调中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Ongoing</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-27</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:67%"></i></span><span class="sp-txt">2/3</span></div></div><div class="task-card" data-id="v15">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-27</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v15">编辑</button>
+          <button class="btn del sm" data-del="v15">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-27</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">N客户</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">报表水印功能</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">导出报表加水印防外传</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">功能开发中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Ongoing</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-27</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div></div></div><div class="task-card" data-id="v3">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-26<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span></span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v3">编辑</button>
+          <button class="btn del sm" data-del="v3">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-26</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">其他</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">条码打印机适配</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">新机型驱动适配与测试</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 驱动安装<br>标签校准中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Ongoing</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-26</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:50%"></i></span><span class="sp-txt">1/2</span></div></div><div class="task-card done" data-id="v14">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-24</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v14">编辑</button>
+          <button class="btn del sm" data-del="v14">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-22</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">所有</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">新员工操作培训</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">针对仓库新员工的操作培训</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 培训材料<br>✓ 现场培训</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Closed</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-25</span></div><div class="tc-row"><span class="tc-k">测试日期</span><span class="tc-v">2026-08-26</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">2天</span></div><div class="tc-row"><span class="tc-k">结案日期</span><span class="tc-v">2026-08-26</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">已完成</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:100%"></i></span><span class="sp-txt">2/2</span></div></div><div class="task-card done" data-id="v4">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-18</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v4">编辑</button>
+          <button class="btn del sm" data-del="v4">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-15</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">所有</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">对账文件自动解析</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">自动解析银行对账文件入库</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 需求确认<br>✓ 解析逻辑开发<br>✓ 异常处理<br>✓ 上线验证</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Closed</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-19</span></div><div class="tc-row"><span class="tc-k">测试日期</span><span class="tc-v">2026-08-24</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">6天</span></div><div class="tc-row"><span class="tc-k">结案日期</span><span class="tc-v">2026-08-25</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">已上线运行</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:100%"></i></span><span class="sp-txt">4/4</span></div><details class="tc-history"><summary>🕘 历史（3）</summary><div class="th-item"><span class="th-time">2026-08-25 17:30</span><span>状态变更：Ongoing → Closed</span></div><div class="th-item"><span class="th-time">2026-08-20 15:00</span><span>状态变更：planning → Ongoing</span></div><div class="th-item"><span class="th-time">2026-08-18 09:10</span><span>创建：录入</span></div></details></div><div class="task-card done" data-id="v5">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-12</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v5">编辑</button>
+          <button class="btn del sm" data-del="v5">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-10</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">N客户</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">报表导出提速</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">大数据量报表导出由分钟级优化到秒级</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 慢查询定位<br>✓ 索引优化<br>✓ 分页导出<br>异步队列联调中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Closed</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-13</span></div><div class="tc-row"><span class="tc-k">测试日期</span><span class="tc-v">2026-08-20</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">8天</span></div><div class="tc-row"><span class="tc-k">结案日期</span><span class="tc-v">2026-08-21</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">性能达标</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:75%"></i></span><span class="sp-txt">3/4</span></div></div><div class="task-card" data-id="v7">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-08</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v7">编辑</button>
+          <button class="btn del sm" data-del="v7">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-06</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">N客户</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">手工盘点页面</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">支持手工调整盘点差异</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 页面原型<br>业务规则确认中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">暂停</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-10</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">等盘点方案确认后再继续</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:50%"></i></span><span class="sp-txt">1/2</span></div></div><div class="task-card" data-id="v8">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-09</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v8">编辑</button>
+          <button class="btn del sm" data-del="v8">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-08</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">所有</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">月度对账清单</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">生成月度对账清单</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">需求变更</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">取消</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-09</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">需求变更，不再需要</span></div></div></div><div class="task-card done" data-id="v6">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-08-05</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v6">编辑</button>
+          <button class="btn del sm" data-del="v6">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-08-03</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">太白山</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">角色权限重构</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">按角色控制菜单与按钮权限</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 权限模型设计<br>✓ 前端组件改造<br>✓ 回归测试</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Closed</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-08-06</span></div><div class="tc-row"><span class="tc-k">测试日期</span><span class="tc-v">2026-08-14</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">9天</span></div><div class="tc-row"><span class="tc-k">结案日期</span><span class="tc-v">2026-08-15</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:100%"></i></span><span class="sp-txt">3/3</span></div></div><div class="task-card" data-id="v9">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-07-25<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span></span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v9">编辑</button>
+          <button class="btn del sm" data-del="v9">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-07-20</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">其他</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">打印模板样式调整</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">按客户要求调整报表样式</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">样式调整中</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Ongoing</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-07-25</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">历史遗留逾期</span></div></div></div><div class="task-card done" data-id="v12">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-07-20</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v12">编辑</button>
+          <button class="btn del sm" data-del="v12">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-07-18</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">太白山</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">年度数据归档</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">归档上一年度业务数据</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 归档脚本<br>✓ 数据校验<br>✓ 备份留档</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Closed</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-07-22</span></div><div class="tc-row"><span class="tc-k">测试日期</span><span class="tc-v">2026-07-30</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">9天</span></div><div class="tc-row"><span class="tc-k">结案日期</span><span class="tc-v">2026-07-31</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:100%"></i></span><span class="sp-txt">3/3</span></div></div><div class="task-card" data-id="v10">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-07-18<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span></span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v10">编辑</button>
+          <button class="btn del sm" data-del="v10">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-07-15</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">N客户</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">历史数据清洗</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">清理重复退的旧单据</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Ongoing</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-07-18</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">1天</span></div><div class="tc-row"><span class="tc-k">备注</span><span class="tc-v">一直没做</span></div></div></div><div class="task-card done" data-id="v11">
+      
+      <div class="tc-date"><span class="tc-pill">📅 2026-06-20</span>
+        <span class="tc-actions">
+          <button class="btn sec sm" data-edit="v11">编辑</button>
+          <button class="btn del sm" data-del="v11">删除</button>
+        </span>
+      </div>
+      <div class="tc-fields"><div class="tc-row"><span class="tc-k">厂区</span><span class="tc-v">东莞</span></div><div class="tc-row"><span class="tc-k">提出日期</span><span class="tc-v">2026-06-16</span></div><div class="tc-row"><span class="tc-k">提出部门</span><span class="tc-v">仓库</span></div><div class="tc-row"><span class="tc-k">客户</span><span class="tc-v">所有</span></div><div class="tc-row"><span class="tc-k">专案名称</span><span class="tc-v">上线演练文档</span></div><div class="tc-row"><span class="tc-k">需求说明</span><span class="tc-v">整理上线演练流程文档</span></div><div class="tc-row"><span class="tc-k">负责人</span><span class="tc-v">黄崇璇</span></div><div class="tc-row"><span class="tc-k">开发进度</span><span class="tc-v">✓ 文档框架<br>✓ 流程图示</span></div><div class="tc-row"><span class="tc-k">完成状态</span><span class="tc-v">Closed</span></div><div class="tc-row"><span class="tc-k">开发日期</span><span class="tc-v">2026-06-24</span></div><div class="tc-row"><span class="tc-k">测试日期</span><span class="tc-v">2026-06-29</span></div><div class="tc-row"><span class="tc-k">开发天数</span><span class="tc-v">6天</span></div><div class="tc-row"><span class="tc-k">结案日期</span><span class="tc-v">2026-06-30</span></div></div><div class="tc-progress"><span class="sp-bar"><i style="width:100%"></i></span><span class="sp-txt">2/2</span></div></div></div></div>
     </div>
     <div id="viewGanttContainer" class="hidden">
       <div class="gantt-controls">
@@ -612,7 +777,7 @@ WE01出货单查询"></textarea>
         <div class="row" style="gap:8px">
           <select id="colTemplate" style="width:auto;flex:0 0 220px"><option value="">（使用当前工作列结构）</option></select>
           <button class="btn sec sm" id="colTemplateSave" title="把当前列定义+下拉选项保存为一个模板">存为模板</button>
-          <button class="btn del sm" id="colTemplateDel">删除模板</button>
+          <button class="btn del sm" id="colTemplateDel" disabled="">删除模板</button>
           <button class="btn sec sm" id="colTemplateImport">从周报excel导入列名</button>
           <input type="file" id="colTemplateFile" accept=".xlsx" class="hidden">
         </div>
@@ -958,7 +1123,7 @@ WE01出货单查询"></textarea>
     <div class="dd-block">
       <div class="dd-head"><span class="dd-name">常用短语</span><button class="btn sec sm" id="phSort" title="去重排序">去重排序</button></div>
       <div class="hint" style="margin:0 0 8px">「开发进度」一键插入的常用话术（录入页也有「+ 新增」快捷入口），可增删、回车确认修改。</div>
-      <div class="dd-chips" id="phraseChips"></div>
+      <div class="dd-chips" id="phraseChips"><span class="dd-chip"><input value="开发中" data-i="0"><span class="x" data-i="0">×</span></span><span class="dd-chip"><input value="已完成，待测试" data-i="1"><span class="x" data-i="1">×</span></span><span class="dd-chip"><input value="已上线" data-i="2"><span class="x" data-i="2">×</span></span><span class="dd-chip"><input value="联调中，等待验证" data-i="3"><span class="x" data-i="3">×</span></span><span class="dd-chip"><input value="等待测试" data-i="4"><span class="x" data-i="4">×</span></span><span class="dd-add">+ 加短语</span></div>
     </div>
 
     <h3>下拉选项（按列名管理，可增删、可去重排序）</h3>
@@ -967,12 +1132,12 @@ WE01出货单查询"></textarea>
         <button class="btn sec sm dd-sort">去重排序</button>
         <button class="btn del sm dd-del">删除该下拉</button>
       </div>
-      <div class="dd-chips" data-items=""><span class="dd-chip"><input value="所有" data-k="客户" data-idx="0"><span class="x" data-k="客户" data-idx="0">×</span></span><span class="dd-chip"><input value="N客户" data-k="客户" data-idx="1"><span class="x" data-k="客户" data-idx="1">×</span></span><span class="dd-chip"><input value="太白山" data-k="客户" data-idx="2"><span class="x" data-k="客户" data-idx="2">×</span></span><span class="dd-chip"><input value="其他" data-k="客户" data-idx="3"><span class="x" data-k="客户" data-idx="3">×</span></span><span class="dd-add">+ 加选项</span></div></div><div class="dd-block"><div class="dd-head">
+      <div class="dd-chips" data-items=""><span class="dd-chip"><input value="其他" data-k="客户" data-idx="0"><span class="x" data-k="客户" data-idx="0">×</span></span><span class="dd-chip"><input value="所有" data-k="客户" data-idx="1"><span class="x" data-k="客户" data-idx="1">×</span></span><span class="dd-chip"><input value="太白山" data-k="客户" data-idx="2"><span class="x" data-k="客户" data-idx="2">×</span></span><span class="dd-chip"><input value="N客户" data-k="客户" data-idx="3"><span class="x" data-k="客户" data-idx="3">×</span></span><span class="dd-add">+ 加选项</span></div></div><div class="dd-block"><div class="dd-head">
         <span class="dd-name">完成状态</span>
         <button class="btn sec sm dd-sort">去重排序</button>
         <button class="btn del sm dd-del">删除该下拉</button>
       </div>
-      <div class="dd-chips" data-items=""><span class="dd-chip"><input value="Ongoing" data-k="完成状态" data-idx="0"><span class="x" data-k="完成状态" data-idx="0">×</span></span><span class="dd-chip"><input value="Closed" data-k="完成状态" data-idx="1"><span class="x" data-k="完成状态" data-idx="1">×</span></span><span class="dd-chip"><input value="planning" data-k="完成状态" data-idx="2"><span class="x" data-k="完成状态" data-idx="2">×</span></span><span class="dd-add">+ 加选项</span></div></div></div>
+      <div class="dd-chips" data-items=""><span class="dd-chip"><input value="Ongoing" data-k="完成状态" data-idx="0"><span class="x" data-k="完成状态" data-idx="0">×</span></span><span class="dd-chip"><input value="Closed" data-k="完成状态" data-idx="1"><span class="x" data-k="完成状态" data-idx="1">×</span></span><span class="dd-chip"><input value="planning" data-k="完成状态" data-idx="2"><span class="x" data-k="完成状态" data-idx="2">×</span></span><span class="dd-chip"><input value="暂停" data-k="完成状态" data-idx="3"><span class="x" data-k="完成状态" data-idx="3">×</span></span><span class="dd-chip"><input value="取消" data-k="完成状态" data-idx="4"><span class="x" data-k="完成状态" data-idx="4">×</span></span><span class="dd-add">+ 加选项</span></div></div></div>
   </section>
 
   <!-- 导出追加 -->
@@ -1006,8 +1171,8 @@ WE01出货单查询"></textarea>
     </div>
     <label class="inline-check" style="margin-top:10px"><input type="checkbox" id="skipExported" checked=""> 跳过已追加过的任务（防重复）</label>
 
-    <h3>待追加任务预览（按 excel 实际列） <span class="muted" id="previewCount">（范围内 0 条，已隐藏已追加）</span></h3>
-    <div id="previewTable"><p class="muted">该时间范围内没有任务。</p></div>
+    <h3>待追加任务预览（按 excel 实际列） <span class="muted" id="previewCount">（范围内 5 条，已隐藏已追加）</span></h3>
+    <div id="previewTable"><table><thead><tr><th>厂区</th><th>提出日期</th><th>提出部门</th><th>客户</th><th>专案名称</th><th>需求说明</th><th>负责人</th><th>开发进度</th><th>完成状态</th><th>开发日期</th><th>测试日期</th><th>开发天数</th><th>结案日期</th><th>备注</th></tr></thead><tbody><tr><td>东莞</td><td>2026-08-20</td><td>仓库</td><td>N客户</td><td>供应商门户对接</td><td>对接供应商订单查询与回传接口</td><td>黄崇璇</td><td>✓ 接口文档阅读<br>✓ 联调环境搭建<br>回传联调中</td><td>Ongoing</td><td>2026-08-27</td><td>—</td><td>1天</td><td>—</td><td>—</td></tr><tr><td>东莞</td><td>2026-08-25</td><td>仓库</td><td>太白山</td><td>库存预警短信</td><td>库存低于阈值自动发短信</td><td>黄崇璇</td><td>方案设计中</td><td>planning</td><td>2026-08-28</td><td>—</td><td>1天</td><td>—</td><td>—</td></tr><tr><td>东莞</td><td>2026-08-26</td><td>仓库</td><td>其他</td><td>条码打印机适配</td><td>新机型驱动适配与测试</td><td>黄崇璇</td><td>✓ 驱动安装<br>标签校准中</td><td>Ongoing</td><td>2026-08-26</td><td>—</td><td>1天</td><td>—</td><td>—</td></tr><tr><td>东莞</td><td>2026-08-22</td><td>仓库</td><td>所有</td><td>新员工操作培训</td><td>针对仓库新员工的操作培训</td><td>黄崇璇</td><td>✓ 培训材料<br>✓ 现场培训</td><td>Closed</td><td>2026-08-25</td><td>2026-08-26</td><td>2天</td><td>2026-08-26</td><td>已完成</td></tr><tr><td>东莞</td><td>2026-08-27</td><td>仓库</td><td>N客户</td><td>报表水印功能</td><td>导出报表加水印防外传</td><td>黄崇璇</td><td>功能开发中</td><td>Ongoing</td><td>2026-08-27</td><td>—</td><td>1天</td><td>—</td><td>—</td></tr></tbody></table></div>
 
     <div id="validateReport" class="val-report hidden"></div>
 
@@ -1042,7 +1207,7 @@ WE01出货单查询"></textarea>
     <div class="row">
       <div style="flex:0 0 200px"><span class="lab muted">选择月份</span><input type="month" id="monthPick"></div>
       <button class="btn sec" id="monthThis" style="align-self: flex-end">本月</button>
-      <span class="muted" id="monthCount" style="margin-left: 0px; margin-right: auto; align-self: center">（该月共 0 条任务）</span>
+      <span class="muted" id="monthCount" style="margin-left: 0px; margin-right: auto; align-self: center">（该月共 11 条任务）</span>
     </div>
 
     <div class="row" style="flex-wrap:wrap;gap:16px;margin-top:12px">
@@ -1054,8 +1219,20 @@ WE01出货单查询"></textarea>
       <label class="inline-check" style="margin-left:8px"><input type="checkbox" id="mf_dedup" checked=""> 去重（同名专案只保留一条）</label>
     </div>
 
-    <h3>去重汇总 <span class="muted" id="monthListCount">（去重后 0 个）</span></h3>
-    <div id="monthResult" style="white-space:pre-wrap;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;line-height:1.7">该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。</div>
+    <h3>去重汇总 <span class="muted" id="monthListCount">（去重后 11 个）</span></h3>
+    <div id="monthResult" style="white-space:pre-wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;line-height:1.7">【2026-08】共 11 个专案，完成 4 个，完成率 36%
+
+1. 供应商门户对接
+2. 库存预警短信
+3. 条码打印机适配
+4. 对账文件自动解析
+5. 报表导出提速
+6. 角色权限重构
+7. 手工盘点页面
+8. 月度对账清单
+9. 看板交互优化
+10. 新员工操作培训
+11. 报表水印功能</div>
 
     <div class="row" style="margin-top:14px">
       <button class="btn" id="exportMonthly">导出纯文本</button>
@@ -1068,9 +1245,9 @@ WE01出货单查询"></textarea>
       <button class="btn" id="genReview">生成月度复盘</button>
       <button class="btn sec" id="reviewCopy">复制</button>
       <button class="btn sec" id="reviewWord" title="导出为 Word（.doc）文档">📝 导出 Word</button>
-      <span class="muted" id="reviewMsg"></span>
+      <span class="muted" id="reviewMsg">完成 4 · 进行中 3 · 待处理 2 · 已暂停 1 · 已取消 1</span>
     </div>
-    <textarea id="reviewText" class="weekly-preview" style="min-height:180px;width:100%" readonly placeholder="点「生成月度复盘」或切换月份后自动生成"></textarea>
+    <textarea id="reviewText" class="weekly-preview" style="min-height:180px;width:100%" readonly="" placeholder="点「生成月度复盘」或切换月份后自动生成"></textarea>
 
     <div class="hint" style="margin-top:18px">周报段落：把指定范围内本人负责的本周/本月任务，拼成可直接粘进周报正文的段落。</div>
     <div class="row" style="margin-bottom: 10px">
@@ -1088,7 +1265,7 @@ WE01出货单查询"></textarea>
       <label class="inline-check"><input type="checkbox" class="wkField" value="负责人"> 负责人</label>
       <label class="inline-check"><input type="checkbox" class="wkField" value="完成状态"> 完成状态</label>
     </div>
-    <textarea id="wpText" class="weekly-preview" style="min-height: 150px; width: 100%;" readonly placeholder="点击上方范围后自动生成周报段落"></textarea>
+    <textarea id="wpText" class="weekly-preview" style="min-height: 150px; width: 100%;" readonly="" placeholder="点击上方范围后自动生成周报段落"></textarea>
     <div class="row" style="margin-top:8px">
       <button class="btn" id="wpCopy">复制</button>
       <button class="btn sec" id="wpPrint">打印</button>
@@ -1098,7 +1275,7 @@ WE01出货单查询"></textarea>
   </section>
 </main>
 
-<div class="toast" id="toast">首次使用，建议到「任务列表」导出任务库备份</div>
+<div class="toast" id="toast">今日待推进 2 条，逾期未完成 3 条（详见「每日录入 → 今日待办」）</div>
 
 <!-- 帮助面板（全屏 overlay） -->
 <div id="helpOverlay" class="hidden">
@@ -1119,6 +1296,7 @@ WE01出货单查询"></textarea>
 <script src="js/dashboard.js"></script>
 <script src="js/help.js"></script>
 <script src="js/app.js"></script>
+
 
 
 </body></html>

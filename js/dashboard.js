@@ -160,7 +160,7 @@ function renderYearBox(){
     const seg=months.filter(mm=>mm.m>=a&&mm.m<=c);
     const n=seg.reduce((s,mm)=>s+mm.n,0);
     const closed=seg.reduce((s,mm)=>s+mm.closed,0);
-    return `<tr style="background:#f0f3f7"><td style="text-align:center"><b>${label}</b><span class="muted">（${a}-${c}月）</span></td><td class="c"><b>${n}</b></td><td class="c">${closed}</td><td class="c">${n?Math.round(closed/n*100)+'%':'—'}</td></tr>`;
+    return `<tr class="q-row"><td style="text-align:center"><b>${label}</b><span class="muted">（${a}-${c}月）</span></td><td class="c"><b>${n}</b></td><td class="c">${closed}</td><td class="c">${n?Math.round(closed/n*100)+'%':'—'}</td></tr>`;
   }).join('');
   const yearN=months.reduce((s,m)=>s+m.n,0);
   const yearClosed=months.reduce((s,m)=>s+m.closed,0);
@@ -170,7 +170,7 @@ function renderYearBox(){
     <thead><tr><th style="width:110px">月份</th><th class="c">任务数</th><th class="c">已完成</th><th class="c">完成率</th></tr></thead>
     <tbody>
       ${monthRows}
-      <tr style="background:#eaf1ff"><td style="text-align:center"><b>${cur}年合计</b></td><td class="c"><b>${yearN}</b></td><td class="c">${yearClosed}</td><td class="c">${yearN?Math.round(yearClosed/yearN*100)+'%':'—'}</td></tr>
+      <tr class="total-row"><td style="text-align:center"><b>${cur}年合计</b></td><td class="c"><b>${yearN}</b></td><td class="c">${yearClosed}</td><td class="c">${yearN?Math.round(yearClosed/yearN*100)+'%':'—'}</td></tr>
       ${qRows}
     </tbody>
   </table>`;

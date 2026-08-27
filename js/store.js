@@ -118,7 +118,7 @@ function uiModal(){
   uiModalEl=document.createElement('div');
   uiModalEl.id='uiModal';
   uiModalEl.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:center;justify-content:center;z-index:40;';
-  uiModalEl.innerHTML='<div style="background:#fff;border-radius:12px;padding:18px 20px;width:min(430px,90vw);box-shadow:0 10px 34px rgba(0,0,0,.22);font-size:14px">'
+  uiModalEl.innerHTML='<div style="background:var(--card);border-radius:12px;padding:18px 20px;width:min(430px,90vw);box-shadow:0 10px 34px rgba(0,0,0,.22);font-size:14px">'
     +'<div class="ui-title" style="font-weight:600;font-size:15px;margin-bottom:12px;line-height:1.5"></div>'
     +'<div class="ui-body" style="color:var(--txt)"></div>'
     +'<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn sec ui-cancel">取消</button><button class="btn ui-ok">确定</button></div>'
