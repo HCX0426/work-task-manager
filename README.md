@@ -68,4 +68,4 @@ tests/                内置回归测试（Node 直接运行，如 node tests/_d
 
 ## License
 
-[MIT](LICENSE) © 2026 黄崇璇 (HCX0426)
+[MIT](LICENSE) © 2026 HCX0426
