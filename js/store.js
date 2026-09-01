@@ -17,6 +17,10 @@ const DEF_SETTINGS={
   aiReq:''                      // AI 润色：个性化要求
 };
 function loadSettings(){ return Object.assign({}, DEF_SETTINGS, load(LS_EXPORTCFG,{})||{}); }
+/* P3 修复：备份用的设置快照——剔除 aiKey。
+   loadSettings 返回新对象（Object.assign 到 {}），delete 不会污染 DEF_SETTINGS。
+   目的：明文 API Key 不随备份文件外泄（全量备份是明文 .json，可能被转发/留存）。 */
+function settingsForBackup(){ const s=loadSettings(); delete s.aiKey; return s; }
 function load(k,def){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;} }
 function save(k,v){
   try{ localStorage.setItem(k,JSON.stringify(v)); return true; }
@@ -28,13 +32,28 @@ function save(k,v){
     return false;
   }
 }
+/* P8/P7/P4 复用：原子多键写入 —— 任一键保存失败则逆序回滚已写入的键，返回 true/false。
+   用于配置中心「保存列配置 / 删除列 / 新增列」等多键联动保存，避免「内存已改、存储只写了一半」的不一致。 */
+function saveAtomic(plan){
+  const written=[];
+  for(let i=0;i<plan.length;i++){
+    const k=plan[i][0], v=plan[i][1];
+    const orig = localStorage.getItem(k); // 原始串（无则 null），用于回滚
+    if(save(k,v)){ written.push([k,orig]); }
+    else {
+      for(let j=written.length-1;j>=0;j--){ const kk=written[j][0], oo=written[j][1]; if(oo==null) localStorage.removeItem(kk); else localStorage.setItem(kk,oo); }
+      return false;
+    }
+  }
+  return true;
+}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 /* ============ 默认列 schema（来自 DG周报20260817-20260821.xlsx） ============ */
 const DEFAULT_SCHEMA=[
   {name:'项次',    type:'auto',     def:''},
   {name:'厂区',    type:'dropdown', def:'东莞'},
-  {name:'提出日期', type:'date',     def:'{{today}}'},
+  {name:'提出日期', type:'date',     def:'{{today}}', dateFmt:'ymd'},
   {name:'提出部门', type:'dropdown', def:'仓库'},
   {name:'客户',    type:'dropdown', def:''},
   {name:'专案名称', type:'text',     def:''},
@@ -42,12 +61,14 @@ const DEFAULT_SCHEMA=[
   {name:'负责人',  type:'text',     def:''},
   {name:'开发进度', type:'textarea', def:''},
   {name:'完成状态', type:'dropdown', def:'Ongoing'},
-  {name:'开发日期', type:'date',     def:'{{today}}'},
-  {name:'测试日期', type:'date',     def:''},
+  {name:'开发日期', type:'date',     def:'{{today}}', dateFmt:'md'},
+  {name:'测试日期', type:'date',     def:'', dateFmt:'md'},
   {name:'开发天数', type:'text',     def:'1天'},
-  {name:'结案日期', type:'date',     def:''},
+  {name:'结案日期', type:'date',     def:'', dateFmt:'md'},
   {name:'备注',    type:'text',     def:''}
 ];
+/* 每列稳定 id：改名检测靠它（不靠列名/位置），保证「改列名」时历史任务 values 的 key 能跟着改名而不失联 */
+DEFAULT_SCHEMA.forEach(c=>{ if(!c.id) c.id='col_'+c.name; });
 const DEFAULT_DROPDOWNS={
   '客户':['所有'],
   '完成状态':['Ongoing','Closed','planning','暂停','取消'],
@@ -69,28 +90,33 @@ function guessType(name){
 
 function loadSchema(){
   let raw=load(LS_SCHEMA,null);
-  let arr;
-  if(!raw){
-    arr=DEFAULT_SCHEMA.map(c=>({...c}));
-  }else if(raw.some(c=>c.type==='default')){
-    const oldDef=load('wb_defaults',{});
-    arr=raw.map(c=> c.type==='default'
-      ? {name:c.name, type:guessType(c.name), def:oldDef[c.name]||''}
-      : {name:c.name, type:c.type, def:c.def||''});
-  }else{
-    arr=raw.map(c=>({...c, def:c.def||''}));
-  }
+  // m3 修复：删除永不触发的死分支（type==='default' 从未作为真实类型存在，且 wb_defaults 从未写入）；
+  // 保留「无存储则用默认、有存储则补全 id/def」的唯二路径
+  let arr = raw
+    ? raw.map(c=>({...c, id:(c.id||('col_'+c.name)), def:c.def||''}))
+    : DEFAULT_SCHEMA.map(c=>({...c}));
   // 迁移：去掉历史遗留的「结案日志」列（结案不再要求写日志）
   arr=arr.filter(c=>c.name!=='结案日志');
+  // 迁移：date 列补 dateFmt 默认（ymd），使旧配置也按列输出正确日期格式
+  arr=arr.map(c=>{
+    if(c.type==='date' && !c.dateFmt){
+      const d=DEFAULT_SCHEMA.find(x=>(c.id&&x.id===c.id)||x.name===c.name);
+      c.dateFmt=(d&&d.dateFmt)?d.dateFmt:'ymd';
+    }
+    return c;
+  });
   return arr;
 }
 
 /* ============ 全局状态 ============ */
 let schema=loadSchema();
 let dropdowns=load(LS_DROPDOWNS,JSON.parse(JSON.stringify(DEFAULT_DROPDOWNS)));
-/* 迁移（v2）：老用户按新默认更新同名列类型/默认值；下拉按固定列表覆盖一次，标记后不再动（配置中心仍可改） */
+/* 迁移（v3）：老用户按新默认更新同名列类型/默认值；下拉「合并」默认项（不覆盖自定义），标记后不再动（配置中心仍可改）
+   P12 修复：版本 2→3。曾运行过旧版迁移（v2 为「覆盖式」）的用户，其下拉可能只剩默认项、缺了补齐项；
+   升版让合并（并集）再执行一次——该操作幂等，只补缺失的默认项，绝不删除任何自定义项。
+   注：已被旧版覆盖掉的自定义项无法自动找回，需用户在配置中心补回，此处无法代劳。 */
 (function(){
-  const VER='2';
+  const VER='3';
   if(load('wb_cfg_v','')===VER) return;
   if(!Array.isArray(dropdowns['完成状态'])) dropdowns['完成状态']=[];
   const defByName={}; DEFAULT_SCHEMA.forEach(c=>defByName[c.name]=c);
@@ -109,9 +135,9 @@ let dropdowns=load(LS_DROPDOWNS,JSON.parse(JSON.stringify(DEFAULT_DROPDOWNS)));
   }
   schema=loadSchema(); // 内存同步为新 schema（类型/默认值生效）
   (DEFAULT_DROPDOWNS['完成状态']||[]).forEach(s=>{ if(!dropdowns['完成状态'].includes(s)) dropdowns['完成状态'].push(s); });
-  dropdowns['客户']=(DEFAULT_DROPDOWNS['客户']||[]).slice();
-  dropdowns['厂区']=(DEFAULT_DROPDOWNS['厂区']||[]).slice();
-  dropdowns['提出部门']=(DEFAULT_DROPDOWNS['提出部门']||[]).slice();
+  // M2 修复：自定义下拉「合并」默认项而非「覆盖」，避免升级用户丢失自己加的选项（如 其他/太白山/N客户）
+  const unionDd=key=>{ const a=(dropdowns[key]||[]).slice(); (DEFAULT_DROPDOWNS[key]||[]).forEach(v=>{ if(!a.includes(v)) a.push(v); }); dropdowns[key]=a; };
+  unionDd('客户'); unionDd('厂区'); unionDd('提出部门');
   save(LS_DROPDOWNS,dropdowns);
   save('wb_cfg_v',VER);
 })();
@@ -127,13 +153,16 @@ let excelBook=null, excelSheet=null, excelSheetName=null, excelHeaderRow=1, exce
 function $(s){return document.querySelector(s);}
 function todayStr(){const d=new Date();const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
 function fmtDateCN(d){ const x=new Date(d); if(isNaN(x))return d; const p=n=>String(n).padStart(2,'0'); return x.getFullYear()+'/'+p(x.getMonth()+1)+'/'+p(x.getDate()); }
+/* 月-日（无年份），用于导出与真实周报模板对齐：开发/测试/结案日期列用 MM/DD */
+function fmtDateMD(d){ const x=new Date(d); if(isNaN(x))return d; const p=n=>String(n).padStart(2,'0'); return p(x.getMonth()+1)+'/'+p(x.getDate()); }
 function parseDateAny(v){
   if(!v)return null;
   if(v instanceof Date)return v;
   let s=String(v).trim();
   if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)){const [y,m,d]=s.split('-').map(Number);const x=new Date(y,m-1,d);return (x.getFullYear()===y&&x.getMonth()+1===m&&x.getDate()===d)?x:null;}
   if(/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)){const [y,m,d]=s.split('/').map(Number);const x=new Date(y,m-1,d);return (x.getFullYear()===y&&x.getMonth()+1===m&&x.getDate()===d)?x:null;}
-  if(/^\d{1,2}\/\d{1,2}$/.test(s)){const [m,d]=s.split('/').map(Number);const x=new Date(new Date().getFullYear(),m-1,d);return (x.getMonth()+1===m&&x.getDate()===d)?x:null;}
+  // m6 修复：MM/DD 仅含月日、年份歧义——取与今天"更近"的年份（1 月录入历史 12/30 不会误判为今年未来）
+  if(/^\d{1,2}\/\d{1,2}$/.test(s)){const [m,d]=s.split('/').map(Number);const y=new Date().getFullYear();const x=new Date(y,m-1,d);if(!(x.getMonth()+1===m&&x.getDate()===d))return null;const now0=new Date();now0.setHours(0,0,0,0);const prev=new Date(y-1,m-1,d);return (Math.abs(prev-now0)<Math.abs(x-now0))?prev:x;}
   const x=new Date(s); return isNaN(x)?null:x;
 }
 function toInputDate(v){ if(!v)return ''; const d=parseDateAny(v); if(!d)return ''; const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
@@ -185,6 +214,9 @@ async function aiChat(messages){
   const st=loadSettings();
   if(!st.aiKey) throw new Error('未配置 API Key（配置中心 → AI 润色）');
   const base=(st.aiBaseUrl||'https://api.deepseek.com').trim().replace(/\/+$/,'');
+  // M3 修复：校验服务地址协议，拒绝非 http(s) 的任意 URL（原实现会把 Key 发往用户填的任意地址）
+  if(!/^https?:\/\//i.test(base)) throw new Error('服务地址必须以 http:// 或 https:// 开头（请填写完整地址）');
+  if(base.startsWith('http://')) console.warn('[AI 润色] 服务地址使用非加密 http，API Key 将以明文发送，仅建议在本地/可信网络使用');
   const model=(st.aiModel||'deepseek-chat').trim()||'deepseek-chat';
   let res;
   try{
@@ -244,9 +276,11 @@ function saveColTemplates(o){ save(LS_COL_TMPL, o); }
 /* 应用一套列模板：覆盖当前 schema/dropdowns/colMapping 并持久化（供切换模板调用） */
 function applyColTemplate(tpl){
   if(!tpl || !Array.isArray(tpl.schema) || !tpl.schema.length) throw new Error('模板缺少有效列定义');
-  schema = tpl.schema.map(c=>({name:String(c.name||'').trim(), type:String(c.type||'text'), def:String(c.def||'')}));
+  const oldSchema=schema.slice();
+  schema = tpl.schema.map(c=>({name:String(c.name||'').trim(), type:String(c.type||'text'), def:String(c.def||''), id:(c.id||('col_'+String(c.name||'').trim())), dateFmt:(String(c.type||'text')==='date'?(c.dateFmt==='md'?'md':'ymd'):undefined)}));
+  const rn=computeRenames(oldSchema, schema); if(rn.length) applyRenames(rn);
   dropdowns = (tpl.dropdowns && typeof tpl.dropdowns==='object') ? JSON.parse(JSON.stringify(tpl.dropdowns)) : {};
-  save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
+  save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns); save(LS_MAPPING,colMapping);
   // 仅当模板带非空映射时才覆盖导出映射（空映射=保留自动识别，避免误清记忆）
   if(tpl.mapping && typeof tpl.mapping==='object' && Object.keys(tpl.mapping).length){
     colMapping=JSON.parse(JSON.stringify(tpl.mapping)); save(LS_MAPPING,colMapping);
@@ -268,13 +302,71 @@ function matchCol(headerName){
   if(names.includes(h))return h;
   const norm=s=>s.replace(/[\s()（）]/g,'');
   const hit=names.find(n=>norm(n)===norm(h)); if(hit)return hit;
-  return names.find(n=>norm(n).includes(norm(h))||norm(h).includes(norm(n)))||null;
+  // 子串回退：仅当「唯一候选」时才自动匹配，避免泛化表头（如"日期""开发"）误配到具体列；多候选/歧义返回 null 交用户手选
+  const hn=norm(h);
+  const cands=names.filter(n=>norm(n).includes(hn)||hn.includes(norm(n)));
+  return cands.length===1?cands[0]:null;
 }
 
 /* 解析某 excel 表头实际映射到的本工具列名。
    规则：colMapping 中显式存在的值优先（含用户手动选的「不导出」空串）；未出现的表头才回退到自动匹配。
    这样「不导出」能真正生效，避免 colMapping[h]||matchCol(h) 把空串又匹配回去的旧问题。 */
 function effMap(h){ return (h in colMapping) ? (colMapping[h]||'') : (matchCol(h)||''); }
+
+/* ============ 列改名迁移（#2：改列名后历史任务不失联） ============ */
+/* 计算新旧 schema 之间的「重命名」映射：优先按稳定 id 匹配，位置作为兜底（覆盖恢复默认/导入整份配置）。
+   from=旧列名，to=新列名。会去重，避免 A→B 与 B→C 冲突。 */
+function computeRenames(oldSchema, newSchema){
+  const renames=[]; const usedFrom=new Set(); const usedTo=new Set();
+  const oldById={}, newById={};
+  (oldSchema||[]).forEach(c=>{ if(c&&c.id) oldById[c.id]=c.name; });
+  (newSchema||[]).forEach(c=>{ if(c&&c.id) newById[c.id]=c.name; });
+  Object.keys(oldById).forEach(id=>{
+    if(newById[id]!=null && newById[id]!==oldById[id] && !usedFrom.has(oldById[id]) && !usedTo.has(newById[id])){
+      renames.push({from:oldById[id], to:newById[id]}); usedFrom.add(oldById[id]); usedTo.add(newById[id]);
+    }
+  });
+  const n=Math.min((oldSchema||[]).length,(newSchema||[]).length);
+  for(let i=0;i<n;i++){
+    const o=(oldSchema[i]||{}).name, v=(newSchema[i]||{}).name;
+    if(o!==v && !usedFrom.has(o) && !usedTo.has(v) && !renames.some(r=>r.from===o||r.to===v)){
+      renames.push({from:o, to:v}); usedFrom.add(o); usedTo.add(v);
+    }
+  }
+  return renames;
+}
+/* 应用重命名：把 tasks[].values 的 key、dropdowns 的 key、colMapping 的 value 一并改名。
+   不覆盖已存在的新 key（避免丢数据），返回改名条数。调用方需自行 save。 */
+function applyRenames(renames){
+  if(!renames||!renames.length) return 0;
+  renames.forEach(r=>{
+    tasks.forEach(t=>{ if(t&&t.values!=null && r.from in t.values && !(r.to in t.values)){ t.values[r.to]=t.values[r.from]; delete t.values[r.from]; } });
+    if(dropdowns && r.from in dropdowns){ dropdowns[r.to]=dropdowns[r.from]; delete dropdowns[r.from]; }
+    Object.keys(colMapping).forEach(k=>{ if(colMapping[k]===r.from) colMapping[k]=r.to; });
+  });
+  return renames.length;
+}
+
+/* P10 修复：统一的「某年月的任务」筛选（列表/看板/月报共用，消除两处等价实现各自演进的漂移风险） */
+function monthTasksOfYM(ts, y, m){
+  return ts.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d.getFullYear()===y&&d.getMonth()+1===m;});
+}
+/* ============ 共享统计聚合（m12：避免看板/数据看板/列表口径漂移） ============ */
+function aggregateTasks(ts, now){
+  now=now||new Date();
+  const y=now.getFullYear(), m=now.getMonth()+1;
+  const monthTasks=monthTasksOfYM(ts,y,m);
+  const closedMonth=monthTasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
+  const rate=monthTasks.length?Math.round(closedMonth/monthTasks.length*100):0;
+  const closedAll=ts.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
+  const ongoing=ts.filter(t=>{const s=String(t.values['完成状态']||'').trim();return s&&!isTaskDone(t)&&s!==STATUS_PAUSE;}).length;
+  const overdue=ts.filter(t=>isTaskOverdue(t,now)); // P9：与 monthTasks 共用同一参考日
+  const byCust={}; ts.forEach(t=>{const c=(t.values['客户']||'').trim()||'未填';byCust[c]=byCust[c]||{total:0,closed:0};byCust[c].total++;if(String(t.values['完成状态']||'')===STATUS_DONE)byCust[c].closed++;});
+  const bySt={}; ts.forEach(t=>{const s=String(t.values['完成状态']||'').trim()||'未填';bySt[s]=(bySt[s]||0)+1;});
+  return {total:ts.length, y, m, monthTasks, closedMonth, rate, closedAll, ongoing, overdueCount:overdue.length, overdue, byCust, bySt};
+}
+/* 防抖：用于搜索框每次按键全量重渲染（m4） */
+function debounce(fn,ms){let t;return function(){const a=arguments;clearTimeout(t);t=setTimeout(()=>fn.apply(null,a),ms);};}
 
 /* ============ 回收站清理上限 ============ */
 const TRASH_CAP=50; // 回收站最多保留条数，超出自动清理最旧记录
@@ -303,11 +395,11 @@ function devProgressOf(t){
   }
   return subtaskProgress(t);
 }
-/* 子任务文本 <-> 数组：每行一条，行首「✓ 」或「[x] 」= 已完成 */
+/* 子任务文本 <-> 数组：每行一条，行首「✓ 」「[x]」「[X]」= 已完成（与录入页提示一致） */
 function parseSubtasks(text){
   return String(text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{
-    const m=/^(?:✓|[xX]\]?)\s*/.exec(s);
-    if(m && (s[0]==='✓'||s[0]==='[')) return {text:s.slice(m[0].length).trim(), done:true};
+    const m=/^(?:✓\s*|\[[ xX]\]\s*)/.exec(s);
+    if(m) return {text:s.slice(m[0].length).trim(), done:true};
     return {text:s, done:false};
   });
 }
@@ -346,12 +438,15 @@ function fmtHistoryTime(ts){
   const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
 }
-/* 逾期判断：未结案/未取消/未暂停 且开发/提出日期早于今天（暂停=暂停，不催） */
-function isTaskOverdue(t){
+/* 逾期判断：未结案/未取消/未暂停 且开发/提出日期早于今天（暂停=暂停，不催）
+   P9 修复：ref 为参考日（默认今天）；aggregateTasks 传入同一个 now，
+   保证「本月任务」与「逾期」使用同一参考日（此前 now 与全局 todayStr() 可能不同源） */
+function isTaskOverdue(t, ref){
   const s=String(t.values['完成状态']||'').trim();
   if(s===STATUS_DONE || s===STATUS_CANCEL || s===STATUS_PAUSE) return false;
   const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
-  return d && toInputDate(d) < todayStr();
+  const refStr=ref?toInputDate(ref):todayStr();
+  return d && toInputDate(d) < refStr;
 }
 /* 是否"已了结"（结案或取消），用于排除出今日/进行中等口径 */
 function isTaskDone(t){

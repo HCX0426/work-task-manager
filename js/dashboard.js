@@ -1,14 +1,10 @@
 /* ============ 数据看板（dashboard.js） ============ */
 /* 汇总全部统计：看板渲染与 PDF 汇报共用同一数据源，避免口径不一致 */
 function getDashboardData(){
-  const total=tasks.length;
-  const now=new Date(); const y=now.getFullYear(),m=now.getMonth()+1;
-  const monthTasks=tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d.getFullYear()===y&&d.getMonth()+1===m;});
-  const closedAll=tasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
-  const closedMonth=monthTasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
-  const rate=monthTasks.length?Math.round(closedMonth/monthTasks.length*100):0;
-  const ongoing=tasks.filter(t=>{ const s=String(t.values['完成状态']||'').trim(); return s && !isTaskDone(t) && s!==STATUS_PAUSE; }).length;
-  const overdue=tasks.filter(t=>isTaskOverdue(t));
+  // m12 修复：复用 store.aggregateTasks，避免与列表统计/今日待办口径漂移；返回结构保持不变
+  const agg=aggregateTasks(tasks);
+  const {total, y, m, monthTasks, closedMonth, rate, ongoing, closedAll, overdueCount, overdue, byCust, bySt}=agg;
+  const now=new Date();
   // 近 6 个月趋势
   const trend=[];
   for(let i=5;i>=0;i--){
@@ -17,17 +13,6 @@ function getDashboardData(){
     const n=tasks.filter(t=>{const x=parseDateAny(t.entryDate);return x&&x.getFullYear()===yy&&x.getMonth()+1===mm;}).length;
     trend.push({mm,n});
   }
-  // 按客户：数量 + 完成率
-  const byCust={};
-  tasks.forEach(t=>{
-    const c=(t.values['客户']||'').trim()||'未填';
-    byCust[c]=byCust[c]||{total:0,closed:0};
-    byCust[c].total++;
-    if(String(t.values['完成状态']||'')===STATUS_DONE)byCust[c].closed++;
-  });
-  // 按完成状态
-  const bySt={};
-  tasks.forEach(t=>{const s=String(t.values['完成状态']||'').trim()||'未填';bySt[s]=(bySt[s]||0)+1;});
   // 逾期清单（按逾期天数升序）
   const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const overdueList=overdue.slice().sort((a,b)=>{
@@ -39,7 +24,7 @@ function getDashboardData(){
     const d0=new Date(d.getFullYear(),d.getMonth(),d.getDate());
     return {name:t.values['专案名称']||'未命名', cust:t.values['客户']||'', days:Math.max(1,Math.round((today0-d0)/86400000))};
   });
-  return {total, y, m, monthCount:monthTasks.length, closedMonth, rate, ongoing, closedAll, overdueCount:overdue.length, trend, byCust, bySt, overdueList, monthTasks};
+  return {total, y, m, monthCount:monthTasks.length, closedMonth, rate, ongoing, closedAll, overdueCount, trend, byCust, bySt, overdueList, monthTasks};
 }
 
 /* 平均开发天数：开发日期~结案日期（含首尾），取所有已填两者的任务均值 */
@@ -264,7 +249,7 @@ function exportReportPDF(){
   <table><thead><tr><th>专案名称</th><th>客户</th><th class="c">逾期</th></tr></thead><tbody>${overdueHtml||'<tr><td colspan="3" class="c muted">✓ 没有逾期未完成的任务</td></tr>'}</tbody></table>
 
   <div class="sec-title">六、本月任务明细</div>
-  <table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rowHtml}</tbody></table>
+  <table><thead><tr>${cols.map(c=>`<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody>${rowHtml}</tbody></table>
 
   <div class="foot">由「工作任务管理」生成 · 数据存于本地浏览器，未上传任何服务器</div>
 </body></html>`;

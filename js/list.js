@@ -20,20 +20,14 @@ function populateStatusFilter(){
 
 /* F. 统计看板 */
 function renderStats(){
-  const total=tasks.length;
-  const now=new Date(); const y=now.getFullYear(),m=now.getMonth()+1;
-  const today=todayStr();
-  const monthTasks=tasks.filter(t=>{const d=parseDateAny(t.entryDate);return d&&d.getFullYear()===y&&d.getMonth()+1===m;});
-  const closed=monthTasks.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
-  const rate=monthTasks.length?Math.round(closed/monthTasks.length*100):0;
+  // m12 修复：复用 store.aggregateTasks，避免与数据看板/今日待办统计口径漂移
+  const agg=aggregateTasks(tasks);
   const exported=tasks.filter(t=>t.exported).length;
-  // 逾期未完成：统一走 isTaskOverdue（结案/取消/暂停不计）
-  const overdue=tasks.filter(t=>isTaskOverdue(t)).length;
   $('#statsStrip').innerHTML=`
-    <div class="stat"><div class="num">${total}</div><div class="lab">任务总数</div></div>
-    <div class="stat"><div class="num">${monthTasks.length}</div><div class="lab">本月任务</div></div>
-    <div class="stat"><div class="num">${rate}%</div><div class="lab">本月完成率</div></div>
-    <div class="stat${overdue?' warn':''}"><div class="num">${overdue}</div><div class="lab">逾期未完成</div></div>
+    <div class="stat"><div class="num">${agg.total}</div><div class="lab">任务总数</div></div>
+    <div class="stat"><div class="num">${agg.monthTasks.length}</div><div class="lab">本月任务</div></div>
+    <div class="stat"><div class="num">${agg.rate}%</div><div class="lab">本月完成率</div></div>
+    <div class="stat${agg.overdueCount?' warn':''}"><div class="num">${agg.overdueCount}</div><div class="lab">逾期未完成</div></div>
     <div class="stat"><div class="num">${exported}</div><div class="lab">已追加</div></div>
     <div class="stat"><div class="num">${trash.length}</div><div class="lab">回收站</div></div>`;
   // 同步顶部「回收站 (N)」按钮计数（删除/恢复后立即刷新，无需展开面板）
@@ -64,7 +58,8 @@ function renderList(){
   if(sf==='__not_closed')list=list.filter(t=>!isTaskDone(t)); // 未完成=未结案且未取消
   else if(sf)list=list.filter(t=>(t.values['完成状态']||'')===sf);
   if(ef==='exported')list=list.filter(t=>t.exported);
-  else if(ef==='not_exported')list=list.filter(t=>!t.exported);
+  else if(ef==='new')list=list.filter(t=>t.exportedNew);
+  else if(ef==='not_exported')list=list.filter(t=>!t.exported && !t.exportedNew);
   $('#listCount').textContent='（共 '+tasks.length+' 条'+( (q||cf||sf||ef)?'，筛选后 '+list.length+' 条':'')+'）';
   const wrap=$('#taskTableWrap');
   const batchOn = $('#batchToggle') && $('#batchToggle').classList.contains('active');
@@ -77,7 +72,7 @@ function renderList(){
     const checked=window.__batchSel && window.__batchSel.has(t.id)?'checked':'';
     h+=`<div class="task-card${done?' done':''}" data-id="${t.id}">
       ${batchOn?`<label class="tcheck-wrap"><input type="checkbox" class="tcheck" data-id="${t.id}" ${checked}></label>`:''}
-      <div class="tc-date"><span class="tc-pill">📅 ${t.entryDate}${t.exported?'<span class="tc-exported">已追加</span>':''}${overdue?'<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span>':''}</span>
+      <div class="tc-date"><span class="tc-pill">📅 ${esc(t.entryDate)}${(t.exported?'<span class="tc-exported">已追加</span>':(t.exportedNew?'<span class="tc-exported">已生成新周报</span>':''))}${overdue?'<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span>':''}</span>
         <span class="tc-actions">
           <button class="btn sec sm" data-edit="${t.id}">编辑</button>
           <button class="btn del sm" data-del="${t.id}">删除</button>
@@ -105,11 +100,17 @@ function renderList(){
     }
     h+='</div>';
   });
-  h+='</div>';wrap.innerHTML=h;
+  h+='</div>';
+  const _st = wrap.scrollTop; // P13：重建前记录滚动位置
+  wrap.innerHTML=h;
+  wrap.scrollTop=_st; // P13：重建后恢复，避免长列表编辑/删除后跳回顶部
   wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
     if(!confirm('删除这条任务？将移入回收站（可恢复）。'))return;
     const i=tasks.findIndex(t=>t.id===b.dataset.del);
-    if(i>=0){trash.push(tasks[i]);trimTrash();tasks.splice(i,1);save(LS_TASKS,tasks);save(LS_TRASH,trash);renderList();toast('已移入回收站');}
+    if(i<0) return;
+    // P2：统一走 moveToTrash（先写回收站再删任务库，任一步失败均回滚）
+    if(!moveToTrash(tasks[i].id)) return;
+    renderList(); toast('已移入回收站');
   });
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openTaskEdit(b.dataset.edit));
   wrap.querySelectorAll('.tcheck').forEach(c=>c.onchange=()=>{
@@ -144,7 +145,7 @@ $('#batchExport').onclick=async ()=>{
     const values=cols.map(c=>{
       if(c.type==='auto') return '';
       let v=t.values[c.name]||'';
-      if(c.type==='date'){ const dt=parseDateAny(v); v=dt?fmtDateCN(dt):v; }
+      if(c.type==='date'){ const dt=parseDateAny(v); if(dt) v=(c.dateFmt==='md')?fmtDateMD(dt):fmtDateCN(dt); }
       return v;
     });
     const row=ws.addRow(values);
@@ -154,12 +155,36 @@ $('#batchExport').onclick=async ()=>{
   downloadBlob(new Blob([out],{type:'application/octet-stream'}),'选中任务_'+todayStr()+'.xlsx');
   toast('已导出选中 '+sel.length+' 条');
 };
+/* P2 修复：把任务移入回收站（单条/批量共用，顺带消除两处重复实现）。
+   写入顺序：先「回收站」(安全侧·新增) 再「任务库」(风险侧·删除)；
+   任一步失败都回滚已写成功的键，彻底避免 m8 遗留的
+   「磁盘已删 + 内存未删 + 回收站没有」→ 刷新后任务永久丢失。
+   返回实际移入条数（0 表示未生效）。 */
+function moveToTrash(ids){
+  const idset=(ids instanceof Set)?ids:new Set(Array.isArray(ids)?ids:[ids]);
+  if(!idset.size) return 0;
+  const nt=tasks.filter(t=>!idset.has(t.id));
+  const moved=tasks.length-nt.length;
+  if(!moved) return 0;
+  const ntr=trash.slice();
+  tasks.forEach(t=>{ if(idset.has(t.id)) ntr.push(t); });
+  if(ntr.length>TRASH_CAP) ntr.splice(0,ntr.length-TRASH_CAP);
+  if(!save(LS_TRASH,ntr)){ toast('保存失败（回收站写入失败），删除未生效'); return 0; }
+  if(!save(LS_TASKS,nt)){
+    save(LS_TRASH,trash); // 回滚：任务库没删成，回收站也退回原样
+    toast('保存失败（任务库写入失败），已回滚，删除未生效');
+    return 0;
+  }
+  tasks=nt; trash=ntr;
+  return moved;
+}
 $('#batchDelete').onclick=()=>{
   const ids=[...document.querySelectorAll('.tcheck:checked')].map(c=>c.dataset.id);
   if(!ids.length){toast('请先勾选任务');return;}
   if(!confirm('将选中的 '+ids.length+' 条移入回收站？'))return;
-  ids.forEach(id=>{const i=tasks.findIndex(t=>t.id===id);if(i>=0){trash.push(tasks[i]);tasks.splice(i,1);}});
-  trimTrash();save(LS_TASKS,tasks);save(LS_TRASH,trash);window.__batchSel=new Set();renderList();toast('已移入回收站 '+ids.length+' 条');
+  const moved=moveToTrash(ids);
+  if(!moved) return;
+  window.__batchSel=new Set(); renderList(); toast('已移入回收站 '+moved+' 条');
 };
 /* 批量补录结案日期后，联动回填开发天数（开发日期~结案日期含首尾） */
 function autoCalcDays(t){
@@ -219,7 +244,7 @@ function renderTrash(){
   let h='<div class="task-list">';
   trash.slice().reverse().forEach(t=>{
     h+=`<div class="task-card" data-id="${t.id}">
-      <div class="tc-date"><span class="tc-pill">📅 ${t.entryDate} <span class="tc-exported">已删除</span></span>
+      <div class="tc-date"><span class="tc-pill">📅 ${esc(t.entryDate)} <span class="tc-exported">已删除</span></span>
         <span class="tc-actions">
           <button class="btn sec sm" data-restore="${t.id}">恢复</button>
           <button class="btn del sm" data-purge="${t.id}">彻底删除</button>
@@ -240,7 +265,7 @@ function renderTrash(){
   });
 }
 
-$('#listSearch').oninput=renderList;
+$('#listSearch').oninput=debounce(renderList,200); // m4 修复：搜索输入防抖，避免每次按键全量重渲染
 $('#listCustFilter').onchange=renderList;
 $('#listStatusFilter').onchange=renderList;
 $('#listExportFilter').onchange=renderList;
@@ -253,20 +278,56 @@ $('#undoLastExport').onclick=()=>{
   if(!lastExportedIds.length){toast('当前没有可撤销的「本次追加」记录');return;}
   const n=lastExportedIds.length;
   tasks.forEach(t=>{ if(lastExportedIds.includes(t.id)) t.exported=false; });
-  save(LS_TASKS,tasks); lastExportedIds=[]; renderList(); toast('已撤销本次追加 '+n+' 条');
+  save(LS_TASKS,tasks); lastExportedIds=[]; renderList();
+  toast('已清除 '+n+' 条的「已追加」标记——下次导出会重新包含它们。注意：之前下载的 Excel 文件不会被改动，请删掉旧文件避免重复。');
 };
 $('#undoExported').onclick=()=>{
   const n=tasks.filter(t=>t.exported).length;
   if(!n){toast('当前没有已标记「已追加」的任务');return;}
-  if(!confirm('将撤销 '+n+' 条任务的「已追加」标记，之后导出追加会重新包含它们。继续？'))return;
+  if(!confirm('将清除 '+n+' 条任务的「已追加」标记。\n注意：已下载到磁盘的 Excel 文件不会被改动（仍在），清除后重新导出会生成新文件并重新包含这些任务。\n仍要清除？'))return;
   tasks.forEach(t=>{t.exported=false;});
-  save(LS_TASKS,tasks); renderList(); toast('已撤销 '+n+' 条「已追加」标记');
+  save(LS_TASKS,tasks); renderList(); toast('已清除 '+n+' 条「已追加」标记（已下载的 Excel 文件不变）');
 };
 /* 一键全量备份：任务库+回收站+列配置+下拉+导出默认设置 */
 $('#exportAll').onclick=()=>{
-  downloadJSON({type:'wb_full', tasks, trash, schema, dropdowns, settings:loadSettings()}, '周报全量备份_'+todayStr()+'.json');
+  // P3 修复：settings 剔除 aiKey（明文 API Key 不随备份文件外泄）
+  downloadJSON({type:'wb_full', tasks, trash, schema, dropdowns, colMapping, settings:settingsForBackup()}, '周报全量备份_'+todayStr()+'.json');
   markBackup(); toast('已导出全量备份');
 };
+/* P1 修复：统一的备份恢复写入（全量备份 / 加密备份共用）。
+   顺序：先构造新值 → 顺序落盘 → 任一失败即回滚已写成功的键 → 全部成功才改内存。
+   原实现「先全量改内存 + 不检查 save 返回值 + 无条件成功提示」，
+   配额不足时会留下「新列配置 + 旧任务库」的混合态，且界面仍假报「已恢复」。 */
+function restoreAll(d, okMsg){
+  const nTasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported, exportedNew:!!t.exportedNew, subtasks:Array.isArray(t.subtasks)?t.subtasks:[], history:Array.isArray(t.history)?t.history:[]}));
+  const nTrash=Array.isArray(d.trash)?d.trash:[];
+  const nSchema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(String(c.type||'text')==='date'?(c.dateFmt==='md'?'md':'ymd'):undefined)}));
+  const nDropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
+  const nMap=(d.colMapping&&typeof d.colMapping==='object'&&!Array.isArray(d.colMapping))?d.colMapping:null;
+  const nSettings=(d.settings&&typeof d.settings==='object')?d.settings:null;
+  const origCfg=load(LS_EXPORTCFG,null); // 回滚快照（解析后的对象，null 表示原本没有）
+  const plan=[[LS_TASKS,nTasks,tasks],[LS_TRASH,nTrash,trash],[LS_SCHEMA,nSchema,schema],[LS_DROPDOWNS,nDropdowns,dropdowns]];
+  if(nMap) plan.push([LS_MAPPING,nMap,colMapping]);
+  if(nSettings) plan.push([LS_EXPORTCFG,nSettings,origCfg]);
+  const done=[]; let failedKey=null;
+  for(const [k,v,orig] of plan){
+    if(!save(k,v)){ failedKey=k; break; }
+    done.push([k,orig]);
+  }
+  if(failedKey){
+    // 逆序回滚已写成功的键，恢复到恢复操作之前的磁盘状态
+    for(let i=done.length-1;i>=0;i--){
+      const [k,orig]=done[i];
+      if(orig===null||orig===undefined) localStorage.removeItem(k); else save(k,orig);
+    }
+    toast('恢复失败：写入「'+failedKey+'」失败（可能是存储空间不足），已回滚，当前数据未改动');
+    return false;
+  }
+  tasks=nTasks; trash=nTrash; schema=nSchema; dropdowns=nDropdowns;
+  if(nMap) colMapping=nMap;
+  renderList(); renderEntry(null); toast(okMsg);
+  return true;
+}
 $('#importAll').onclick=()=>$('#importAllFile').click();
 $('#importAllFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
@@ -276,13 +337,7 @@ $('#importAllFile').onchange=e=>{
       if(d.type!=='wb_full' || !Array.isArray(d.tasks)) throw new Error('不是有效的全量备份文件');
       if(!Array.isArray(d.schema) || !d.schema.length) throw new Error('备份缺少列配置');
       if(!confirm('将恢复备份中的全部数据（任务库/回收站/列配置/下拉/导出设置），当前数据会被覆盖。\n建议先「全量备份」当前数据。\n仍要恢复？')) return;
-      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported, subtasks:Array.isArray(t.subtasks)?t.subtasks:[], history:Array.isArray(t.history)?t.history:[]}));
-      trash=Array.isArray(d.trash)?d.trash:[];
-      schema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||'')}));
-      dropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
-      save(LS_TASKS,tasks); save(LS_TRASH,trash); save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
-      if(d.settings && typeof d.settings==='object') save(LS_EXPORTCFG,d.settings);
-      renderList(); renderEntry(null); toast('已恢复全量备份');
+      restoreAll(d,'已恢复全量备份'); // P1：原子写入 + 失败回滚 + 按结果提示
     }catch(err){ toast('恢复失败：'+err.message); }
   };
   r.readAsText(f); e.target.value='';
@@ -295,7 +350,7 @@ $('#encryptBackup').onclick=async ()=>{
   if(!pwd.trim()){ toast('密码不能为空'); return; }
   const pwd2=await uiPrompt('再次输入密码确认：');
   if(pwd2!==pwd){ toast('两次密码不一致，已取消'); return; }
-  const obj={type:'wb_full', tasks, trash, schema, dropdowns, settings:loadSettings()};
+  const obj={type:'wb_full', tasks, trash, schema, dropdowns, colMapping, settings:settingsForBackup()}; // P3：同样剔除 aiKey
   try{
     const enc=await encryptBackupJSON(obj, pwd);
     downloadBlob(new Blob([enc],{type:'application/json'}), '周报加密备份_'+todayStr()+'.wbe');
@@ -314,13 +369,7 @@ $('#restoreEncFile').onchange=e=>{
       if(d.type!=='wb_full' || !Array.isArray(d.tasks)) throw new Error('不是有效的全量备份');
       if(!Array.isArray(d.schema) || !d.schema.length) throw new Error('备份缺少列配置');
       if(!confirm('将恢复加密备份中的全部数据（任务库/回收站/列配置/下拉/导出设置），当前数据会被覆盖。\n建议先「全量备份」当前数据。\n仍要恢复？')) return;
-      tasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported, subtasks:Array.isArray(t.subtasks)?t.subtasks:[], history:Array.isArray(t.history)?t.history:[]}));
-      trash=Array.isArray(d.trash)?d.trash:[];
-      schema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||'')}));
-      dropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
-      save(LS_TASKS,tasks); save(LS_TRASH,trash); save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
-      if(d.settings && typeof d.settings==='object') save(LS_EXPORTCFG,d.settings);
-      renderList(); renderEntry(null); toast('已恢复加密备份');
+      restoreAll(d,'已恢复加密备份'); // P1：与全量恢复共用同一原子写入逻辑
     }catch(err){ toast('恢复失败：'+err.message); }
   };
   r.readAsText(f); e.target.value='';
@@ -402,6 +451,7 @@ $('#importExcelFile').onchange=async e=>{
     const mapTo=headers.map(h=>matchCol(h)||'');
     // 收集数据行
     const newTasks=[];
+    let noDate=0; // m7 修复：记录缺录入日期的行数，便于提示
     for(let r=hr+1;r<=ws.rowCount;r++){
       const row=ws.getRow(r);
       if(!row.cellCount) continue;
@@ -420,9 +470,10 @@ $('#importExcelFile').onchange=async e=>{
       });
       // 没有匹配到任何列的跳过
       if(!Object.keys(values).length) continue;
-      // 录入日期：用提出日期或开发日期或今天的首日兜底
-      const entry=values['提出日期']||values['开发日期']||'';
-      newTasks.push({id:uid(), entryDate:entry, values, exported:false});
+      // 录入日期：用提出日期或开发日期；两者皆空则兜底为今天（m7 修复：空 entryDate 会让任务在日历/月报/本周里"消失"）
+      const entry=values['提出日期']||values['开发日期']||todayStr();
+      if(!values['提出日期'] && !values['开发日期']) noDate++;
+      newTasks.push({id:uid(), entryDate:entry, values, exported:false, exportedNew:false});
     }
     if(!newTasks.length){ toast('表格里没有可导入的数据行'); e.target.value=''; return; }
     const merged=confirm(`读取到 ${newTasks.length} 条任务。\n「确定」= 合并进现有任务库（当前 ${tasks.length} 条）；\n「取消」= 不导入。`);
@@ -430,7 +481,7 @@ $('#importExcelFile').onchange=async e=>{
     tasks=tasks.concat(newTasks);
     save(LS_TASKS,tasks);
     renderList();
-    toast(`已从 Excel 导入 ${newTasks.length} 条任务，现有 ${tasks.length} 条`);
+    toast(`已从 Excel 导入 ${newTasks.length} 条任务，现有 ${tasks.length} 条`+(noDate?`（其中 ${noDate} 条缺录入日期，已按今天录入，可在日历里改）`:''));
   }catch(err){ toast('导入失败：'+err.message); }
   e.target.value='';
 };
@@ -475,8 +526,9 @@ function renderGantt(){
       if(end) dates.push(end);
     });
     if(!dates.length){ dates.push(today); }
-    minDate = new Date(Math.min(...dates));
-    maxDate = new Date(Math.max(...dates));
+    // M1 修复：用 reduce 求最值，避免 Math.min(...dates) 在任务多时因参数展开触发栈溢出
+    minDate = new Date(dates.reduce((a,b)=>a<b?a:b));
+    maxDate = new Date(dates.reduce((a,b)=>a>b?a:b));
   } else if(rangeSel === '30'){
     minDate = new Date(today.getTime() - 15 * 86400000);
     maxDate = new Date(today.getTime() + 45 * 86400000);
@@ -492,8 +544,9 @@ function renderGantt(){
   // 扩展范围确保显示完整
   minDate = new Date(minDate.getTime() - 3 * 86400000);
   maxDate = new Date(maxDate.getTime() + 3 * 86400000);
-  
-  const totalDays = Math.ceil((maxDate - minDate) / 86400000) + 1;
+
+  const span = maxDate - minDate; // M4 修复：跨度（毫秒），用于百分比与除零兜底
+  const totalDays = Math.ceil(span / 86400000) + 1;
   const dayWidth = 14; // 每天14px
   const timelineWidth = totalDays * dayWidth;
   
@@ -515,7 +568,7 @@ function renderGantt(){
   headerHtml += '</div></div>';
   
   // 今天线位置
-  const todayPos = ((today - minDate) / (maxDate - minDate)) * 100;
+  const todayPos = span>0 ? ((today - minDate) / span) * 100 : 0; // M4 修复：span=0 时记为 0，避免 NaN
   
   // 分组逻辑
   const groupBy = $('#ganttGroupBy').value;
@@ -559,8 +612,9 @@ function renderGantt(){
       const displayEnd = end > maxDate ? maxDate : end;
       
       // 计算位置和宽度
-      const left = ((displayStart - minDate) / (maxDate - minDate)) * 100;
-      const width = Math.max(((displayEnd - displayStart) / (maxDate - minDate)) * 100, 1);
+      const denom = span || 1; // M4 修复：span=0 时除零兜底（单任务同日期间不至于 NaN）
+      const left = ((displayStart - minDate) / denom) * 100;
+      const width = Math.max(((displayEnd - displayStart) / denom) * 100, 1);
       
       // 状态颜色：逾期（未结案/未取消且日期已过）优先红色，其次按状态
       let statusClass = 'status_other';
@@ -608,6 +662,7 @@ function renderGantt(){
     <div class="gantt-legend-item"><span class="gantt-legend-dot" style="background:#b9bfc7"></span>其他</div>
   </div>`;
   
+  const _gst = chart.scrollTop; // P13：重建前记录滚动位置
   chart.innerHTML = headerHtml + bodyHtml + legendHtml;
   
   // 设置今天线位置
@@ -627,6 +682,7 @@ function renderGantt(){
   chart.querySelectorAll('[data-edit]').forEach(b => {
     b.onclick = () => openTaskEdit(b.dataset.edit);
   });
+  chart.scrollTop = _gst; // P13：重建后恢复滚动位置
 }
 
 /* ============ 看板视图：按完成状态分列，拖动卡片直接改状态 ============ */
@@ -796,8 +852,7 @@ function renderCalendar(){
     </div>`;
   }
   const used=offset+dim;
-  let tail=42-used;
-  if(tail<0) tail=7-Math.abs(tail)%7||0; // 不足6行时补齐
+  const tail=Math.max(0, 42-used); // 补齐到 6 行(42 格)；used 最大 37，tail 恒为正，原 if(tail<0) 死分支已移除（#35）
   for(let d=1;d<=tail;d++){
     const nd=new Date(y,m+1,d);
     const k=nd.getFullYear()+'-'+p(nd.getMonth()+1)+'-'+p(nd.getDate());

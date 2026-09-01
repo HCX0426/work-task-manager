@@ -7,15 +7,12 @@ function setMonthDefault(){
 function getMonthlyData(){
   const mv=$('#monthPick').value;
   if(!mv)return [];
-  const [y,m]=mv.split('-').map(Number);
   const dedup=$('#mf_dedup') ? $('#mf_dedup').checked : true; // 去重开关（配置默认，可临时改）
   const seen={}, out=[];
-  tasks.forEach(t=>{
-    const d=parseDateAny(t.entryDate); if(!d)return;
-    if(d.getFullYear()===y && d.getMonth()+1===m){
-      const name=(t.values['专案名称']||'').trim();
-      if(name && (!dedup || !seen[name])){ seen[name]=true; out.push({name, 客户:t.values['客户']||'', 负责人:t.values['负责人']||'', 完成状态:t.values['完成状态']||''}); }
-    }
+  // m12 修复：复用 monthTasksOf 做"按录入月份筛选"，避免与下方重复实现
+  monthTasksOf(mv).forEach(t=>{
+    const name=(t.values['专案名称']||'').trim();
+    if(name && (!dedup || !seen[name])){ seen[name]=true; out.push({name, 客户:t.values['客户']||'', 负责人:t.values['负责人']||'', 完成状态:t.values['完成状态']||''}); }
   });
   return out;
 }
@@ -49,7 +46,7 @@ $('#monthThis').onclick=()=>{ setMonthDefault(); renderMonthly(); };
 (function(){
   const st=loadSettings();
   const d=$('#mf_dedup'); if(d) d.checked=!!st.monthDedup;
-  document.querySelectorAll('.wkField').forEach(cb=>{ cb.checked=(st.weeklyFields||[]).includes(cb.value); cb.onchange=genWeekly; });
+  document.querySelectorAll('.wkField').forEach(cb=>{ cb.checked=(st.weeklyFields||[]).includes(cb.value); cb.onchange=()=>{ const fields=[...document.querySelectorAll('.wkField:checked')].map(x=>x.value); const cfg=load(LS_EXPORTCFG,{})||{}; cfg.weeklyFields=fields; save(LS_EXPORTCFG,cfg); genWeekly(); }; });
 })();
 $('#exportMonthly').onclick=()=>{
   const data=getMonthlyData();

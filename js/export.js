@@ -75,7 +75,7 @@ function mapTaskToRow(task){
     if(task.values[key]!=null && task.values[key]!==''){
       let v=task.values[key];
       const colDef=schema.find(c=>c.name===key);
-      if(colDef&&colDef.type==='date'){ const dt=parseDateAny(v); v=dt?fmtDateCN(dt):v; }
+      if(colDef&&colDef.type==='date'){ const dt=parseDateAny(v); if(dt) v=(colDef.dateFmt==='md')?fmtDateMD(dt):fmtDateCN(dt); }
       row[h]=v;
     }
   });
@@ -99,13 +99,14 @@ function taskRangeDate(t){
   if(by==='开发日期') return t.values['开发日期'];
   return t.entryDate;
 }
-function getRangeTasks(){
+function getRangeTasks(skipAppend){
+  if(skipAppend===undefined) skipAppend=skipExportedChecked(); // 追加通道默认尊重「跳过已追加」；生成新周报传 false（新文件应包含全部）
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
   if(!s||!e)return [];
   const st=parseDateAny(s), en=parseDateAny(e);
   if(!st||!en){ toast('日期格式无效'); return []; }
   st.setHours(0,0,0,0); en.setHours(23,59,59,999);
-  return tasks.filter(t=>{const d=parseDateAny(taskRangeDate(t));return d&&d>=st&&d<=en && (!skipExportedChecked()||!t.exported);});
+  return tasks.filter(t=>{const d=parseDateAny(taskRangeDate(t));return d&&d>=st&&d<=en && (!skipAppend||!t.exported);});
 }
 function renderPreview(){
   const t=getRangeTasks();
@@ -121,12 +122,18 @@ function renderPreview(){
       if(!key)return '';
       let v=task.values[key]||'';
       const cd=schema.find(c=>c.name===key);
-      if(cd&&cd.type==='date'){const dt=parseDateAny(v);v=dt?fmtDateCN(dt):v;}
+      if(cd&&cd.type==='date'){const dt=parseDateAny(v);v=dt?(cd.dateFmt==='md'?fmtDateMD(dt):fmtDateCN(dt)):v;} // m1 修复：预览也按列 dateFmt，与真实导出一致
       return v;
     };
   }else{
     headers=schema.filter(c=>c.type!=='auto').map(c=>({name:c.name,key:c.name}));
-    valOf=(task,c)=>task.values[c]||'';
+    // P6 修复：无 excel 模板时预览也按列 dateFmt 输出（与有模板分支 m1 一致，避免日期格式两套口径）
+    valOf=(task,c)=>{
+      const cd=schema.find(col=>col.name===c);
+      let v=task.values[c]||'';
+      if(cd&&cd.type==='date'){ const dt=parseDateAny(v); v=dt?(cd.dateFmt==='md'?fmtDateMD(dt):fmtDateCN(dt)):v; }
+      return v;
+    };
   }
   let h='<table><thead><tr>'+(excelBook?'<th>录入日期</th>':'')+headers.map(x=>`<th>${esc(x.name)}</th>`).join('')+'</tr></thead><tbody>';
   t.forEach(task=>{
@@ -260,11 +267,13 @@ function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:tru
 function copyRowStyle(ws, target, source){
   const src=ws.getRow(source), tgt=ws.getRow(target);
   tgt.height=src.height;
-  const cols=Math.max(src.cellCount||0, excelHeaders.length, 20);
+  // P11 修复：去掉硬编码的 20 列下限，列数以「源行实际单元格数」与「模板表头数」取大为准，避免多列模板(>20)漏拷样式、或少列模板(<=20)误生成多余边框
+  const cols=Math.max(src.cellCount||0, excelHeaders.length);
   for(let c=1;c<=cols;c++){
     const sc=src.getCell(c);
     if(sc.style && Object.keys(sc.style).length>0){
-      tgt.getCell(c).style=JSON.parse(JSON.stringify(sc.style));
+      // m5 修复：浅拷贝 style 即可（嵌套 font/border/fill 只读；writeRowVals 仅对目标单元格重设 alignment，不回写源），避免逐格 JSON 深拷贝开销
+      tgt.getCell(c).style=Object.assign({}, sc.style);
     }
   }
 }
@@ -368,7 +377,7 @@ async function doExportInner(){
 
 /* ============ 生成新周报（新建文件，按配置中心列顺序，不依赖模板） ============ */
 async function buildNewWorkbook(){
-  const t=getRangeTasks();
+  const t=getRangeTasks(false); // 新文件：包含范围内全部任务（含已追加的，因是全新文件）
   if(!t.length) return null;
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet('周报');
@@ -379,7 +388,7 @@ async function buildNewWorkbook(){
     const values=cols.map(c=>{
       if(c.type==='auto') return idx+1; // 项次自动续号，从 1 起
       let v=task.values[c.name]||'';
-      if(c.type==='date'){ const dt=parseDateAny(v); v=dt?fmtDateCN(dt):v; }
+      if(c.type==='date'){ const dt=parseDateAny(v); if(dt) v=(c.dateFmt==='md')?fmtDateMD(dt):fmtDateCN(dt); }
       return v;
     });
     const row=ws.addRow(values);
@@ -397,7 +406,7 @@ $('#genNew').onclick=async ()=>{
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
   const out=await wb.xlsx.writeBuffer();
   downloadBlob(new Blob([out],{type:'application/octet-stream'}), `周报_${s}_${e}.xlsx`);
-  t.forEach(x=>{ x.exported=true; }); save(LS_TASKS,tasks);
+  t.forEach(x=>{ x.exportedNew=true; }); save(LS_TASKS,tasks);
   lastExportedIds=t.map(x=>x.id); // 记录本次，供「撤销本次追加」
   $('#genNewMsg').textContent=`已生成 ${t.length} 条，另存为「周报_${s}_${e}.xlsx」（已标记防重复）`;
   toast('已生成新周报');

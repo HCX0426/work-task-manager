@@ -214,14 +214,14 @@ function renderEntry(prefill){
   });
   $('#saveEntry').textContent = (editingId && prefill) ? '保存修改' : '保存任务';
   $('#cancelEdit').style.display = (editingId && prefill) ? 'inline-block' : 'none';
-  // 脏状态跟踪：记录初始值并监听变化
+  // 脏状态跟踪：记录初始值并监听变化（#35：先移除再绑定，避免持久节点 #entryForm/#entryDate 上监听器随每次渲染累积）
   markBaseline();
-  f.addEventListener('input',checkDirty);
-  f.addEventListener('change',checkDirty);
-  $('#entryDate').addEventListener('input',checkDirty);
-  $('#entryDate').addEventListener('change',checkDirty);
-  $('#entryDate').addEventListener('input',saveDraft);
-  $('#entryDate').addEventListener('change',saveDraft);
+  f.removeEventListener('input',checkDirty); f.removeEventListener('change',checkDirty);
+  $('#entryDate').removeEventListener('input',checkDirty); $('#entryDate').removeEventListener('change',checkDirty);
+  $('#entryDate').removeEventListener('input',saveDraft); $('#entryDate').removeEventListener('change',saveDraft);
+  f.addEventListener('input',checkDirty); f.addEventListener('change',checkDirty);
+  $('#entryDate').addEventListener('input',checkDirty); $('#entryDate').addEventListener('change',checkDirty);
+  $('#entryDate').addEventListener('input',saveDraft); $('#entryDate').addEventListener('change',saveDraft);
   renderTodayPanel();
 }
 
@@ -366,14 +366,14 @@ $('#saveEntry').onclick=()=>{
     }
     else {
       // 原任务已被删除：作为新任务保存
-      const nt={id:uid(),entryDate:ed,values:Object.assign({}, values),exported:false};
+      const nt={id:uid(),entryDate:ed,values:Object.assign({}, values),exported:false, exportedNew:false};
       const next=tasks.concat(nt);
       editingId=null;
       if(!save(LS_TASKS,next)) return;
       tasks=next; toast('原任务已被删除，已作为新任务保存');
     }
   }else{
-    const nt={id:uid(),entryDate:ed,values:Object.assign({}, values),exported:false};
+    const nt={id:uid(),entryDate:ed,values:Object.assign({}, values),exported:false, exportedNew:false};
     const next=tasks.concat(nt);
     if(!save(LS_TASKS,next)) return;
     tasks=next; toast('已保存，可在「任务列表」查看');
@@ -423,7 +423,7 @@ $('#bulkSave').onclick=()=>{
       const stArr=dropdowns['完成状态']||[];
       if(stArr.length) values['完成状态']=stArr[0];
     }
-    newTasks.push({id:uid(),entryDate:d,values,exported:false});
+    newTasks.push({id:uid(),entryDate:d,values,exported:false, exportedNew:false});
   });
   // 先保存（快照数组），成功后再并入内存；失败保留文本框内容以便重试
   const next=tasks.concat(newTasks);

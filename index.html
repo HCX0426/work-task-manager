@@ -17,7 +17,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
 <title>工作任务管理</title>
-<script src="exceljs.min.js" defer></script>
+<script defer src="exceljs.min.js"></script><!-- P5 修复：exceljs 也加 defer（与下方 9 个模块同为 defer，按文档顺序在解析后执行，既保证早于业务模块就绪，又不阻塞首屏绘制） -->
 <style>
   :root{ --blue:#2f6fed; --bg:#f5f6f8; --card:#fff; --line:#e3e6eb; --txt:#222; --mut:#7a828c; --ok:#1aa260; --warn:#e08a00; --del:#d8453a; }
   /* 深色模式：所有硬编码浅色背景统一走变量，切 html[data-theme=dark] 即全局生效 */
@@ -128,7 +128,7 @@
 
   /* ============ 任务列表：卡片美化 ============ */
   .task-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
-  .task-card{position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;transition:box-shadow .15s,border-color .15s}
+  .task-card{position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;transition:box-shadow .15s,border-color .15s;content-visibility:auto;contain-intrinsic-size:auto 120px}
   .task-card:hover{box-shadow:0 4px 14px rgba(47,111,237,.12);border-color:#c5d4f5}
   .task-card.done{border-left:4px solid var(--ok)}
   .task-card .tc-date{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;background:none;padding:0;color:inherit;border-radius:0}
@@ -151,6 +151,13 @@
   .stat .lab{font-size:12px;color:var(--mut)}
   .stat.warn{background:#fdf3f0;border-color:#f3c4bc}
   .stat.warn .num{color:var(--del)}
+  /* 视图切换分段控件：把 4 个视图 tab 做成一组互斥分段，区别于右侧独立操作按钮 */
+  .view-tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex-wrap:wrap}
+  .view-tabs .btn{border:none !important;border-right:1px solid var(--line) !important;border-radius:0 !important}
+  .view-tabs .btn:last-child{border-right:none !important}
+  .view-tabs .btn.active{background:var(--blue);color:#fff}
+  /* 操作按钮组与视图分段在视觉上分隔 */
+  .action-btns{display:flex;flex-wrap:wrap}
   .cust-stats{margin:0 0 12px;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .cust-title{font-size:12px;margin-bottom:8px}
   .cust-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px}
@@ -183,7 +190,7 @@
   .gantt-group{border-bottom:2px solid var(--line)}
   .gantt-group-title{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#eef3ff;font-size:13px;font-weight:600}
   .gantt-group-title .gcount{font-weight:400;color:var(--mut);font-size:12px}
-  .gantt-row{display:flex;align-items:center;border-bottom:1px solid #f0f2f5;min-height:32px}
+  .gantt-row{display:flex;align-items:center;border-bottom:1px solid #f0f2f5;min-height:32px;content-visibility:auto;contain-intrinsic-size:auto 32px}
   .gantt-row:hover{background:#f9fbfd}
   .gantt-row:nth-child(even){background:#fcfdfe}
   .gantt-row:nth-child(even):hover{background:#f4f7fb}
@@ -257,7 +264,7 @@
   .kanban-head .kcnt{margin-left:auto;background:#e8eefc;color:var(--blue);border-radius:999px;padding:0 8px;font-size:11px;font-weight:600}
   html[data-theme=dark] .kanban-head .kcnt{background:#222837;color:#8fb0f5}
   .kanban-cards{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:30px;flex:1}
-  .kanban-card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:12px;transition:box-shadow .12s;display:flex;flex-direction:column;gap:4px}
+  .kanban-card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:12px;transition:box-shadow .12s;display:flex;flex-direction:column;gap:4px;content-visibility:auto;contain-intrinsic-size:auto 76px}
   .kanban-card:hover{box-shadow:0 3px 10px rgba(47,111,237,.15);border-color:#c5d4f5}
   .kanban-card.overdue{border-left:3px solid var(--del)}
   html[data-theme=dark] .kanban-card.overdue{border-left-color:var(--del)}
@@ -472,7 +479,8 @@
         </div>
       </div>
     </details>
-    <form id="entryForm" class="grid"><div class="field"><span class="lab">厂区 <span class="badge">预填</span></span><input type="text" name="厂区" value="东莞"><div class="field-err"></div></div><div class="field"><span class="lab">提出日期 <span class="badge">预填</span></span><input type="date" name="提出日期" value="2026-08-27"><div class="field-err"></div></div><div class="field"><span class="lab">提出部门 <span class="badge">预填</span></span><input type="text" name="提出部门" value="仓库"><div class="field-err"></div></div><div class="field"><span class="lab">客户</span><div class="dd-inline"><select name="客户"><option value="">请选择</option><option>其他</option><option>所有</option><option>太白山</option><option>N客户</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「客户」新增选项">+ 新增</button></div><div class="field-err"></div></div><div class="field"><span class="lab">专案名称</span><input type="text" name="专案名称" value=""><div class="field-err"></div></div><div class="field"><span class="lab">需求说明</span><input type="text" name="需求说明" value=""><div class="field-err"></div></div><div class="field"><span class="lab">负责人 <span class="badge">预填</span></span><input type="text" name="负责人" value="黄崇璇"><div class="field-err"></div></div><div class="field" style="grid-column: 1 / -1;"><span class="lab">开发进度</span><textarea name="开发进度" placeholder="可多行，如：08/20 完成，等待测试"></textarea><div class="row" style="margin-top:6px;gap:8px"><button type="button" class="btn sec sm ai-polish-btn">AI 润色</button><button type="button" class="btn sec sm voice-btn" title="语音转文字填入（Chrome 浏览器支持）">🎤 语音</button><span class="muted ai-polish-msg"></span><span class="muted voice-status"></span></div><div class="phrase-row row" style="margin-top:6px;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:12px">常用：</span><button type="button" class="btn sec sm" data-p="开发中" title="点击插入">开发中</button><button type="button" class="btn sec sm" data-p="已完成，待测试" title="点击插入">已完成，待测试</button><button type="button" class="btn sec sm" data-p="已上线" title="点击插入">已上线</button><button type="button" class="btn sec sm" data-p="联调中，等待验证" title="点击插入">联调中，等待验证</button><button type="button" class="btn sec sm" data-p="等待测试" title="点击插入">等待测试</button><button type="button" class="btn sec sm phrase-add" title="新增常用短语">+ 新增</button></div><div class="subtask-progress hidden dev-progress" style="margin-top:6px"><span class="sp-bar"><i style="width:0%"></i></span><span class="sp-txt"></span><span class="muted" style="font-size:11px">每行一个推进节点，行首加「✓ 」表示已完成，进度自动统计</span></div><div class="muted" style="margin-top:-2px">格式如「08/20 完成，等待测试」；拆行的每行会被算作一个推进节点</div><div class="field-err"></div></div><div class="field"><span class="lab">完成状态</span><div class="dd-inline"><select name="完成状态"><option value="">请选择</option><option>Ongoing</option><option>Closed</option><option>planning</option><option>暂停</option><option>取消</option></select><button type="button" class="btn sec sm dd-add-opt" title="为「完成状态」新增选项">+ 新增</button></div><div class="field-err"></div></div><div class="field"><span class="lab">开发日期 <span class="badge">预填</span></span><input type="date" name="开发日期" value="2026-08-27"><div class="field-err"></div></div><div class="field"><span class="lab">测试日期</span><input type="date" name="测试日期" value=""><div class="field-err"></div></div><div class="field"><span class="lab">开发天数 <span class="badge">预填</span></span><input type="text" name="开发天数" value="1天"><div class="field-err"></div></div><div class="field"><span class="lab">结案日期</span><input type="date" name="结案日期" value=""><div class="field-err"></div></div><div class="field"><span class="lab">备注</span><input type="text" name="备注" value=""><div class="field-err"></div></div></form>
+    <form id="entryForm" class="grid"></form><!-- m10 修复：预渲染字段由 renderEntry(null) 在加载时统一生成，删除此处硬编码（含 2026-08-27），避免改默认时漏改两处 -->
+
     <div class="row" style="margin-top:14px;align-items:flex-end">
       <div style="flex:0 0 210px"><span class="lab muted">录入日期（可改，用于补录）</span><input type="date" id="entryDate"></div>
       <button class="btn" id="saveEntry">保存任务</button>
@@ -541,19 +549,21 @@ WE01出货单查询"></textarea>
       <input type="text" id="listSearch" placeholder="搜索（专案/需求/客户…）" style="flex:1;min-width:180px">
       <select id="listCustFilter" style="flex:0 0 160px"><option value="">全部客户</option><option value="其他">其他</option><option value="所有">所有</option><option value="太白山">太白山</option><option value="N客户">N客户</option></select>
       <select id="listStatusFilter" style="flex:0 0 160px"><option value="">全部状态</option><option value="__not_closed">未完成</option><option value="Ongoing">Ongoing</option><option value="Closed">Closed</option><option value="planning">planning</option><option value="暂停">暂停</option><option value="取消">取消</option></select>
-      <select id="listExportFilter" style="flex:0 0 150px"><option value="">全部(含已追加)</option><option value="not_exported">未追加</option><option value="exported">已追加</option></select>
+      <select id="listExportFilter" style="flex:0 0 150px"><option value="">全部</option><option value="not_exported">未导出</option><option value="exported">已追加(模板)</option><option value="new">已生成新周报</option></select>
       <select id="listSortBy" style="flex:0 0 120px"><option value="date">录入时间</option><option value="status">完成状态</option><option value="cust">客户</option><option value="devDate" selected="">开发日期</option></select>
       <select id="listSortDir" style="flex:0 0 120px"><option value="desc" selected="">降序</option><option value="asc">升序</option></select>
     </div>
-    <div class="row" style="margin-bottom:8px">
+    <div class="row view-tabs" style="margin-bottom:8px">
       <button class="btn sec sm active" id="viewCard" title="卡片视图">📋 卡片</button>
       <button class="btn sec sm" id="viewGantt" title="甘特视图">📊 甘特</button>
       <button class="btn sec sm" id="viewKanban" title="看板视图：拖动卡片可直接变更完成状态">🗂 看板</button>
       <button class="btn sec sm" id="viewCalendar" title="日历视图：按录入日期回看">📅 日历</button>
+    </div>
+    <div class="row action-btns" style="margin-bottom:8px;gap:8px">
       <button class="btn sec sm" id="batchToggle">批量模式</button>
       <button class="btn sec sm" id="toggleTrash">回收站 (<span id="trashCount">0</span>)</button>
-      <button class="btn sec sm" id="undoLastExport">撤销本次追加</button>
-      <button class="btn sec sm" id="undoExported">撤销已追加</button>
+      <button class="btn sec sm" id="undoLastExport" title="仅清除应用内「已追加」标记；已下载到磁盘的 Excel 文件不会被改动">撤销本次追加</button>
+      <button class="btn sec sm" id="undoExported" title="仅清除应用内「已追加」标记；已下载到磁盘的 Excel 文件不会被改动">撤销已追加</button>
     </div>
     <details id="backupPanel" class="row" style="margin-bottom:10px;gap:10px">
       <summary class="btn sec sm" style="cursor:pointer;list-style:none;flex:0 0 auto;user-select:none">🗄 备份 / 导入 / 导出 ▾</summary>
@@ -1128,16 +1138,16 @@ WE01出货单查询"></textarea>
   </div>
 </div>
 
-<!-- 模块按依赖顺序加载（经典 script，file:// 双击可用） -->
-<script src="js/store.js"></script>
-<script src="js/entry.js"></script>
-<script src="js/list.js"></script>
-<script src="js/config.js"></script>
-<script src="js/export.js"></script>
-<script src="js/monthly.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/help.js"></script>
-<script src="js/app.js"></script>
+<!-- 模块按依赖顺序加载（经典 script + defer，file:// 双击可用；defer 保证 10 个脚本按文档顺序在解析后执行，且 exceljs 不阻塞首屏绘制） -->
+<script defer src="js/store.js"></script>
+<script defer src="js/entry.js"></script>
+<script defer src="js/list.js"></script>
+<script defer src="js/config.js"></script>
+<script defer src="js/export.js"></script>
+<script defer src="js/monthly.js"></script>
+<script defer src="js/dashboard.js"></script>
+<script defer src="js/help.js"></script>
+<script defer src="js/app.js"></script>
 
 
 

@@ -2,7 +2,7 @@
 /* 更新策略：
    - 业务资源（index.html + js/*）→ 网络优先（绕过HTTP缓存强制走网络）：每次打开都拉最新代码，自动更新生效；断网回退缓存
    - 大文件/静态资源（exceljs.min.js、manifest、icon）→ 缓存优先：避免每次下载拖慢启动 */
-const CACHE='wb-v3';
+const CACHE='wb-v5';
 const ASSETS=[
   './',
   './index.html',
@@ -20,7 +20,9 @@ const ASSETS=[
   './js/app.js'
 ];
 /* 网络优先的业务资源（经常更新，绕过 HTTP 缓存强制取最新） */
-function isAppCode(pathname){
+function isAppCode(pathname, req){
+  // 页面导航请求统一走网络优先（覆盖 GitHub Pages 根路径 /work-task-manager/ 这类带路径的裸 URL）
+  if(req && req.mode==='navigate') return true;
   return pathname==='/' || pathname.endsWith('index.html') || /\/js\/[^/]+\.js$/.test(pathname);
 }
 /* 缓存优先的资源（大文件/极少变） */
@@ -48,7 +50,7 @@ self.addEventListener('fetch',e=>{
   const url=new URL(req.url);
   if(url.origin!==location.origin)return;
   const path=url.pathname;
-  if(isAppCode(path)){
+  if(isAppCode(path, req)){
     // 网络优先：绕过HTTP缓存强制拿最新，失败回退缓存
     e.respondWith(
       fetch(req,{cache:'reload'}).then(res=>{

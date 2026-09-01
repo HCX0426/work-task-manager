@@ -37,6 +37,11 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('sw.js').catch(()=>{ /* 不支持的环境静默跳过 */ });
   });
+  /* 已被旧 SW 控制的页面：新版本激活接管（controllerchange）时自动刷新，让开了很久的旧标签页也强制拿到最新代码。
+     首次访问（无旧控制器）不触发，避免多刷新一次。 */
+  if(navigator.serviceWorker.controller){
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>location.reload());
+  }
 }
 
 document.querySelectorAll('nav button').forEach(b=>{

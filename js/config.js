@@ -115,7 +115,7 @@ function renderConfig(){
         <option value="auto"${col.type==='auto'?' selected':''}>续号</option>
       </select>
       <input class="cdef" placeholder="默认值(可空)" value="${todayChecked?'':esc(col.def)}" ${todayChecked?'disabled':''}>
-      <span class="today-cell">${isDate?`<input type="checkbox" class="ctoday" ${todayChecked?'checked':''}>` : '<span class="muted">—</span>'}</span>
+      <span class="today-cell">${isDate?`<select class="cdatefmt" title="导出日期格式"><option value="ymd"${col.dateFmt!=='md'?' selected':''}>年-月-日</option><option value="md"${col.dateFmt==='md'?' selected':''}>月-日(无年)</option></select><input type="checkbox" class="ctoday" ${todayChecked?'checked':''}>` : '<span class="muted">—</span>'}</span>
       <span class="col-del-wrap">
         <button class="btn sec sm col-up" title="上移">▲</button>
         <button class="btn sec sm col-down" title="下移">▼</button>
@@ -123,7 +123,20 @@ function renderConfig(){
       </span>`;
     list.appendChild(div);
     const ctype=div.querySelector('.ctype'), cdef=div.querySelector('.cdef'), ctoday=div.querySelector('.ctoday');
-    div.querySelector('.cdel').onclick=()=>{ schema=schema.filter((_,j)=>j!==i); renderConfig(); };
+    div.querySelector('.cdel').onclick=()=>{
+      const del=schema[i]; if(!del) return;
+      // P7 修复：删除列同步清理 colMapping(指向该列)/dropdowns(该列选项)，并刷新录入页；
+      // 先原子保存成功再 mutate 内存（含 colMapping/dropdowns 清理），避免「内存删了存储没删/只删一半」
+      const ns=schema.filter((_,j)=>j!==i);
+      const snapSchema=schema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping));
+      if(del.name in dropdowns) delete dropdowns[del.name];
+      Object.keys(colMapping).forEach(k=>{ if(colMapping[k]===del.name) delete colMapping[k]; });
+      if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping]])){
+        schema=ns; renderConfig(); renderEntry(null); toast('已删除列「'+del.name+'」');
+      }else{
+        schema=snapSchema; dropdowns=snapDrop; colMapping=snapMap; toast('删除列失败：本地存储可能已满');
+      }
+    };
     div.querySelector('.col-up').onclick=()=>moveCol(i,-1);
     div.querySelector('.col-down').onclick=()=>moveCol(i,1);
     if(ctoday){
@@ -211,7 +224,15 @@ $('#phSort').onclick=()=>{
   const arr=[...new Set((loadSettings().phrases||[]).map(s=>s.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
   savePhrases(arr); renderPhraseCfg(); toast('已去重排序');
 };
-$('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); renderConfig(); };
+$('#addCol').onclick=()=>{
+  // P4 修复：生成唯一 id + 唯一列名（避免两列同名「新列」导致 computeRenames 退化为按位置匹配、id 冲突）；
+  // 先 save 成功再 mutate 内存（save 失败不污染内存，避免刷新后丢列）
+  const base='新列', used=new Set(schema.map(c=>c.name));
+  let name=base, k=2; while(used.has(name)){ name=base+k; k++; }
+  const ns=schema.concat([{id:'col_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8), name, type:'text', def:''}]);
+  if(saveAtomic([[LS_SCHEMA,ns]])){ schema=ns; renderConfig(); }
+  else toast('新增列失败：本地存储可能已满');
+};
 
 /* 默认设置（配置中心可改默认值，各页面临时可覆盖单次） */
 (function(){
@@ -260,7 +281,7 @@ $('#addCol').onclick=()=>{ schema.push({name:'新列',type:'text',def:''}); rend
   }
   document.querySelectorAll('.cfgWk').forEach(cb=>{
     cb.checked = (st.weeklyFields||[]).includes(cb.value);
-    cb.onchange=()=>{ const fields=[...document.querySelectorAll('.cfgWk:checked')].map(x=>x.value); saveCfg({weeklyFields:fields}); };
+    cb.onchange=()=>{ const fields=[...document.querySelectorAll('.cfgWk:checked')].map(x=>x.value); saveCfg({weeklyFields:fields}); document.querySelectorAll('.wkField').forEach(w=>{ if(w.value) w.checked=fields.includes(w.value); }); };
   });
 })();
 /* AI 测试连接：发一条最小请求，验证 Key/地址/模型可用 */
@@ -279,26 +300,61 @@ $('#aiTestBtn').onclick=async ()=>{
 };
 $('#saveColCfg').onclick=()=>{
   const rows=[...document.querySelectorAll('#colCfgList .col-grid')];
-  const ns=rows.map(r=>{
+  const oldSchema=schema.slice();
+  const ns=rows.map((r,i)=>{
     const name=r.querySelector('.cname').value.trim();
     const type=r.querySelector('.ctype').value;
     const ctoday=r.querySelector('.ctoday');
     let def=r.querySelector('.cdef').value;
     if(type==='date' && ctoday && ctoday.checked) def='{{today}}';
-    return {name, type, def};
+    const base={name, type, def, id:(schema[i]&&schema[i].id)||('col_'+name)};
+    if(type==='date'){ const fmtEl=r.querySelector('.cdatefmt'); base.dateFmt=(fmtEl?fmtEl.value:'ymd'); }
+    return base;
   });
   if(ns.some(c=>!c.name)){toast('列名不能为空');return;}
   const seen=new Set();
   for(const c of ns){ if(seen.has(c.name)){ toast('列名不能重复：'+c.name); return; } seen.add(c.name); }
+  // 改名迁移：配置中心改列名时，历史任务/下拉/映射的 key 跟着改名，避免失联
+  const rn=computeRenames(oldSchema, ns);
+  const snapSchema=oldSchema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping)), snapTasks=JSON.parse(JSON.stringify(tasks));
+  if(rn.length) applyRenames(rn);
   const kept=ns.map(c=>c.name);
   Object.keys(dropdowns).forEach(k=>{ if(!kept.includes(k)) delete dropdowns[k]; });
-  schema=ns; save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns);
-  // 保持编辑上下文：如果正在编辑任务，重新加载任务数据
-  if(editingId){ const tk=tasks.find(x=>x.id===editingId); if(tk)renderEntry({...tk.values, entryDate:tk.entryDate}); else renderEntry(null); }
-  else renderEntry(null);
-  toast('列配置已保存');
+  // P7 联动：清理 colMapping 中指向已删列的项（避免导出时映射到不存在的列）
+  Object.keys(colMapping).forEach(k=>{ if(colMapping[k] && !kept.includes(colMapping[k])) delete colMapping[k]; });
+  // P8 修复：先原子保存（schema/dropdowns/colMapping 三键），失败则回滚内存；成功才 mutate schema
+  if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping]])){
+    schema=ns;
+    // 保持编辑上下文：如果正在编辑任务，重新加载任务数据
+    if(editingId){ const tk=tasks.find(x=>x.id===editingId); if(tk)renderEntry({...tk.values, entryDate:tk.entryDate}); else renderEntry(null); }
+    else renderEntry(null);
+    toast('列配置已保存'+(rn.length?('，已迁移 '+rn.length+' 个改名列的历史数据'):''));
+  }else{
+    // 回滚内存（dropdowns/colMapping 已被 applyRenames+清理改动，tasks 也被 applyRenames 改过）
+    schema=snapSchema; dropdowns=snapDrop; colMapping=snapMap; tasks=snapTasks;
+    toast('保存失败：本地存储可能已满，未改动');
+  }
 };
-$('#resetColCfg').onclick=()=>{ if(confirm('恢复默认15列表结构？当前列配置会被覆盖。')){schema=DEFAULT_SCHEMA.map(c=>({...c}));const names=schema.map(c=>c.name);Object.keys(dropdowns).forEach(k=>{if(!names.includes(k))delete dropdowns[k];});save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);renderConfig();if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}else renderEntry(null);toast('已恢复');} };
+$('#resetColCfg').onclick=()=>{
+  if(!confirm('恢复默认15列表结构？当前列配置会被覆盖（改过名的列会自动把历史数据迁回默认列名）。')) return;
+  const oldSchema=schema.slice();
+  const ns=DEFAULT_SCHEMA.map(c=>({...c}));
+  const rn=computeRenames(oldSchema, ns);
+  const snapSchema=oldSchema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping)), snapTasks=JSON.parse(JSON.stringify(tasks));
+  if(rn.length) applyRenames(rn);
+  const names=ns.map(c=>c.name);
+  Object.keys(dropdowns).forEach(k=>{ if(!names.includes(k)) delete dropdowns[k]; });
+  Object.keys(colMapping).forEach(k=>{ if(colMapping[k] && !names.includes(colMapping[k])) delete colMapping[k]; });
+  // P8 联动：原子保存，失败回滚
+  if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping]])){
+    schema=ns; renderConfig();
+    if(editingId){ const tk=tasks.find(x=>x.id===editingId); if(tk)renderEntry({...tk.values,entryDate:tk.entryDate}); else renderEntry(null); } else renderEntry(null);
+    toast('已恢复'+(rn.length?('，已迁移 '+rn.length+' 个改名列的历史数据'):''));
+  }else{
+    schema=snapSchema; dropdowns=snapDrop; colMapping=snapMap; tasks=snapTasks;
+    toast('恢复失败：本地存储可能已满，未改动');
+  }
+};
 $('#exportCfg').onclick=()=>{ downloadJSON({schema,dropdowns},'周报配置备份.json'); markBackup(); toast('配置已备份'); };
 $('#importCfg').onclick=()=>$('#importCfgFile').click();
 $('#importCfgFile').onchange=e=>{
@@ -312,7 +368,9 @@ $('#importCfgFile').onchange=e=>{
         if(typeof c!=='object' || !c.name) throw new Error('列配置项缺少 name 字段');
         const validTypes=['text','dropdown','date','textarea','auto'];
         const type=validTypes.includes(c.type)?c.type:'text';
-        return {name:String(c.name).trim(), type, def:String(c.def||'')};
+        const base={name:String(c.name).trim(), type, def:String(c.def||''), id:(c.id||('col_'+String(c.name).trim()))};
+        if(type==='date') base.dateFmt=(c.dateFmt==='md')?'md':'ymd'; // #C1 保留按列日期格式
+        return base;
       });
       // 验证 dropdowns 结构
       let validDropdowns={};
@@ -321,8 +379,11 @@ $('#importCfgFile').onchange=e=>{
           if(Array.isArray(v)) validDropdowns[String(k)]=v.map(String).filter(Boolean);
         });
       }
-      schema=validSchema;dropdowns=validDropdowns;
-      save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);
+      const oldSchema=schema.slice();
+      schema=validSchema.map(c=>({name:String(c.name), type:c.type, def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(c.type==='date'?(c.dateFmt||'ymd'):undefined)}));
+      const rn=computeRenames(oldSchema, schema); if(rn.length) applyRenames(rn);
+      dropdowns=validDropdowns;
+      save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);save(LS_MAPPING,colMapping);
       renderConfig();
       if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}
       else renderEntry(null);
