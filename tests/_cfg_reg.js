@@ -112,6 +112,22 @@ console.log('\n=== S3：#importCfg 配置导入保留 dateFmt+id（#C1）===');
   eq((sc.find(c=>c.name==='开发日期')||{}).id, 'col_开发日期', 'S3 导入后 开发日期 应保留 id（#C1 bug：当前被剥成 col_开发日期 虽同名但 id 链路被重置）');
 }
 
+/* === S4（① 修复回归）：applyColTemplate 改名后应把 LS_TASKS 一并持久化 === */
+console.log('\n=== S4：applyColTemplate 改名后持久化 LS_TASKS（①）===');
+{
+  // 当前列结构：专案名称(ID col_P)；模板把它改名成 专案名称2（同 id col_P）→ 触发 rename
+  cfg.setSchema([{name:'专案名称',type:'text',def:'',id:'col_P'}]);
+  cfg.setTasks([{id:'t1',entryDate:'2026-08-06',values:{'专案名称':'N1'},exported:false,exportedNew:false,subtasks:[],history:[]}]);
+  global.localStorage.clear();
+  const tpl = { schema:[{name:'专案名称2',type:'text',def:'',id:'col_P'}], dropdowns:{}, mapping:{} };
+  api.applyColTemplate(tpl);
+  // 内存中 tasks 的 key 应已改名
+  eq(cfg.tasks[0].values, {'专案名称2':'N1'}, 'S4 内存中 专案名称→专案名称2 已迁移（applyRenames 生效）');
+  // 关键回归：磁盘 LS_TASKS 必须也改名，否则刷新后失联
+  const onDisk = JSON.parse(global.localStorage.getItem('wb_tasks')||'[]');
+  eq((onDisk[0]||{}).values, {'专案名称2':'N1'}, 'S4 持久化 LS_TASKS 已改名（① 修复：此前只存了 schema/dropdowns/mapping，未存 tasks，刷新即失联）');
+}
+
 /* ---------- 汇总 ---------- */
 console.log(`\n========== 配置中心改名/导入回归结果：PASS=${pass}  FAIL=${fail}  WARN=${warns} ==========`);
 if(fail){ console.log('失败项（即本次深挖发现的 bug）：'); fails.forEach(f=>console.log(' - '+f)); }

@@ -362,7 +362,7 @@ async function doExportInner(){
     if(has)lastDataRow=r;
   }
   const t=getRangeTasks();
-  if(!t.length) return;
+  if(!t.length){ toast('请先设置时间范围'); return; }
   if(appendMode()==='group') insertGrouped(ws, t, lastDataRow);
   else appendToEnd(ws, t, lastDataRow);
   const out=await excelBook.xlsx.writeBuffer();

@@ -131,7 +131,7 @@ function renderConfig(){
       const snapSchema=schema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping));
       if(del.name in dropdowns) delete dropdowns[del.name];
       Object.keys(colMapping).forEach(k=>{ if(colMapping[k]===del.name) delete colMapping[k]; });
-      if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping]])){
+      if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping],[LS_TASKS,tasks]])){
         schema=ns; renderConfig(); renderEntry(null); toast('已删除列「'+del.name+'」');
       }else{
         schema=snapSchema; dropdowns=snapDrop; colMapping=snapMap; toast('删除列失败：本地存储可能已满');
@@ -143,9 +143,10 @@ function renderConfig(){
       ctoday.onchange=()=>{ if(ctoday.checked){cdef.value='';cdef.disabled=true;} else {cdef.disabled=false;} };
     }
     ctype.onchange=()=>{
+      const oldType=col.type;
       col.type=ctype.value;
-      save(LS_SCHEMA,schema);
-      renderConfig();
+      if(!save(LS_SCHEMA,schema)){ col.type=oldType; renderConfig(); toast('保存失败：本地存储可能已满'); }
+      else { renderConfig(); }
     };
   });
 
@@ -211,7 +212,7 @@ function renderPhraseCfg(){
     const a=(loadSettings().phrases||[]).slice(); a.splice(+x.dataset.i,1); savePhrases(a); renderPhraseCfg();
   }; });
   box.querySelectorAll('input').forEach(inp=>{ inp.onchange=()=>{
-    const a=(loadSettings().phrases||[]).slice(); a[+inp.dataset.i]=inp.value.trim(); savePhrases(a.filter(Boolean));
+    const a=(loadSettings().phrases||[]).slice(); a[+inp.dataset.i]=inp.value.trim(); savePhrases(a.filter(Boolean)); renderPhraseCfg();
   }; });
   add.onclick=async ()=>{
     const v=(await uiPrompt('新增常用短语（用于「开发进度」一键插入）：')||'').trim();
@@ -323,7 +324,7 @@ $('#saveColCfg').onclick=()=>{
   // P7 联动：清理 colMapping 中指向已删列的项（避免导出时映射到不存在的列）
   Object.keys(colMapping).forEach(k=>{ if(colMapping[k] && !kept.includes(colMapping[k])) delete colMapping[k]; });
   // P8 修复：先原子保存（schema/dropdowns/colMapping 三键），失败则回滚内存；成功才 mutate schema
-  if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping]])){
+  if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping],[LS_TASKS,tasks]])){
     schema=ns;
     // 保持编辑上下文：如果正在编辑任务，重新加载任务数据
     if(editingId){ const tk=tasks.find(x=>x.id===editingId); if(tk)renderEntry({...tk.values, entryDate:tk.entryDate}); else renderEntry(null); }
@@ -346,7 +347,7 @@ $('#resetColCfg').onclick=()=>{
   Object.keys(dropdowns).forEach(k=>{ if(!names.includes(k)) delete dropdowns[k]; });
   Object.keys(colMapping).forEach(k=>{ if(colMapping[k] && !names.includes(colMapping[k])) delete colMapping[k]; });
   // P8 联动：原子保存，失败回滚
-  if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping]])){
+  if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping],[LS_TASKS,tasks]])){
     schema=ns; renderConfig();
     if(editingId){ const tk=tasks.find(x=>x.id===editingId); if(tk)renderEntry({...tk.values,entryDate:tk.entryDate}); else renderEntry(null); } else renderEntry(null);
     toast('已恢复'+(rn.length?('，已迁移 '+rn.length+' 个改名列的历史数据'):''));
@@ -383,7 +384,7 @@ $('#importCfgFile').onchange=e=>{
       schema=validSchema.map(c=>({name:String(c.name), type:c.type, def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(c.type==='date'?(c.dateFmt||'ymd'):undefined)}));
       const rn=computeRenames(oldSchema, schema); if(rn.length) applyRenames(rn);
       dropdowns=validDropdowns;
-      save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);save(LS_MAPPING,colMapping);
+      save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);save(LS_MAPPING,colMapping);save(LS_TASKS,tasks);
       renderConfig();
       if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}
       else renderEntry(null);

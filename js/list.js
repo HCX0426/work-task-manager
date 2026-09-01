@@ -52,7 +52,15 @@ function renderList(){
     if(sortBy==='devDate') return String(t.values['开发日期']||'');
     return String(t.entryDate||'');
   };
-  list.sort((a,b)=>{ const r=sortKey(a).localeCompare(sortKey(b)); return sortDir==='desc'?-r:r; });
+  list.sort((a,b)=>{
+    const ka=sortKey(a), kb=sortKey(b);
+    const ea=ka==='', eb=kb==='';
+    if(ea&&eb) return 0;
+    if(ea) return 1;   // 空值永远排最后
+    if(eb) return -1;
+    const r=ka.localeCompare(kb);
+    return sortDir==='desc'?-r:r;
+  });
   if(q)list=list.filter(t=>Object.values(t.values).some(v=>String(v).toLowerCase().includes(q)));
   if(cf)list=list.filter(t=>(t.values['客户']||'')===cf);
   if(sf==='__not_closed')list=list.filter(t=>!isTaskDone(t)); // 未完成=未结案且未取消
@@ -306,9 +314,13 @@ function restoreAll(d, okMsg){
   const nMap=(d.colMapping&&typeof d.colMapping==='object'&&!Array.isArray(d.colMapping))?d.colMapping:null;
   const nSettings=(d.settings&&typeof d.settings==='object')?d.settings:null;
   const origCfg=load(LS_EXPORTCFG,null); // 回滚快照（解析后的对象，null 表示原本没有）
+  const curKey=(origCfg&&typeof origCfg==='object')?origCfg.aiKey:undefined; // 当前 AI Key（BYOK），恢复时不应被备份覆盖清空
   const plan=[[LS_TASKS,nTasks,tasks],[LS_TRASH,nTrash,trash],[LS_SCHEMA,nSchema,schema],[LS_DROPDOWNS,nDropdowns,dropdowns]];
   if(nMap) plan.push([LS_MAPPING,nMap,colMapping]);
-  if(nSettings) plan.push([LS_EXPORTCFG,nSettings,origCfg]);
+  if(nSettings){
+    if(nSettings.aiKey==null && curKey!=null) nSettings.aiKey=curKey; // ② 修复：备份无 Key 时沿用当前 Key，避免静默丢失
+    plan.push([LS_EXPORTCFG,nSettings,origCfg]);
+  }
   const done=[]; let failedKey=null;
   for(const [k,v,orig] of plan){
     if(!save(k,v)){ failedKey=k; break; }

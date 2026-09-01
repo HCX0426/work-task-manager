@@ -94,7 +94,7 @@ function renderEntry(prefill){
     const req=(col.name==='专案名称'||col.name==='完成状态');
     let inner=`<span class="lab">${esc(col.name)}${req?'<sup class="req-star" style="color:var(--del);font-weight:700;margin-left:2px">*</sup>':''}${hasVal?' <span class="badge">预填</span>':''}</span>`;
     let val='';
-    if(prefill){ val=prefill[col.name]||''; }
+    if(prefill){ val = col.type==='date' ? (toInputDate(prefill[col.name])||'') : (prefill[col.name]||''); }
     else {
       if(col.type==='date'){ val = col.def==='{{today}}' ? t : toInputDate(col.def); }
       else { val = col.def||''; }

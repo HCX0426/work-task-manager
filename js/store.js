@@ -280,7 +280,7 @@ function applyColTemplate(tpl){
   schema = tpl.schema.map(c=>({name:String(c.name||'').trim(), type:String(c.type||'text'), def:String(c.def||''), id:(c.id||('col_'+String(c.name||'').trim())), dateFmt:(String(c.type||'text')==='date'?(c.dateFmt==='md'?'md':'ymd'):undefined)}));
   const rn=computeRenames(oldSchema, schema); if(rn.length) applyRenames(rn);
   dropdowns = (tpl.dropdowns && typeof tpl.dropdowns==='object') ? JSON.parse(JSON.stringify(tpl.dropdowns)) : {};
-  save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns); save(LS_MAPPING,colMapping);
+  save(LS_SCHEMA,schema); save(LS_DROPDOWNS,dropdowns); save(LS_MAPPING,colMapping); save(LS_TASKS,tasks);
   // 仅当模板带非空映射时才覆盖导出映射（空映射=保留自动识别，避免误清记忆）
   if(tpl.mapping && typeof tpl.mapping==='object' && Object.keys(tpl.mapping).length){
     colMapping=JSON.parse(JSON.stringify(tpl.mapping)); save(LS_MAPPING,colMapping);

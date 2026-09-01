@@ -170,7 +170,7 @@ ${body}
 function monthTasksOf(mv){
   if(!mv) return [];
   const [y,m]=mv.split('-').map(Number);
-  return tasks.filter(t=>{ const d=parseDateAny(t.entryDate); return d && d.getFullYear()===y && d.getMonth()+1===m; });
+  return monthTasksOfYM(tasks, y, m); // ⑧ 修复：统一到 store.js 的 monthTasksOfYM，消除两处等价实现漂移
 }
 function genReview(){
   const mv=$('#monthPick').value;
