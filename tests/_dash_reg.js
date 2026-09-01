@@ -77,5 +77,13 @@ EXPECT_COLS.forEach(c=>{
 });
 ok(!/\[object Object\]/.test(headerBlock||''), 'PDF 本月任务明细 表头不含 [object Object]（修复前会渲染对象占位）');
 
+/* ---- 存储占比公式回归：渲染看板并检查「% 已用」是否相对 5MB 配额 ---- */
+renderDashboard();
+const storageHtml = (_els['#dashStorage'] && _els['#dashStorage'].innerHTML) || '';
+const bytes = LS['wb_tasks'].length*2;
+const expectedPct = (bytes/1048576/5*100).toFixed(1); // 相对 5MB 配额（修复前分母为 1MB，低估 5 倍）
+ok(/浏览器配额约 5MB/.test(storageHtml), 'renderDashboard 存储区标注 5MB 配额文案');
+ok(storageHtml.includes(expectedPct+'% 已用'), '存储占比按 5MB 配额计算（'+expectedPct+'%，修复前为相对 1MB）');
+
 console.log('\n_dash_reg.js 结果: PASS='+pass+' FAIL='+fail);
 process.exit(fail?1:0);

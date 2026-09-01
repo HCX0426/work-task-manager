@@ -23,7 +23,7 @@ function renderMonthly(){
   $('#monthCount').textContent='（该月共 '+totalTasks+' 条任务）';
   $('#monthListCount').textContent='（去重后 '+data.length+' 个）';
   const box=$('#monthResult');
-  if(!data.length){ box.textContent='该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。'; return; }
+  if(!data.length){ box.textContent='该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。'; genReview(); return; }
   const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
   const rate=data.length?Math.round(closed/data.length*100):0;
   const showCust=$('#mf_cust').checked, showOwner=$('#mf_owner').checked, showStatus=$('#mf_status').checked;

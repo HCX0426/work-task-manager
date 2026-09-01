@@ -113,7 +113,7 @@ function renderDashboard(){
   // 本地存储用量
   const st=getStorageInfo();
   $('#dashStorage').innerHTML=st!=null
-    ? `<div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">${(st.total/1024).toFixed(1)} KB（约 ${st.total} 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 5MB</span><span class="od-meta">${(st.total/1048576*100).toFixed(1)}% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p>`
+    ? `<div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">${(st.total/1024).toFixed(1)} KB（约 ${st.total} 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 5MB</span><span class="od-meta">${(st.total/1048576/5*100).toFixed(1)}% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p>`
     : '<div class="dash-overdue-empty">无法读取存储用量</div>';
 
   renderYearBox();
