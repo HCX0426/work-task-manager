@@ -381,14 +381,22 @@ $('#importCfgFile').onchange=e=>{
         });
       }
       const oldSchema=schema.slice();
-      schema=validSchema.map(c=>({name:String(c.name), type:c.type, def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(c.type==='date'?(c.dateFmt||'ymd'):undefined)}));
-      const rn=computeRenames(oldSchema, schema); if(rn.length) applyRenames(rn);
+      const ns=validSchema.map(c=>({name:String(c.name), type:c.type, def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(c.type==='date'?(c.dateFmt||'ymd'):undefined)}));
+      const rn=computeRenames(oldSchema, ns);
+      const snapSchema=oldSchema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping)), snapTasks=JSON.parse(JSON.stringify(tasks));
+      if(rn.length) applyRenames(rn);
       dropdowns=validDropdowns;
-      save(LS_SCHEMA,schema);save(LS_DROPDOWNS,dropdowns);save(LS_MAPPING,colMapping);save(LS_TASKS,tasks);
-      renderConfig();
-      if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}
-      else renderEntry(null);
-      toast('配置已导入');
+      // 甲 修复：改为 saveAtomic 原子写入（与 saveColCfg/resetColCfg/P8 一致），失败回滚内存，避免「schema 改名但 tasks 未迁移」不一致
+      if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping],[LS_TASKS,tasks]])){
+        schema=ns;
+        renderConfig();
+        if(editingId){const tk=tasks.find(x=>x.id===editingId);if(tk)renderEntry({...tk.values,entryDate:tk.entryDate});else renderEntry(null);}
+        else renderEntry(null);
+        toast('配置已导入');
+      }else{
+        schema=snapSchema; dropdowns=snapDrop; colMapping=snapMap; tasks=snapTasks;
+        toast('导入失败：本地存储可能已满，未改动');
+      }
     }catch(err){toast('导入失败：'+err.message);}
   };
   r.readAsText(f);e.target.value='';
