@@ -15,7 +15,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run regression tests
+        run: |
+          for f in tests/_cfg_reg.js tests/_dash_reg.js tests/_export_reg.js tests/_fix_ab_reg.js tests/_monthly_reg.js tests/_restore_reg.js tests/_review_reg.js; do
+            echo "==> $f"
+            node "$f" || exit 1
+          done
+
   deploy:
+    needs: test
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

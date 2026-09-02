@@ -471,10 +471,16 @@ function renderPhraseRow(wrap){
     b.onclick=()=>{
       const ta=wrap.querySelector('textarea');
       if(!ta) return;
-      const v=ta.value.trim();
-      ta.value = v ? v+'\n'+b.dataset.p : b.dataset.p;
+      const p=b.dataset.p;
+      const v=ta.value;
+      // 在鼠标光标当前位置插入（点击按钮会使 textarea 失焦，但浏览器保留失焦前的光标位）
+      const s=(ta.selectionStart==null)?v.length:ta.selectionStart;
+      const e=(ta.selectionEnd==null)?v.length:ta.selectionEnd;
+      ta.value=v.slice(0,s)+p+v.slice(e);
+      const pos=s+p.length;
       checkDirty(); saveDraft();
       ta.focus();
+      try{ ta.setSelectionRange(pos,pos); }catch(_){}
     };
   });
   row.querySelector('.phrase-add').onclick=async ()=>{

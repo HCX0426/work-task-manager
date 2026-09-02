@@ -1,0 +1,52 @@
+name: Bug report
+description: 报告一个缺陷
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供可复现的信息，便于定位。
+  - type: textarea
+    id: desc
+    attributes:
+      label: 问题描述
+      description: 发生了什么？期望是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 一步步操作以复现问题
+      placeholder: |
+        1. 打开 …
+        2. 点击 …
+        3. 看到 …
+    validations:
+      required: false
+  - type: dropdown
+    id: env
+    attributes:
+      label: 运行环境
+      options:
+        - 浏览器直接打开 index.html (file://)
+        - 本地静态服务 (python -m http.server / npx serve)
+        - GitHub Pages 在线版
+        - PWA 已安装到桌面/手机
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: 浏览器与版本
+      placeholder: 例如 Chrome 126 / Edge 126 / Safari 17
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 截图、控制台报错（F12 → Console）等
+    validations:
+      required: false

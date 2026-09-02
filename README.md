@@ -62,9 +62,13 @@ js/                   各功能模块
 tests/                内置回归测试（Node 直接运行，如 node tests/_dash_reg.js）
 ```
 
+## 界面预览
+
+> 截图待补充：在浏览器打开应用后，将关键界面（每日录入 / 数据看板 / 任务列表 / Excel 导出）截图存入 `assets/screenshots/`，再于本节引用。
+
 ## 部署
 
-通过 GitHub Pages 自动部署：推送到 `main` 分支即触发 `.github/workflows/pages.yml`，将仓库根目录发布为静态站点。
+通过 GitHub Pages 自动部署：推送到 `main` 分支即触发 `.github/workflows/pages.yml`。部署前会先运行 `tests/` 下的回归测试套件（纯 Node，无需安装依赖），任一测试失败将阻断发布，避免坏代码上线。
 
 ## License
 
