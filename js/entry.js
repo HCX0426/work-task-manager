@@ -10,7 +10,7 @@ function markBaseline(){ formBaseline=snapshotForm(); formDirty=false; }
 function checkDirty(){ formDirty = (snapshotForm()!==formBaseline); }
 
 /* ============ 草稿自动保存（防误关/刷新丢失） ============ */
-const LS_DRAFT='wb_draft';
+// 注意：LS_DRAFT 常量已统一收归 store.js 的 LS_* 簇，此处不再重复声明，避免经典脚本下 const 重复声明导致整页崩溃
 let draftTimer=null;
 function saveDraft(){
   clearTimeout(draftTimer);
@@ -27,7 +27,7 @@ function saveDraft(){
     if(hasContent){ save(LS_DRAFT,{values, date, ts:Date.now()}); }
     else { localStorage.removeItem(LS_DRAFT); }
     updateDraftBar();
-  },800);
+  },DRAFT_DEBOUNCE_MS);
 }
 function clearDraft(){
   clearTimeout(draftTimer);
@@ -89,27 +89,27 @@ function renderEntry(prefill){
     if(col.type==='auto')return;
     const wrap=document.createElement('div');
     wrap.className='field';
-    const hasVal = prefill ? (prefill[col.name]!=null && prefill[col.name]!=='') : (col.def && col.def!=='{{today}}' ? true : col.def==='{{today}}');
+    const hasVal = prefill ? (prefill[col.name]!=null && prefill[col.name]!=='') : !!col.def;
     // 必填列（专案名称/完成状态）在标签右上角标红星
-    const req=(col.name==='专案名称'||col.name==='完成状态');
+    const req=!!col.required;
     let inner=`<span class="lab">${esc(col.name)}${req?'<sup class="req-star" style="color:var(--del);font-weight:700;margin-left:2px">*</sup>':''}${hasVal?' <span class="badge">预填</span>':''}</span>`;
     let val='';
     if(prefill){ val = col.type==='date' ? (toInputDate(prefill[col.name])||'') : (prefill[col.name]||''); }
     else {
-      if(col.type==='date'){ val = col.def==='{{today}}' ? t : toInputDate(col.def); }
+      if(col.type==='date'){ val = col.def===DEF_TODAY ? t : toInputDate(col.def); }
       else { val = col.def||''; }
     }
     if(col.type==='dropdown'){
       const arr=dropdowns[col.name]||[];
       let opts=arr.map(o=>`<option>${esc(o)}</option>`).join('');
       // 任务已有值但该选项已被从配置删除时，追加占位选项，避免编辑后字段被清空
-      if(val && !arr.includes(val)) opts+=`<option selected>${esc(val)}</option>`;
+      if(val && !arr.includes(val)) opts+=`<option>${esc(val)}</option>`;
       inner+=`<div class="dd-inline"><select name="${esc(col.name)}"><option value="">请选择</option>${opts}</select><button type="button" class="btn sec sm dd-add-opt" title="为「${esc(col.name)}」新增选项">+ 新增</button></div>`;
     }else if(col.type==='date'){
       inner+=`<input type="date" name="${esc(col.name)}" value="${esc(val)}">`;
     }else if(col.type==='textarea'){
       inner+=`<textarea name="${esc(col.name)}" placeholder="可多行，如：08/20 完成，等待测试">${esc(val)}</textarea>`;
-      if(col.name==='开发进度'){
+      if(col.name===COL.PROGRESS){
         inner+=`<div class="row" style="margin-top:6px;gap:8px"><button type="button" class="btn sec sm ai-polish-btn">AI 润色</button><button type="button" class="btn sec sm voice-btn" title="语音转文字填入（Chrome 浏览器支持）">🎤 语音</button><span class="muted ai-polish-msg"></span><span class="muted voice-status"></span></div>`;
         inner+=`<div class="phrase-row row" style="margin-top:6px;gap:6px;flex-wrap:wrap"></div>`;
         inner+=`<div class="subtask-progress hidden dev-progress" style="margin-top:6px"><span class="sp-bar"><i style="width:0%"></i></span><span class="sp-txt"></span><span class="muted" style="font-size:11px">每行一个推进节点，行首加「✓ 」表示已完成，进度自动统计</span></div>`;
@@ -120,8 +120,8 @@ function renderEntry(prefill){
     }
     wrap.innerHTML=inner; f.appendChild(wrap);
     // 「开发进度」内容较多（AI/短语/进度条），独占整行，避免把左右字段的行高撑出大片空白
-    if(col.name==='开发进度') wrap.style.gridColumn='1 / -1';
-    if(col.name==='开发进度'){ renderPhraseRow(wrap); updateDevProgress(wrap); }
+    if(col.name===COL.PROGRESS) wrap.style.gridColumn='1 / -1';
+    if(col.name===COL.PROGRESS){ renderPhraseRow(wrap); updateDevProgress(wrap); }
     const err=document.createElement('div'); err.className='field-err'; wrap.appendChild(err);
     if(col.type==='dropdown'){
       const el=wrap.querySelector('select'); el.value=val;
@@ -153,7 +153,7 @@ function renderEntry(prefill){
       };
     }
     const input=wrap.querySelector('input,select,textarea');
-    if(input){ input.addEventListener('input',()=>validateField(col.name)); input.addEventListener('input',saveDraft); input.addEventListener('change',saveDraft); if(col.name==='开发进度'){ input.addEventListener('input',()=>updateDevProgress(wrap)); input.addEventListener('change',()=>updateDevProgress(wrap)); } }
+    if(input){ input.addEventListener('input',()=>validateField(col.name)); input.addEventListener('input',saveDraft); input.addEventListener('change',saveDraft); if(col.name===COL.PROGRESS){ input.addEventListener('input',()=>updateDevProgress(wrap)); input.addEventListener('change',()=>updateDevProgress(wrap)); } }
     const aiBtn=wrap.querySelector('.ai-polish-btn');
     if(aiBtn) aiBtn.onclick=()=>aiPolishField(wrap, col.name);
     const voiceBtn=wrap.querySelector('.voice-btn');
@@ -185,13 +185,13 @@ function renderEntry(prefill){
     if(cdField){ const err=cdField.querySelector('.field-err'); cdField.classList.toggle('invalid',!!cdMsg); if(err) err.textContent=cdMsg; }
     if(noteField){ const err=noteField.querySelector('.field-err'); noteField.classList.toggle('invalid',!!noteMsg); if(err) err.textContent=noteMsg; }
     // 常规字段校验（不含上面三个联动字段）
-    if(name!=='完成状态' && name!=='备注' && name!=='结案日期'){
+    if(name!==COL.STATUS && name!==COL.NOTE && name!==COL.CLOSE_DATE){
       const el=$('#entryForm').querySelector(`[name="${CSS.escape(name)}"]`);
       const field=el?el.closest('.field'):null;
       if(!el||!field)return;
       const err=field.querySelector('.field-err');
       const val=el.value.trim();
-      const msg=name==='专案名称' && !val ? '「专案名称」不能为空（月报汇总依赖它）' : '';
+      const msg=name===COL.PROJECT && !val ? '「专案名称」不能为空（月报汇总依赖它）' : '';
       field.classList.toggle('invalid',!!msg);
       if(err) err.textContent=msg;
     }
@@ -200,14 +200,14 @@ function renderEntry(prefill){
   // 日期逻辑校验：横向比较多个日期字段
   function validateDates(){
     const map={};
-    ['提出日期','开发日期','测试日期','结案日期'].forEach(n=>{
+    DATE_COLS.forEach(n=>{
       const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
       if(el) map[n]={el,val:parseDateAny(el.value),field:el.closest('.field')};
     });
     const checks=[
-      ['开发日期','提出日期','早于提出日期'],
-      ['测试日期','开发日期','早于开发日期'],
-      ['结案日期','开发日期','早于开发日期']
+      [COL.DEV_DATE,COL.RAISE_DATE,'早于提出日期'],
+      [COL.TEST_DATE,COL.DEV_DATE,'早于开发日期'],
+      [COL.CLOSE_DATE,COL.DEV_DATE,'早于开发日期']
     ];
     checks.forEach(([later,earlier,msg])=>{
       const L=map[later],E=map[earlier];
@@ -218,12 +218,12 @@ function renderEntry(prefill){
       if(err) err.textContent=bad?later+' '+msg:'';
     });
   }
-  ['提出日期','开发日期','测试日期','结案日期'].forEach(n=>{
+  DATE_COLS.forEach(n=>{
     const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
     if(el){ el.addEventListener('change',validateDates); el.addEventListener('change',autoFillDays); }
   });
   // 结案日期 ↔ 完成状态(Closed) 双向依赖：状态切换或填/清结案日期时即时重算联动标红
-  ['完成状态','结案日期'].forEach(n=>{
+  [COL.STATUS,COL.CLOSE_DATE].forEach(n=>{
     const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
     if(el){ el.addEventListener('change',()=>validateField(n)); }
   });
@@ -244,6 +244,7 @@ function renderEntry(prefill){
 function startVoiceInput(wrap, btn){
   const ta=wrap.querySelector('textarea');
   const status=wrap.querySelector('.voice-status');
+  let accum=''; // 语音识别累计缓冲：区分 isFinal 与 interim，避免 interimResults 重复累加
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ toast('当前浏览器不支持语音识别（请用 Chrome）'); return; }
   if(btn.dataset.on==='1'){
@@ -259,11 +260,12 @@ function startVoiceInput(wrap, btn){
   rec.continuous=true;
   rec.onstart=()=>{ btn.dataset.on='1'; btn.textContent='⏹ 停止'; btn.classList.add('active'); if(status) status.textContent='正在听…'; };
   rec.onresult=e=>{
-    let text='';
+    let interim='';
     for(let i=e.resultIndex;i<e.results.length;i++){
-      text+=e.results[i][0].transcript;
+      const r=e.results[i][0];
+      if(r.isFinal) accum+=r.transcript; else interim+=r.transcript;
     }
-    ta.value=(ta.value||'')+text;
+    ta.value=accum+interim;
     if(status) status.textContent='已听到，点击「停止」结束';
     checkDirty();
   };
@@ -315,12 +317,12 @@ async function aiPolishField(wrap, name){
 /* C. 字段级校验 */
 function validateEntry(values, ed){
   // 专案名称为空 -> 硬拦截
-  if(!String(values['专案名称']||'').trim()){ return {ok:false, msg:'「专案名称」不能为空（月报汇总依赖它）'}; }
+  if(!String(values[COL.PROJECT]||'').trim()){ return {ok:false, msg:'「专案名称」不能为空（月报汇总依赖它）'}; }
   // 结案日期 ↔ 完成状态(Closed) 双向依赖（与保存拦截、实时标红同源，单一事实来源）
   const dep=checkCloseDependency(values);
   if(!dep.ok) return {ok:false, msg:dep.msg};
-  const pd=parseDateAny(values['提出日期']), dd=parseDateAny(values['开发日期']);
-  const td=parseDateAny(values['测试日期']), cd=parseDateAny(values['结案日期']);
+  const pd=parseDateAny(values[COL.RAISE_DATE]), dd=parseDateAny(values[COL.DEV_DATE]);
+  const td=parseDateAny(values[COL.TEST_DATE]), cd=parseDateAny(values[COL.CLOSE_DATE]);
   const warns=[];
   if(pd&&dd&&dd<pd) warns.push('开发日期早于提出日期');
   if(td&&dd&&td<dd) warns.push('测试日期早于开发日期');
@@ -339,9 +341,9 @@ $('#saveEntry').onclick=()=>{
   });
   const ed=$('#entryDate').value||todayStr();
   // 状态与备注校验（放在红标拦截之前，提示更明确）
-  const st=String(values['完成状态']||'').trim();
-  const note=String(values['备注']||'').trim();
-  const pn=String(values['专案名称']||'').trim();
+  const st=String(values[COL.STATUS]||'').trim();
+  const note=String(values[COL.NOTE]||'').trim();
+  const pn=String(values[COL.PROJECT]||'').trim();
   if(!st){
     toast('请选择「完成状态」（不能为空）');
     const el=form.querySelector('[name="完成状态"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); }
@@ -360,7 +362,7 @@ $('#saveEntry').onclick=()=>{
   // 结案日期 ↔ 完成状态(Closed) 双向依赖（严格校验，不再静默补填结案日期）：
   // 填了结案日期必须选 Closed；选了 Closed 必须填结案日期
   const dep=checkCloseDependency(values);
-  if(!dep.ok){ toast(dep.msg); const el=form.querySelector('[name="'+(String(values['结案日期']||'').trim()? '完成状态':'结案日期')+'"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
+  if(!dep.ok){ toast(dep.msg); const el=form.querySelector('[name="'+(String(values[COL.CLOSE_DATE]||'').trim()? COL.STATUS:COL.CLOSE_DATE)+'"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
   // 保存前先跑一遍实时校验，若有标红字段则聚焦第一个错误项
   const firstErr=form.querySelector('.field.invalid [name]');
   if(firstErr){ firstErr.focus(); firstErr.scrollIntoView({behavior:'smooth',block:'center'}); toast('请先修正标红的字段'); return; }
@@ -368,7 +370,7 @@ $('#saveEntry').onclick=()=>{
   if(!v.ok){ if(v.msg)toast(v.msg); return; }
   // 重复专案检测：与已有任务同名（排除当前编辑的）时提示，防重复录入
   if(pn){
-    const dupCount=tasks.filter(t=>t.id!==editingId && String(t.values['专案名称']||'').trim()===pn).length;
+    const dupCount=tasks.filter(t=>t.id!==editingId && String(t.values[COL.PROJECT]||'').trim()===pn).length;
     if(dupCount>0 && !confirm(`「${pn}」已存在 ${dupCount} 条记录，可能是同名不同任务，仍要保存吗？`)) return;
   }
   if(editingId){
@@ -423,7 +425,7 @@ $('#bulkSave').onclick=()=>{
   lines.forEach(line=>{ const i=line.indexOf('|'); if(i<0 || !line.slice(0,i).trim()) noName++; });
   if(noName>0 && !confirm(`有 ${noName} 行缺少「专案名称」（月报汇总依赖它，缺了将无法在月报中统计）。\n仍要保存吗？`)){ return; }
   // 重复专案检测：本次新增中与现有任务同名的行数
-  const existing=new Set(tasks.map(t=>String(t.values['专案名称']||'').trim()).filter(Boolean));
+  const existing=new Set(tasks.map(t=>String(t.values[COL.PROJECT]||'').trim()).filter(Boolean));
   let dupCount=0;
   lines.forEach(line=>{ const i=line.indexOf('|'); const nm=(i>=0?line.slice(0,i):'').trim(); if(nm && existing.has(nm)) dupCount++; });
   if(dupCount>0 && !confirm(`有 ${dupCount} 行专案名称与现有任务重复（可能同名不同任务）。\n仍要保存吗？`)){ return; }
@@ -433,15 +435,15 @@ $('#bulkSave').onclick=()=>{
     const values={};
     schema.forEach(col=>{
       if(col.type==='auto')return;
-      if(col.type==='date'){ values[col.name]=col.def==='{{today}}'?d:toInputDate(col.def); }
+      if(col.type==='date'){ values[col.name]=col.def===DEF_TODAY?d:toInputDate(col.def); }
       else { values[col.name]=col.def||''; }
     });
-    if(line.includes('|')){ const i=line.indexOf('|'); values['专案名称']=line.slice(0,i).trim(); values['需求说明']=line.slice(i+1).trim(); }
-    else { values['需求说明']=line; }
+    if(line.includes('|')){ const i=line.indexOf('|'); values[COL.PROJECT]=line.slice(0,i).trim(); values[COL.REQ]=line.slice(i+1).trim(); }
+    else { values[COL.REQ]=line; }
     // 状态必填：批量录入默认取「完成状态」下拉第一项（通常为 Ongoing），避免产生无状态任务
-    if(!String(values['完成状态']||'').trim()){
-      const stArr=dropdowns['完成状态']||[];
-      if(stArr.length) values['完成状态']=stArr[0];
+    if(!String(values[COL.STATUS]||'').trim()){
+      const stArr=dropdowns[COL.STATUS]||[];
+      if(stArr.length) values[COL.STATUS]=stArr[0];
     }
     newTasks.push({id:uid(),entryDate:d,values,exported:false, exportedNew:false});
   });
@@ -523,22 +525,22 @@ function todayTasks(){
   const todo=[], overdue=[];
   tasks.forEach(t=>{
     // 结案/取消/暂停都不进今日与逾期（暂停=暂停，不催）
-    if(isTaskDone(t) || String(t.values['完成状态']||'').trim()===STATUS_PAUSE)return;
-    const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
+    if(isTaskDone(t) || String(t.values[COL.STATUS]||'').trim()===STATUS_PAUSE)return;
+    const d=parseDateAny(t.values[COL.DEV_DATE])||parseDateAny(t.values[COL.RAISE_DATE]);
     if(!d)return;
     const ds=toInputDate(d);
     if(ds===today) todo.push(t);
     else if(ds<today) overdue.push(t);
   });
-  const byDev=(a,b)=>String(a.values['开发日期']||'').localeCompare(String(b.values['开发日期']||''));
+  const byDev=(a,b)=>String(a.values[COL.DEV_DATE]||'').localeCompare(String(b.values[COL.DEV_DATE]||''));
   todo.sort(byDev); overdue.sort(byDev);
   return {todo, overdue};
 }
 function todayItemHtml(t){
-  const name=String(t.values['专案名称']||'').trim()||'未命名任务';
-  const st=String(t.values['完成状态']||'').trim();
-  const dev=String(t.values['开发日期']||'').trim();
-  const tail=[t.values['客户']||'', st, dev].filter(Boolean).join(' · ');
+  const name=String(t.values[COL.PROJECT]||'').trim()||'未命名任务';
+  const st=String(t.values[COL.STATUS]||'').trim();
+  const dev=String(t.values[COL.DEV_DATE]||'').trim();
+  const tail=[t.values[COL.CUST]||'', st, dev].filter(Boolean).join(' · ');
   return `<div class="today-item" data-id="${t.id}" title="点击编辑：${esc(name)}">
     <span class="ti-name">${esc(name)}</span>
     <span class="ti-cust">${esc(tail)}</span>
@@ -548,14 +550,14 @@ function renderTodayPanel(){
   const panel=$('#todayPanel');
   if(!panel)return;
   const {todo, overdue}=todayTasks();
-  const MAX=12;
+  const todayMax=TODAY_PANEL_MAX;
   const cnt=$('#todayCount'); if(cnt)cnt.textContent=todo.length;
   const ocnt=$('#todayOverdueCount'); if(ocnt)ocnt.textContent=overdue.length;
   $('#todayTodo').innerHTML=todo.length
-    ? todo.slice(0,MAX).map(todayItemHtml).join('')+(todo.length>MAX?`<div class="today-empty">…还有 ${todo.length-MAX} 条</div>`:'')
+    ? todo.slice(0,todayMax).map(todayItemHtml).join('')+(todo.length>todayMax?`<div class="today-empty">…还有 ${todo.length-todayMax} 条</div>`:'')
     : '<div class="today-empty">今天没有待推进任务 ✓</div>';
   $('#todayOverdue').innerHTML=overdue.length
-    ? overdue.slice(0,MAX).map(todayItemHtml).join('')+(overdue.length>MAX?`<div class="today-empty">…还有 ${overdue.length-MAX} 条</div>`:'')
+    ? overdue.slice(0,todayMax).map(todayItemHtml).join('')+(overdue.length>todayMax?`<div class="today-empty">…还有 ${overdue.length-todayMax} 条</div>`:'')
     : '<div class="today-empty">没有逾期任务 ✓</div>';
   renderWeekCheck();
   panel.querySelectorAll('.today-item').forEach(el=>{
@@ -578,15 +580,15 @@ function renderWeekCheck(){
     return d && ds>=monS && ds<=sunS;
   }).sort((a,b)=>String(a.entryDate).localeCompare(String(b.entryDate)));
   const cnt=$('#weekCount'); if(cnt)cnt.textContent=list.length;
-  const MAXS=15;
+  const weekMax=WEEK_PANEL_MAX;
   const wrap=$('#weekList');
   if(!wrap)return;
   wrap.innerHTML=list.length
-    ? list.slice(0,MAXS).map(t=>{
-        const name=String(t.values['专案名称']||'').trim()||'未命名任务';
-        const st=String(t.values['完成状态']||'').trim();
+    ? list.slice(0,weekMax).map(t=>{
+        const name=String(t.values[COL.PROJECT]||'').trim()||'未命名任务';
+        const st=String(t.values[COL.STATUS]||'').trim();
         return `<div class="week-item"><span class="wi-date">${esc(String(t.entryDate||'').slice(5))}</span><span class="wi-name">${esc(name)}</span><span class="wi-st">${esc(st)}</span></div>`;
       }).join('')
-      +(list.length>MAXS?`<div class="today-empty">…共 ${list.length} 条</div>`:'')
+      +(list.length>weekMax?`<div class="today-empty">…共 ${list.length} 条</div>`:'')
     : `<div class="today-empty">本周（${(start.getMonth()+1)}/${start.getDate()} ~ ${end.getMonth()+1}/${end.getDate()}）还没有录入记录</div>`;
 }

@@ -7,35 +7,45 @@ function setMonthDefault(){
 function getMonthlyData(){
   const mv=$('#monthPick').value;
   if(!mv)return [];
-  const dedup=$('#mf_dedup') ? $('#mf_dedup').checked : true; // 去重开关（配置默认，可临时改）
+  const dedup=$('#mf_dedup') ? $('#mf_dedup').checked : !!loadSettings().monthDedup; // 去重开关（配置默认，可临时改）
   const seen={}, out=[];
   // m12 修复：复用 monthTasksOf 做"按录入月份筛选"，避免与下方重复实现
   monthTasksOf(mv).forEach(t=>{
-    const name=(t.values['专案名称']||'').trim();
-    if(name && (!dedup || !seen[name])){ seen[name]=true; out.push({name, 客户:t.values['客户']||'', 负责人:t.values['负责人']||'', 完成状态:t.values['完成状态']||''}); }
+    const name=(t.values[COL.PROJECT]||'').trim();
+    if(name && (!dedup || !seen[name])){ seen[name]=true; out.push({name, 客户:t.values[COL.CUST]||'', 负责人:t.values[COL.OWNER]||'', 完成状态:t.values[COL.STATUS]||''}); }
   });
   return out;
+}
+/* 月报每行文本（预览/导出共用，避免两处重复实现漂移） */
+/* 月度完成汇总：完成数/完成率单一实现（原预览与两处导出各算一遍，易漂移） */
+function monthSummary(data){
+  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
+  const rate=data.length?Math.round(closed/data.length*100):0;
+  return {closed, rate};
+}
+function buildMonthlyLines(data, opt){
+  const cust=!!opt.cust, owner=!!opt.owner, status=!!opt.status;
+  return data.map((r,i)=>{
+    let s=(i+1)+'. '+r.name;
+    const extras=[];
+    if(cust&&r.客户)extras.push('客户：'+r.客户);
+    if(owner&&r.负责人)extras.push('负责人：'+r.负责人);
+    if(status&&r.完成状态)extras.push('状态：'+r.完成状态);
+    if(extras.length)s+='（'+extras.join('，')+'）';
+    return s;
+  });
 }
 function renderMonthly(){
   const data=getMonthlyData();
   const mv=$('#monthPick').value;
-  const totalTasks=tasks.filter(t=>{const d=parseDateAny(t.entryDate);if(!mv||!d)return false;const[y,m]=mv.split('-').map(Number);return d.getFullYear()===y&&d.getMonth()+1===m;}).length;
+  const totalTasks=monthTasksOf(mv).length;
   $('#monthCount').textContent='（该月共 '+totalTasks+' 条任务）';
   $('#monthListCount').textContent='（去重后 '+data.length+' 个）';
   const box=$('#monthResult');
   if(!data.length){ box.textContent='该月没有可汇总的任务（需先在「每日录入」录过且填了专案名称）。'; genReview(); return; }
-  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
-  const rate=data.length?Math.round(closed/data.length*100):0;
+  const {closed,rate}=monthSummary(data);
   const showCust=$('#mf_cust').checked, showOwner=$('#mf_owner').checked, showStatus=$('#mf_status').checked;
-  const lines=data.map((r,i)=>{
-    let s=(i+1)+'. '+r.name;
-    const extras=[];
-    if(showCust&&r.客户)extras.push('客户：'+r.客户);
-    if(showOwner&&r.负责人)extras.push('负责人：'+r.负责人);
-    if(showStatus&&r.完成状态)extras.push('状态：'+r.完成状态);
-    if(extras.length)s+='（'+extras.join('，')+'）';
-    return s;
-  });
+  const lines=buildMonthlyLines(data,{cust:showCust,owner:showOwner,status:showStatus});
   box.textContent='【'+mv+'】共 '+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%\n\n'+lines.join('\n');
   genReview();
 }
@@ -52,18 +62,9 @@ $('#exportMonthly').onclick=()=>{
   const data=getMonthlyData();
   if(!data.length){toast('该月没有可汇总的任务');return;}
   const mv=$('#monthPick').value||'monthly';
-  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
-  const rate=data.length?Math.round(closed/data.length*100):0;
+  const {closed,rate}=monthSummary(data);
   const head='【'+mv+'】共 '+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%';
-  const text=head+'\n\n'+data.map((r,i)=>{
-    let s=(i+1)+'. '+r.name;
-    const extras=[];
-    if($('#mf_cust').checked&&r.客户)extras.push('客户：'+r.客户);
-    if($('#mf_owner').checked&&r.负责人)extras.push('负责人：'+r.负责人);
-    if($('#mf_status').checked&&r.完成状态)extras.push('状态：'+r.完成状态);
-    if(extras.length)s+='（'+extras.join('，')+'）';
-    return s;
-  }).join('\n');
+  const text=head+'\n\n'+buildMonthlyLines(data,{cust:$('#mf_cust').checked,owner:$('#mf_owner').checked,status:$('#mf_status').checked}).join('\n');
   const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
   downloadBlob(blob,'月报汇总_'+mv+'.txt');
   toast('已导出纯文本');
@@ -71,31 +72,30 @@ $('#exportMonthly').onclick=()=>{
 $('#exportMonthlyXlsx').onclick=async ()=>{
   const data=getMonthlyData();
   if(!data.length){toast('该月没有可汇总的任务');return;}
-  const cols=['序号','专案名称'];
-  if($('#mf_cust').checked)cols.push('客户');
-  if($('#mf_owner').checked)cols.push('负责人');
-  if($('#mf_status').checked)cols.push('完成状态');
-  const wb=new ExcelJS.Workbook();
+  const cols=['序号',COL.PROJECT];
+  if($('#mf_cust').checked)cols.push(COL.CUST);
+  if($('#mf_owner').checked)cols.push(COL.OWNER);
+  if($('#mf_status').checked)cols.push(COL.STATUS);
+  await loadExcelJS(); const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet('月报汇总');
   const hrow=ws.getRow(1);
-  cols.forEach((cn,i)=>{ const cell=hrow.getCell(i+1); cell.value=cn; cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
+  cols.forEach((cn,i)=>{ const cell=hrow.getCell(i+1); cell.value=cn; styleHeader(cell); cell.alignment={vertical:'top'}; });
   data.forEach((r,i)=>{
     const rowVals=cols.map(cn=>{
       if(cn==='序号')return i+1;
-      if(cn==='专案名称')return r.name;
-      if(cn==='客户')return r.客户;
-      if(cn==='负责人')return r.负责人;
-      if(cn==='完成状态')return r.完成状态;
+      if(cn===COL.PROJECT)return r.name;
+      if(cn===COL.CUST)return r.客户;
+      if(cn===COL.OWNER)return r.负责人;
+      if(cn===COL.STATUS)return r.完成状态;
       return '';
     });
     const row=ws.addRow(rowVals);
-    row.eachCell(cell=>{ cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
+    row.eachCell(cell=>{ styleCell(cell); cell.alignment={vertical:'top'}; });
   });
   // 底部汇总行
-  const closed=data.filter(r=>String(r.完成状态||'')===STATUS_DONE).length;
-  const rate=data.length?Math.round(closed/data.length*100):0;
+  const {closed,rate}=monthSummary(data);
   const sumRow=ws.addRow(['', '合计：'+data.length+' 个专案，完成 '+closed+' 个，完成率 '+rate+'%']);
-  sumRow.eachCell(cell=>{ cell.font=EXCEL_FONT; cell.alignment={vertical:'top'}; });
+  sumRow.eachCell(cell=>{ styleCell(cell); cell.alignment={vertical:'top'}; });
   const out=await wb.xlsx.writeBuffer();
   const mv=$('#monthPick').value||'monthly';
   downloadBlob(new Blob([out],{type:'application/octet-stream'}),'月报汇总_'+mv+'.xlsx');
@@ -118,12 +118,12 @@ function genWeekly(){
   list.forEach(t=>{
     const v=t.values;
     const parts=[];
-    if(show('客户')&&v['客户'])parts.push('客户：'+v['客户']);
-    if(show('专案名称')&&v['专案名称'])parts.push(v['专案名称']);
-    if(show('需求说明')&&v['需求说明'])parts.push('（'+v['需求说明']+'）');
-    if(show('开发进度')&&v['开发进度'])parts.push('进度：'+v['开发进度'].replace(/\n/g,'；'));
-    if(show('负责人')&&v['负责人'])parts.push('负责人：'+v['负责人']);
-    if(show('完成状态')&&v['完成状态'])parts.push('状态：'+v['完成状态']);
+    if(show(COL.CUST)&&v[COL.CUST])parts.push('客户：'+v[COL.CUST]);
+    if(show(COL.PROJECT)&&v[COL.PROJECT])parts.push(v[COL.PROJECT]);
+    if(show(COL.REQ)&&v[COL.REQ])parts.push('（'+v[COL.REQ]+'）');
+    if(show(COL.PROGRESS)&&v[COL.PROGRESS])parts.push('进度：'+v[COL.PROGRESS].replace(/\n/g,'；'));
+    if(show(COL.OWNER)&&v[COL.OWNER])parts.push('负责人：'+v[COL.OWNER]);
+    if(show(COL.STATUS)&&v[COL.STATUS])parts.push('状态：'+v[COL.STATUS]);
     out+='· '+parts.join(' ')+'\n';
   });
   $('#wpText').value=out;
@@ -140,7 +140,7 @@ $('#wpEnd').onchange=genWeekly;
 $('#wpThisWeek').onclick=()=>{ setDefaultRangeWp(); genWeekly(); };
 $('#wpThisMonth').onclick=()=>{ const now=new Date();const p=n=>String(n).padStart(2,'0'); const y=now.getFullYear(),m=now.getMonth()+1; const first=y+'-'+p(m)+'-01'; const last=new Date(y,m+1,0); $('#wpStart').value=first; $('#wpEnd').value=toInputDate(last); genWeekly(); };
 $('#wpCopy').onclick=()=>{ const txt=$('#wpText').value; if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('已复制'),()=>fallbackCopy(txt));}else fallbackCopy(txt); };
-$('#wpPrint').onclick=()=>{ const txt=$('#wpText').value; const w=window.open('','_blank'); if(!w){toast('浏览器拦截了打印窗口');return;} const p=w.document.createElement('pre'); p.style.cssText='font-family:inherit;white-space:pre-wrap;padding:24px;line-height:1.7'; p.textContent=txt; w.document.body.appendChild(p); w.document.title='周报段落'; setTimeout(()=>{w.focus();w.print();},100); };
+$('#wpPrint').onclick=()=>{ const txt=$('#wpText').value; const w=window.open('','_blank'); if(!w){toast('浏览器拦截了打印窗口');return;} try{ w.opener=null; }catch(e){} const p=w.document.createElement('pre'); p.style.cssText='font-family:inherit;white-space:pre-wrap;padding:24px;line-height:1.7'; p.textContent=txt; w.document.body.appendChild(p); w.document.title='周报段落'; setTimeout(()=>{w.focus();w.print();},PRINT_DELAY_MS); };
 
 /* 周报段落一键导出 Word（.doc，Word/WPS 可直接打开） */
 $('#wpWord').onclick=()=>{
@@ -182,19 +182,19 @@ function genReview(){
   const today0=new Date(); today0.setHours(0,0,0,0);
   const closed=[], doing=[], pending=[], paused=[], cancelled=[];
   mon.forEach(t=>{
-    const s=String(t.values['完成状态']||'').trim();
+    const s=String(t.values[COL.STATUS]||'').trim();
     if(s===STATUS_DONE) closed.push(t);
     else if(s===STATUS_CANCEL) cancelled.push(t);
     else if(s===STATUS_PAUSE) paused.push(t);
     else if(s.toLowerCase()==='ongoing') doing.push(t);
     else pending.push(t);
   });
-  const overdue=pending.filter(t=>{ const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']); return d && d<today0; }).length;
+  const overdue=pending.filter(t=>{ const d=parseDateAny(t.values[COL.DEV_DATE])||parseDateAny(t.values[COL.RAISE_DATE]); return d && d<today0; }).length;
   const [y2,m2]=mv.split('-').map(Number);
   const line=t=>{
-    const name=String(t.values['专案名称']||'').trim()||'未命名任务';
-    const cust=String(t.values['客户']||'').trim();
-    const prog=String(t.values['开发进度']||'').trim().split('\n')[0];
+    const name=String(t.values[COL.PROJECT]||'').trim()||'未命名任务';
+    const cust=String(t.values[COL.CUST]||'').trim();
+    const prog=String(t.values[COL.PROGRESS]||'').trim().split('\n')[0];
     const head=[name, cust?('['+cust+']'):''].filter(Boolean).join(' ');
     return prog ? '· '+head+'｜'+prog : '· '+head;
   };

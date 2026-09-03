@@ -70,3 +70,80 @@
 
 [1.0.1]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.1
 [1.0.2]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.2
+
+## [1.0.3] - 2026-09-03
+
+基于 `CODE_REVIEW_2026-09-03.md` 的逐项修复（高/中优先级 + 关键低优先）。以磁盘真实状态为准，复核并补齐了此前会话中"显示成功但未落盘"的编辑。
+
+### 重大修复（崩溃/数据风险）
+
+- **录入页整页崩溃**：`entry.js` 重复声明 `const LS_DRAFT='wb_draft'`（与 store.js 同名），经典脚本下触发 `SyntaxError` 导致全部功能不可用 → 常量已归并 store.js，删除重复声明。
+- **任务列表渲染崩溃**：补齐缺失的 `const FILTER_NOT_CLOSED='__not_closed'`（此前声称已加但未落盘），修复 `renderList` 因引用未定义常量而抛错、卡片全空的回归。
+- **回收站恢复/清空原子化**：恢复、清空、彻底删除改用 `saveAtomic([[LS_TASKS,…],[LS_TRASH,…]])` 并校验 `save()` 返回值，避免中断导致任务重复或永久丢失（审计 #2/#5）。
+- **存储损坏保护**：`load()` 解析失败时备份原始串到 `wb_corrupt_*` 并明确告警，进入只读保护，不再静默清空覆盖（审计 #1）。
+
+### 安全与健壮性
+
+- **CSP 纵深防御**：新增 `Content-Security-Policy`（default-src 'self'，按需放开 script/style inline 与 connect-src https 以支持 BYOK AI 润色），抑制外部脚本/样式源与嵌套 framing（审计 #26）。
+- **全局错误捕获**：`window.onerror` / `unhandledrejection` 落到内存队列（上限 50 条），配置中心新增「最近错误（调试）」面板可查看（审计 #30）。
+- **下载入口统一**：`triggerDownload` 先挂载 `<a>` 再 click（Firefox 兼容）、延迟 `revokeObjectURL` 避免 blob 泄漏（审计 #20）。
+- **AI 润色超时/重试**：`aiChat` 走 `fetchWithTimeout(AI_TIMEOUT_MS)` + `AI_RETRY` 重试，5xx 才重试、4xx 直接报错（审计 #3）。
+
+### 可维护性与一致性（SSOT）
+
+- **localStorage 键 SSOT**：`app.js` / `index.html` 改为引用 `LS_THEME`；看板统计键集复用 `LS_ALL`，并补 `manifest.json` 的 `version` 字段，与 sw 缓存键 `wb-<APP_VERSION>` 同源（审计 #5/#15）。
+- **魔法数字收敛**：`DRAFT_DEBOUNCE_MS` / `TODAY_PANEL_MAX` / `DEF_TODAY` / `DATE_COLS`（entry）、`GANTT_DAY_WIDTH` / `HISTORY_SHOW_MAX` / `FILTER_NOT_CLOSED`（list）、`BOOT_TOAST_DELAY_MS` / `SW_PATH` / `HOTKEY_MAP`（app）、`BYTES_PER_MB` / `ASSUMED_QUOTA_MB` / `HEALTH_SHOW_MAX`（dashboard）。
+- **月报去重**：`totalTasks` 复用 `monthTasksOf`；预览与导出的每行文本抽出 `buildMonthlyLines` 共用（审计 #13/#14）。
+- **颜色归一化**：合并 `toArgb` / `toHex` 为 `normalizeHex`（审计 #11）；删除月报 Excel 未使用的 `EXCEL_FONT` 死代码（审计 #6）。
+- **必填列可配置**：录入页必填改由 schema 的 `required` 驱动（`PROJECT`/`STATUS`），不再硬编码（审计 #19）。
+- **语音录入修复**：区分 `isFinal` 与 `interim`，避免 `interimResults` 重复累加（审计 #12）。
+
+### 性能
+
+- **ExcelJS 按需加载**：移除首屏 `<script defer src="exceljs.min.js">`，改为首次点击 Excel 导出/导入时由 `loadExcelJS()` 动态注入（离线由 sw 预缓存兜底），首屏不再解析 947KB（审计 #27）。
+
+### Service Worker
+
+- 缓存版本抽 `APP_VERSION` 单一事实来源；预缓存失败由静默改为 `console.warn`；三处重复缓存写入抽 `putCache`；`ASSETS` 增加与 index.html 脚本列表同步的注释（审计 #22/#23）。
+
+### 工程化
+
+- 回归测试 `tests/_review_reg.js` 的 P5 断言随 #27 调整为：9 个业务模块脚本均带 defer、exceljs 改为按需加载（不再首屏预载）。
+- 回归测试全绿（共 10 个套件）：配置/看板/导出×4/缺陷修复/月报/恢复/代码复查，PASS 合计 0 失败。
+
+[1.0.3]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.3
+
+## [1.0.4] - 2026-09-03
+
+续 `CODE_REVIEW_2026-09-03.md` 中优先级清单的收尾：以磁盘真实状态复核，补齐前两批（A–H + 1.0.3）后仍未真正落盘的 2 项，并确认其余 6 项已满足。
+
+### 修复与健壮性
+
+- **上传文件护栏（审计 #4）**：`checkUploadFile`（扩展名 + 大小上限 `MAX_UPLOAD_BYTES`/20MB）此前仅在导出页生效；本次在「配置中心·列模板导入」与「任务库 Excel 导入」两处也接入，三处上传口径统一。新增行数上限 `MAX_UPLOAD_ROWS`（5 万行）与 `checkUploadRows(ws)`，在 `wb.xlsx.load` 之后前置拦截，避免超大清单整张读进内存并长时间阻塞主线程。
+- **表头识别去重（审计 #10）**：`config.js` / `list.js` 内联的「找表头行 + 读列名」逻辑（各写一份、阈值 `3` 各写一遍）已迁移到 store.js 的 `findHeaderRow(ws)` / `readHeaders(ws, hr)`，阈值统一引用 `MIN_HEADER_CELLS` 常量。至此三处导入路径（导出页/列模板/任务库）共用同一实现，消除漂移。
+
+### 已复核满足（本批无需改动）
+
+- **追加文件名套用配置（#8）**：导出页追加下载已 `buildFileName()`（未配前缀时回退原模板名），与「生成新周报」口径一致。
+- **配置控件表驱动（#16）**：`config.js` 12 个控件已由 `CFG_CONTROLS` 循环绑定，新增项只加一行。
+- **排序/范围依据值域统一（#17）**：`DATE_BY` / `DATE_BY_ALIAS` / `normalizeDateBy` 已归一 `entryDate` 与中文列名混用。
+- **历史状态值映射补全（#18）**：`LEGACY_STATUS_MAP` 已覆盖 `已结案/已完成/已暂停/已取消/规划中/进行中/测试中` 等旧值，配合小写回退。
+- **PBKDF2 迭代次数具名（#21）**：`PBKDF2_ITERATIONS=150000` 常量（store.js 安全参数区）。
+- **甘特「今天线」单节点（#25）**：已改为图表容器上一条贯穿线，不再逐行重复 DOM。
+
+### 低优先级清仓
+
+- **配置中心**：`saveCfg` 校验 `save()` 返回值（配额满时提示「保存失败：本地存储可能已满」而非假成功）；5 处 `JSON.parse(JSON.stringify(...))` 深拷贝换 `deepClone()`（至此全项目收敛完成）。
+- **任务列表**：`window.__batchSel` 全局收敛为模块内 `batchSel`；`calY/calM` 重命名为 `calYear/calMonth`。
+- **甘特图布局常量收编 store.js**：`GANTT_RANGE`（60 档=-15~+45、90 档=-30~+60 偏移对）、`GANTT_EDGE_PAD_DAYS`（两端外扩 3 天）、`GANTT_ONGOING_EST_DAYS`（未完成预估 7 天），消除散落字面量。
+- **录入页**：展示上限局部别名 `MAX/MAXS` 统一为 `todayMax/weekMax`。
+- **月报**：完成数/完成率计算抽 `monthSummary(data)`（预览、txt 导出、xlsx 合计行 3 份重复实现收敛）；周报段落打印延时 `100ms` → `PRINT_DELAY_MS` 与看板统一。
+- **AI 润色**：非加密 `http://` 服务地址除 `console.warn` 外增加一次性 UI toast 告警（Key 明文发送风险用户可见）。
+- **Service Worker**：`/js/*.js` 判定保留正则而非从 ASSETS 推导，并注明刻意取舍原因（推导式会把「漏登记 ASSETS 的新 js」降级为 stale-while-revalidate，离线兜底反而变弱）。
+- **内联样式拆分**：index.html 的 `<style>` 块（约 420 行）原样拆出为 `styles.css`，经 `<link>` 引用（CSP `style-src 'self'` 已覆盖）；sw.js `ASSETS` 增补该文件（离线预缓存，运行期走 stale-while-revalidate）；`_review_reg.js` P13 断言同步改为读 styles.css。样式内容零改动，建议在真实浏览器实地过一遍渲染作最终确认。
+
+### 工程化
+
+- 回归测试全绿（共 10 个套件，PASS=226，FAIL=0）：本批改动经 `node --check` 语法校验 + 全量回归，无新增失败。
+
+[1.0.4]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.4

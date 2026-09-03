@@ -16,7 +16,7 @@ $('#colTemplateSave').onclick=async ()=>{
   if(!name) return;
   const data=loadColTemplates();
   data.list=data.list||{};
-  data.list[name]={schema:JSON.parse(JSON.stringify(schema)), dropdowns:JSON.parse(JSON.stringify(dropdowns)), mapping:(typeof colMapping==='object'?JSON.parse(JSON.stringify(colMapping)):{})};
+  data.list[name]={schema:deepClone(schema), dropdowns:deepClone(dropdowns), mapping:(typeof colMapping==='object'?deepClone(colMapping):{})};
   data.active=name;
   saveColTemplates(data);
   refreshColTemplateSel();
@@ -55,18 +55,19 @@ $('#colTemplate').onchange=()=>{
 $('#colTemplateImport').onclick=()=>$('#colTemplateFile').click();
 $('#colTemplateFile').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  if(!/\.xlsx$/i.test(f.name)){ toast('仅支持 .xlsx'); e.target.value=''; return; }
+  // 统一走 store.js 的上传校验（扩展名 + 大小上限）；旧实现只校验扩展名
+  const chk=checkUploadFile(f); if(!chk.ok){ toast(chk.msg); e.target.value=''; return; }
   try{
     const buf=await f.arrayBuffer();
-    const wb=new ExcelJS.Workbook();
+    await loadExcelJS(); const wb=new ExcelJS.Workbook();
     await wb.xlsx.load(buf);
     const ws=wb.getWorksheet(1);
-    let hr=1, found=false;
-    for(;hr<=ws.rowCount;hr++){ let n=0; ws.getRow(hr).eachCell(()=>{n++;}); if(n>=3){found=true;break;} }
-    if(!found){ toast('未能识别表头行（需至少3个非空单元格）'); e.target.value=''; return; }
-    const maxCol=Math.max(ws.getRow(hr).cellCount||0, ws.columnCount||0);
-    const headers=[];
-    for(let c=1;c<=maxCol;c++){ const v=ws.getRow(hr).getCell(c).value; const h=String(v!=null?v:'').trim(); if(h && !headers.includes(h)) headers.push(h); }
+    // 行数上限前置拦截（避免超大清单读进内存阻塞主线程）
+    const rc=checkUploadRows(ws); if(!rc.ok){ toast(rc.msg); e.target.value=''; return; }
+    // 表头识别统一走 store.js 的 findHeaderRow/readHeaders（消除三处重复拷贝）
+    const hr=findHeaderRow(ws);
+    if(!hr){ toast('未能识别表头行（需至少'+MIN_HEADER_CELLS+'个非空单元格）'); e.target.value=''; return; }
+    const headers=[]; readHeaders(ws, hr).forEach(h=>{ if(h && !headers.includes(h)) headers.push(h); });
     if(!headers.length){ toast('未读取到任何列名'); e.target.value=''; return; }
     const name=(await uiPrompt('读取到 '+headers.length+' 列：\n'+headers.join('、')+'\n\n模板名称：')||'').trim();
     if(!name){ e.target.value=''; return; }
@@ -96,6 +97,7 @@ function moveCol(i,dir){
   save(LS_SCHEMA,schema); renderConfig();
 }
 function renderConfig(){
+  const errBox=$('#errLogBox'); if(errBox){ const log=(window.ERROR_LOG||[]); errBox.innerHTML = log.length? log.slice().reverse().map(e=>`<div style="white-space:pre-wrap"><b>[${esc(e.t)}]</b> ${esc(e.src)}<br>${esc(e.msg)}</div><hr style="border:none;border-top:1px solid #eee;margin:4px 0">`).join('') : '<div class="muted">暂无捕获到的错误</div>'; }
   const list=$('#colCfgList'); list.innerHTML='';
   const head=document.createElement('div');head.className='col-grid-head';
   head.innerHTML=`<span>序</span><span>列名</span><span>类型</span><span>默认值</span><span>默认今天</span><span>操作</span>`;
@@ -128,7 +130,7 @@ function renderConfig(){
       // P7 修复：删除列同步清理 colMapping(指向该列)/dropdowns(该列选项)，并刷新录入页；
       // 先原子保存成功再 mutate 内存（含 colMapping/dropdowns 清理），避免「内存删了存储没删/只删一半」
       const ns=schema.filter((_,j)=>j!==i);
-      const snapSchema=schema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping));
+      const snapSchema=schema, snapDrop=deepClone(dropdowns), snapMap=deepClone(colMapping);
       if(del.name in dropdowns) delete dropdowns[del.name];
       Object.keys(colMapping).forEach(k=>{ if(colMapping[k]===del.name) delete colMapping[k]; });
       if(saveAtomic([[LS_SCHEMA,ns],[LS_DROPDOWNS,dropdowns],[LS_MAPPING,colMapping],[LS_TASKS,tasks]])){
@@ -237,72 +239,46 @@ $('#addCol').onclick=()=>{
 
 /* 默认设置（配置中心可改默认值，各页面临时可覆盖单次） */
 (function(){
-  const saveCfg=(patch)=>{ const cfg=load(LS_EXPORTCFG,{})||{}; Object.assign(cfg,patch); save(LS_EXPORTCFG,cfg); toast('默认设置已保存'); };
+  const saveCfg=(patch)=>{ const cfg=load(LS_EXPORTCFG,{})||{}; Object.assign(cfg,patch); if(!save(LS_EXPORTCFG,cfg)){ toast('保存失败：本地存储可能已满，设置未生效'); return; } toast('默认设置已保存'); };
   const st=loadSettings();
 
-  const copy=$('#cfgCopyRowStyle'); if(copy){
-    copy.checked = !!st.copyRowStyle;
-    copy.onchange=()=>saveCfg({copyRowStyle:copy.checked});
-  }
-  const mode=$('#cfgAppendMode'); if(mode){
-    mode.value = st.appendMode;
-    mode.onchange=()=>saveCfg({appendMode:mode.value});
-  }
-  const rangeBy=$('#cfgRangeBy'); if(rangeBy){
-    rangeBy.value = st.rangeBy;
-    rangeBy.onchange=()=>saveCfg({rangeBy:rangeBy.value});
-  }
-  const exportSortBy=$('#cfgExportSortBy'); if(exportSortBy){
-    exportSortBy.value = st.exportSortBy;
-    exportSortBy.onchange=()=>saveCfg({exportSortBy:exportSortBy.value});
-  }
-  const exportSortDir=$('#cfgExportSortDir'); if(exportSortDir){
-    exportSortDir.value = st.exportSortDir;
-    exportSortDir.onchange=()=>saveCfg({exportSortDir:exportSortDir.value});
-  }
-  /* hex(#RGB/#RRGGBB) → #RRGGBB（供 color input 初始化用），非法返回 '' */
-  function toHex(c){ if(!c)return ''; let s=String(c).trim().replace(/^#/,''); if(/^[0-9a-fA-F]{3}$/.test(s)) s=s.split('').map(x=>x+x).join(''); return /^[0-9a-fA-F]{6}$/.test(s)?'#'+s.toUpperCase():''; }
-  const fp=$('#cfgExportFilePrefix'); if(fp){ fp.value=st.exportFilePrefix||''; fp.onchange=()=>saveCfg({exportFilePrefix:fp.value.trim()}); }
-  const fd=$('#cfgExportFileDateFormat'); if(fd){ fd.value=st.exportFileDateFormat; fd.onchange=()=>saveCfg({exportFileDateFormat:fd.value}); }
-  const ef=$('#cfgExportFont'); if(ef){ ef.value=st.exportFontName||''; ef.onchange=()=>saveCfg({exportFontName:ef.value.trim()}); }
-  const esz=$('#cfgExportFontSize'); if(esz){ esz.value=st.exportFontSize||''; esz.onchange=()=>saveCfg({exportFontSize:esz.value.trim()}); }
+  // 表驱动绑定：新增配置项只加一行 CFG_CONTROLS（消除 12 处重复样板）
+  const CFG_CONTROLS=[
+    {sel:'#cfgCopyRowStyle', key:'copyRowStyle', type:'chk'},
+    {sel:'#cfgAppendMode', key:'appendMode'},
+    {sel:'#cfgRangeBy', key:'rangeBy'},
+    {sel:'#cfgExportSortBy', key:'exportSortBy'},
+    {sel:'#cfgExportSortDir', key:'exportSortDir'},
+    {sel:'#cfgExportFilePrefix', key:'exportFilePrefix', trim:true},
+    {sel:'#cfgExportFileDateFormat', key:'exportFileDateFormat'},
+    {sel:'#cfgExportFont', key:'exportFontName', trim:true},
+    {sel:'#cfgExportFontSize', key:'exportFontSize', trim:true},
+    {sel:'#cfgListSortBy', key:'listSortBy'},
+    {sel:'#cfgListSortDir', key:'listSortDir'},
+    {sel:'#cfgMonthDedup', key:'monthDedup', type:'chk'},
+    {sel:'#cfgAiKey', key:'aiKey', trim:true},
+    {sel:'#cfgAiBaseUrl', key:'aiBaseUrl', trim:true},
+    {sel:'#cfgAiModel', key:'aiModel', trim:true},
+    {sel:'#cfgAiReq', key:'aiReq'}
+  ];
+  CFG_CONTROLS.forEach(({sel,key,type,trim})=>{
+    const el=$(sel); if(!el)return;
+    if(type==='chk'){ el.checked=!!st[key]; el.onchange=()=>saveCfg({[key]:el.checked}); }
+    else { el.value=st[key]||''; el.onchange=()=>saveCfg({[key]: trim?el.value.trim():el.value}); }
+  });
+  /* hex(#RGB/#RRGGBB) → #RRGGBB（供 color input 初始化用），非法返回 ''；统一复用 store.js normalizeHex */
+  const toHex=(c)=>normalizeHex(c,false);
+  // 表头背景色（开关 + 取色器），未配置时兜底默认色
   const hbOn=$('#cfgExportHeaderBgOn'), hb=$('#cfgExportHeaderBg');
-  if(hbOn&&hb){ hbOn.checked=!!st.exportHeaderBg; hb.value=toHex(st.exportHeaderBg)||'#D9E1F2'; const sync=()=>saveCfg({exportHeaderBg: hbOn.checked? hb.value : ''}); hbOn.onchange=sync; hb.onchange=sync; }
+  if(hbOn&&hb){ hbOn.checked=!!st.exportHeaderBg; hb.value=toHex(st.exportHeaderBg)||DEFAULT_HEADER_BG; const sync=()=>saveCfg({exportHeaderBg: hbOn.checked? hb.value : ''}); hbOn.onchange=sync; hb.onchange=sync; }
+  // 状态背景色映射
   const sbWrap=$('#cfgStatusBgWrap');
   if(sbWrap){
-    const statuses=(dropdowns['完成状态']||[]).slice();
+    const statuses=(dropdowns[COL.STATUS]||[]).slice();
     const cur=st.exportStatusBg||{};
-    sbWrap.innerHTML = statuses.map(s=>`<label class="inline-check" style="gap:4px"><input type="checkbox" data-sbg-on="${esc(s)}" ${cur[s]?'checked':''}><input type="color" data-sbg="${esc(s)}" value="${toHex(cur[s])||'#C6EFCE'}"> ${esc(s)}</label>`).join('');
-    const collect=()=>{ const m={}; sbWrap.querySelectorAll('input[data-sbg-on]').forEach(cb=>{ const s=cb.dataset.sbgOn; const col=sbWrap.querySelector(`input[data-sbg="${CSS.escape(s)}"]`).value; if(cb.checked) m[s]=col; }); return m; };
+    sbWrap.innerHTML = statuses.map(s=>`<label class="inline-check" style="gap:4px"><input type="checkbox" data-sbg-on="${esc(s)}" ${cur[s]?'checked':''}><input type="color" data-sbg="${esc(s)}" value="${toHex(cur[s])||DEFAULT_STATUS_BG}"> ${esc(s)}</label>`).join('');
+    const collect=()=>{ const m={}; sbWrap.querySelectorAll('input[data-sbg-on]').forEach(cb=>{ const s=cb.dataset.sbgOn; const col=sbWrap.querySelector(`input[data-sbg="${CSS.escape(s)}"]`); const v=col?col.value:''; if(cb.checked) m[s]=v; }); return m; };
     sbWrap.querySelectorAll('input').forEach(inp=>{ inp.onchange=()=>saveCfg({exportStatusBg:collect()}); });
-  }
-  const sortBy=$('#cfgListSortBy'); if(sortBy){
-    sortBy.value = st.listSortBy;
-    sortBy.onchange=()=>saveCfg({listSortBy:sortBy.value});
-  }
-  const sortDir=$('#cfgListSortDir'); if(sortDir){
-    sortDir.value = st.listSortDir;
-    sortDir.onchange=()=>saveCfg({listSortDir:sortDir.value});
-  }
-  const dedup=$('#cfgMonthDedup'); if(dedup){
-    dedup.checked = !!st.monthDedup;
-    dedup.onchange=()=>saveCfg({monthDedup:dedup.checked});
-  }
-  const aiKey=$('#cfgAiKey'); if(aiKey){
-    aiKey.value = st.aiKey||'';
-    aiKey.onchange=()=>saveCfg({aiKey:aiKey.value.trim()});
-  }
-  const aiBaseUrl=$('#cfgAiBaseUrl'); if(aiBaseUrl){
-    aiBaseUrl.value = st.aiBaseUrl;
-    aiBaseUrl.onchange=()=>saveCfg({aiBaseUrl:aiBaseUrl.value.trim()});
-  }
-  const aiModel=$('#cfgAiModel'); if(aiModel){
-    aiModel.value = st.aiModel;
-    aiModel.onchange=()=>saveCfg({aiModel:aiModel.value.trim()});
-  }
-  const aiReq=$('#cfgAiReq'); if(aiReq){
-    aiReq.value = st.aiReq||'';
-    aiReq.onchange=()=>saveCfg({aiReq:aiReq.value});
   }
   document.querySelectorAll('.cfgWk').forEach(cb=>{
     cb.checked = (st.weeklyFields||[]).includes(cb.value);
@@ -341,7 +317,7 @@ $('#saveColCfg').onclick=()=>{
   for(const c of ns){ if(seen.has(c.name)){ toast('列名不能重复：'+c.name); return; } seen.add(c.name); }
   // 改名迁移：配置中心改列名时，历史任务/下拉/映射的 key 跟着改名，避免失联
   const rn=computeRenames(oldSchema, ns);
-  const snapSchema=oldSchema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping)), snapTasks=JSON.parse(JSON.stringify(tasks));
+  const snapSchema=oldSchema, snapDrop=deepClone(dropdowns), snapMap=deepClone(colMapping), snapTasks=deepClone(tasks);
   if(rn.length) applyRenames(rn);
   const kept=ns.map(c=>c.name);
   Object.keys(dropdowns).forEach(k=>{ if(!kept.includes(k)) delete dropdowns[k]; });
@@ -365,7 +341,7 @@ $('#resetColCfg').onclick=()=>{
   const oldSchema=schema.slice();
   const ns=DEFAULT_SCHEMA.map(c=>({...c}));
   const rn=computeRenames(oldSchema, ns);
-  const snapSchema=oldSchema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping)), snapTasks=JSON.parse(JSON.stringify(tasks));
+  const snapSchema=oldSchema, snapDrop=deepClone(dropdowns), snapMap=deepClone(colMapping), snapTasks=deepClone(tasks);
   if(rn.length) applyRenames(rn);
   const names=ns.map(c=>c.name);
   Object.keys(dropdowns).forEach(k=>{ if(!names.includes(k)) delete dropdowns[k]; });
@@ -391,7 +367,7 @@ $('#importCfgFile').onchange=e=>{
       // 验证 schema 结构
       const validSchema = d.schema.map(c=>{
         if(typeof c!=='object' || !c.name) throw new Error('列配置项缺少 name 字段');
-        const validTypes=['text','dropdown','date','textarea','auto'];
+        const validTypes=[COL_TYPE_TEXT,COL_TYPE_DROPDOWN,COL_TYPE_DATE,COL_TYPE_TEXTAREA,COL_TYPE_AUTO];
         const type=validTypes.includes(c.type)?c.type:'text';
         const base={name:String(c.name).trim(), type, def:String(c.def||''), id:(c.id||('col_'+String(c.name).trim()))};
         if(type==='date') base.dateFmt=(c.dateFmt==='md')?'md':'ymd'; // #C1 保留按列日期格式
@@ -407,7 +383,7 @@ $('#importCfgFile').onchange=e=>{
       const oldSchema=schema.slice();
       const ns=validSchema.map(c=>({name:String(c.name), type:c.type, def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(c.type==='date'?(c.dateFmt||'ymd'):undefined)}));
       const rn=computeRenames(oldSchema, ns);
-      const snapSchema=oldSchema, snapDrop=JSON.parse(JSON.stringify(dropdowns)), snapMap=JSON.parse(JSON.stringify(colMapping)), snapTasks=JSON.parse(JSON.stringify(tasks));
+      const snapSchema=oldSchema, snapDrop=deepClone(dropdowns), snapMap=deepClone(colMapping), snapTasks=deepClone(tasks);
       if(rn.length) applyRenames(rn);
       dropdowns=validDropdowns;
       // 甲 修复：改为 saveAtomic 原子写入（与 saveColCfg/resetColCfg/P8 一致），失败回滚内存，避免「schema 改名但 tasks 未迁移」不一致

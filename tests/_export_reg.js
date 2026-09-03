@@ -102,7 +102,7 @@ console.log('\n=== 场景 A：appendToEnd 末尾追加 ===');
   ];
   const {wb, ws} = newBookWithData(tmpl); setExcelState(wb, ws); cfg.styleOn();
   const newTasks = [
-    mkTask('tA', {厂区:'厦门', 客户:'D', 专案名称:'新任务A', 完成状态:'planning', 开发日期:'2026-08-21', 开发进度:'需求评审\n✓ 已确认'}),
+    mkTask('tA', {厂区:'厦门', 客户:'D', 专案名称:'新任务A', 完成状态:'Planning', 开发日期:'2026-08-21', 开发进度:'需求评审\n✓ 已确认'}),
     mkTask('tB', {厂区:'重庆', 客户:'E', 专案名称:'新任务B', 完成状态:'Ongoing', 开发日期:'2026-08-22', 开发进度:'开发中'}),
   ];
   api.appendToEnd(ws, newTasks, 4);
@@ -155,7 +155,7 @@ console.log('\n=== 场景 C：insertGrouped 未知状态/空状态 → 末尾追
   ];
   const {wb, ws} = newBookWithData(tmpl); setExcelState(wb, ws); cfg.styleOn();
   const newTasks = [
-    mkTask('nP', {客户:'P', 专案名称:'新-planning', 完成状态:'planning', 开发日期:'2026-08-21'}),
+    mkTask('nP', {客户:'P', 专案名称:'新-Planning', 完成状态:'Planning', 开发日期:'2026-08-21'}),
     mkTask('nE', {客户:'Q', 专案名称:'新-空状态', 完成状态:'', 开发日期:'2026-08-21'}),
   ];
   api.insertGrouped(ws, newTasks, 4);
@@ -163,7 +163,7 @@ console.log('\n=== 场景 C：insertGrouped 未知状态/空状态 → 末尾追
   eq(colVals(ws, seqIdx, 2, 6), [1,2,3,4,5], '项次重编号 1..5');
   const statuses = colVals(ws, statusIdx, 2, 6).map(s=>String(s).toLowerCase());
   eq(statuses, ['closed','ongoing','ongoing','planning',''], '未知/空状态应追加到末尾，顺序=模板+新(planning,空)');
-  ok(colVals(ws, nameIdx, 5, 6).includes('新-planning') && colVals(ws, nameIdx, 5, 6).includes('新-空状态'), '两条新任务落在末尾两行');
+  ok(colVals(ws, nameIdx, 5, 6).includes('新-Planning') && colVals(ws, nameIdx, 5, 6).includes('新-空状态'), '两条新任务落在末尾两行');
 }
 
 /* === 场景 D：buildNewWorkbook 生成新周报（async）=== */

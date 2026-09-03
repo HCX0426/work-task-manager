@@ -13,13 +13,9 @@ function styleCell(cell, wrap){
 }
 
 /* ============ 导出样式（字体/字号/背景色，默认空=不设置） ============ */
-/* hex(#RGB/#RRGGBB) → ExcelJS ARGB(FFxxxxxx)；非法返回 null（不设置） */
-function toArgb(hex){
-  let s=String(hex||'').trim().replace(/^#/,'');
-  if(/^[0-9a-fA-F]{3}$/.test(s)) s=s.split('').map(c=>c+c).join('');
-  if(/^[0-9a-fA-F]{6}$/.test(s)) return 'FF'+s.toUpperCase();
-  return null;
-}
+/* 颜色归一化统一走 store.js 的 normalizeHex（合并了原先 export.js 的 toArgb 与 config.js 的 toHex
+   两份近似实现）；此处仅保留「非法输入 → null」的 ExcelJS 语义封装。 */
+function toArgb(hex){ return normalizeHex(hex, true) || null; }
 /* 表头单元格：基础样式 + 配置的表头背景色 */
 function styleHeader(cell){ styleCell(cell); const bg=toArgb(loadSettings().exportHeaderBg); if(bg) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:bg}}; }
 /* 状态列背景色：按任务「完成状态」取值查配置映射，命中则返回 fill，否则 null */
@@ -65,23 +61,24 @@ if(dropEl){
 
 $('#excelFile').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  if(!/\.xlsx$/i.test(f.name)){ toast('仅支持 .xlsx 文件（旧版 .xls 请先在 Excel 里另存为 .xlsx）'); e.target.value=''; return; }
+  // 统一走 store.js 的上传校验：扩展名 + 大小上限（旧实现只校验扩展名，超大文件解析时会长时间阻塞主线程）
+  const chk=checkUploadFile(f);
+  if(!chk.ok){ toast(chk.msg); e.target.value=''; return; }
   excelFileName = f.name;
   $('#excelName').textContent=f.name;
   try{
     const buf=await f.arrayBuffer();
-    const wb=new ExcelJS.Workbook();
+    await loadExcelJS(); const wb=new ExcelJS.Workbook();
     await wb.xlsx.load(buf);
     const ws=wb.getWorksheet(1);
-    // 找表头行：首个非空单元格>=3 的行（1-based）
-    let hr=1; let foundHeader=false;
-    for(;hr<=ws.rowCount;hr++){ let n=0; ws.getRow(hr).eachCell(()=>{n++;}); if(n>=3){foundHeader=true;break;} }
-    if(!foundHeader){ toast('未能识别表头行（需至少3个非空单元格）'); return; }
+    // 行数上限前置拦截（避免超大清单读进内存阻塞主线程）
+    const rc=checkUploadRows(ws); if(!rc.ok){ toast(rc.msg); e.target.value=''; return; }
+    // 表头识别统一走 store.js 的 findHeaderRow/readHeaders（原三处各写一份，阈值也各写一遍）
+    const hr=findHeaderRow(ws);
+    if(!hr){ toast('未能识别表头行（需至少'+MIN_HEADER_CELLS+'个非空单元格）'); return; }
     excelHeaderRow=hr;
     excelBook=wb; excelSheet=ws; excelSheetName=ws.name;
-    const maxCol=Math.max(ws.getRow(hr).cellCount||0, ws.columnCount||0);
-    excelHeaders=[];
-    for(let c=1;c<=maxCol;c++){ const v=ws.getRow(hr).getCell(c).value; excelHeaders.push(v!=null?String(v).trim():''); }
+    excelHeaders=readHeaders(ws, hr);
     const savedMap=load(LS_MAPPING,{});
     colMapping={}; excelHeaders.forEach(h=>{ const saved=(h in savedMap)?savedMap[h]:''; colMapping[h]=(saved&&schema.some(c=>c.name===saved))?saved:(matchCol(h)||''); });
     save(LS_MAPPING,colMapping);
@@ -108,7 +105,7 @@ function mapTaskToRow(task){
   const row={};
   excelHeaders.forEach(h=>{
     const key=effMap(h)||'';
-    if(!key || key==='项次') return;
+    if(!key || key===COL.SEQ) return;
     if(task.values[key]!=null && task.values[key]!==''){
       let v=task.values[key];
       const colDef=schema.find(c=>c.name===key);
@@ -129,37 +126,36 @@ $('#thisWeek').onclick=setDefaultRange;
 $('#thisWeekToToday').onclick=()=>{ setDefaultRange(); $('#rangeEnd').value=todayStr(); };
 
 function skipExportedChecked(){const el=$('#skipExported');return el&&el.checked;}
-/* 取任务的筛选日期：按范围日期类型（录入/提出/开发） */
+/* 取任务的筛选日期：按范围日期类型（录入/提出/开发）。
+   取值统一走 DATE_BY 并经 normalizeDateBy 归一（旧配置可能残留 'entryDate'，与「录入日期」是同一含义的两个值）；
+   「录入日期」是任务字段 entryDate 而非 schema 列，故单独分支；其余直接按列名取值，扩展新依据只需在 DATE_BY 加一项。 */
 function taskRangeDate(t){
-  const by=($('#rangeBy') && $('#rangeBy').value) || 'entryDate';
-  if(by==='提出日期') return t.values['提出日期'];
-  if(by==='开发日期') return t.values['开发日期'];
-  return t.entryDate;
+  const by=normalizeDateBy(($('#rangeBy') && $('#rangeBy').value) || DATE_BY.DEV);
+  if(by===DATE_BY.ENTRY) return t.entryDate;
+  return t.values[by];
 }
 
 /* ============ 导出排序（可配置，导出/追加/生成新周报统一生效） ============ */
 /* 排序依据：导出页下拉优先，否则用配置中心默认（exportSortBy）。
-   可选：录入日期 / 提出日期 / 开发日期（以后扩展只需在此映射加分支）。 */
+   可选：录入日期 / 提出日期 / 开发日期（以后扩展只需在 store.js 的 DATE_BY 加一项）。 */
 function exportSortByVal(){
-  const el=$('#exportSortBy'); const v=el&&el.value; if(v) return v;
-  return (loadSettings().exportSortBy)||'开发日期';
+  const el=$('#exportSortBy'); const v=normalizeDateBy(el&&el.value); if(v) return v;
+  return normalizeDateBy(loadSettings().exportSortBy)||DATE_BY.DEV;
 }
 function exportSortDirVal(){
   const el=$('#exportSortDir'); const v=el&&el.value; if(v) return v;
-  return (loadSettings().exportSortDir)||'asc';
+  return (loadSettings().exportSortDir)||SORT_ASC;
 }
 /* 取单条排序键：返回时间戳（毫秒）；空日期置为 null（排序时排最后） */
 function exportSortKey(t){
   const by=exportSortByVal();
-  const raw = by==='录入日期' ? t.entryDate
-            : by==='提出日期' ? t.values['提出日期']
-            : t.values['开发日期']; // 默认开发日期
+  const raw = (by===DATE_BY.ENTRY) ? t.entryDate : t.values[by];
   const d=parseDateAny(raw);
   return d ? d.getTime() : null;
 }
 /* 稳定排序（原数组原地排序并返回）：空日期永远排最后；同键保持原有相对顺序 */
 function sortExportTasks(arr){
-  const dir=(exportSortDirVal()==='desc') ? -1 : 1;
+  const dir=(exportSortDirVal()===SORT_DESC) ? -1 : 1;
   arr.sort((a,b)=>{
     const ka=exportSortKey(a), kb=exportSortKey(b);
     const ea=ka==null, eb=kb==null;
@@ -192,7 +188,7 @@ function renderPreview(){
     headers=excelHeaders.map(h=>({name:h, key:effMap(h)||''}));
     valOf=(task,hd)=>{
       const key=effMap(hd)||'';
-      if(key==='项次')return '（自动续号）';
+      if(key===COL.SEQ)return '（自动续号）';
       if(!key)return '';
       let v=task.values[key]||'';
       const cd=schema.find(c=>c.name===key);
@@ -219,7 +215,7 @@ function renderPreview(){
 }
 
 /* ============ 导出前整表结构校验 ============ */
-const CRITICAL_COLS=['专案名称','客户','负责人','完成状态','提出日期','开发日期'];
+/* 关键列常量统一在 store.js 的 CRITICAL_COLS 定义（避免两处各写一份后漂移） */
 function looksLikeValue(s){
   if(!s)return false;
   s=String(s).trim(); if(s==='')return false;
@@ -259,7 +255,7 @@ function validateExportStructure(){
   });
 
   // 3) 项次列
-  if(!excelHeaders.some(h=>effMap(h)==='项次')){
+  if(!excelHeaders.some(h=>effMap(h)===COL.SEQ)){
     warnings.push('未找到「项次」列，导出行将不带自动续号（若模板本无此列可忽略）。');
   }
 
@@ -272,7 +268,7 @@ function validateExportStructure(){
   excelHeaders.forEach(h=>{ if(String(h).trim()==='' && effMap(h)) warnings.push(`存在空白表头却已映射到「${effMap(h)}」，请将其映射改为「（不导出）」。`); });
 
   // 6) 项次列非数字检查
-  const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
+  const seqHd=excelHeaders.find(h=>effMap(h)===COL.SEQ);
   if(seqHd){
     const seqCol=excelHeaders.indexOf(seqHd)+1; // 1-based
     const ws=excelSheet;
@@ -286,7 +282,7 @@ function validateExportStructure(){
   if(!t.length) errors.push('当前时间范围内没有可追加的任务（或全部已追加且勾选了跳过）。');
 
   // 8) 分组插入模式需映射「完成状态」列
-  if(appendMode()==='group' && !excelHeaders.some(h=>effMap(h)==='完成状态')){
+  if(appendMode()==='group' && !excelHeaders.some(h=>effMap(h)===COL.STATUS)){
     errors.push('「按状态分组插入」模式需要将「完成状态」列映射到本工具的完成状态列，请在上方「列名映射」中为对应表头选择「完成状态」。');
   }
 
@@ -322,19 +318,20 @@ $('#doExport').onclick=async ()=>{
   if(res.warnings.length){
     if(!confirm(`校验发现 ${res.warnings.length} 项警告（见下方报告）。\n仍要导出？`)){ toast('已取消导出'); return; }
   }
-  await doExportInner();
+  await doExportInner(getRangeTasks()); // 复用校验阶段已算好的列表，避免同一次导出重复筛选+排序
 };
 
 function appendMode(){ const el=$('#appendMode'); return el?el.value:'group'; }
 function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
 
-/* 初始化导出页「追加模式 / 对齐样式 / 范围日期类型 / 排序依据 / 排序方向」为配置中心默认值（导出页仍可临时调整单次） */
+/* 初始化导出页「追加模式 / 对齐样式 / 范围日期类型 / 排序依据 / 排序方向」为配置中心默认值（导出页仍可临时调整单次）
+   日期类型经 normalizeDateBy 归一，避免旧配置残留的 'entryDate' 与下拉选项值（录入日期）对不上导致下拉显示空白 */
 (function(){
   const st=loadSettings();
   const m=$('#appendMode'); if(m) m.value=st.appendMode;
   const c=$('#copyRowStyle'); if(c) c.checked=!!st.copyRowStyle;
-  const r=$('#rangeBy'); if(r) r.value=st.rangeBy;
-  const sb=$('#exportSortBy'); if(sb) sb.value=st.exportSortBy;
+  const r=$('#rangeBy'); if(r) r.value=normalizeDateBy(st.rangeBy);
+  const sb=$('#exportSortBy'); if(sb) sb.value=normalizeDateBy(st.exportSortBy);
   const sd=$('#exportSortDir'); if(sd) sd.value=st.exportSortDir;
 })();
 
@@ -359,12 +356,13 @@ function writeRowVals(ws, rowNum, task, seqVal){
   const newRow=ws.getRow(rowNum);
   const row=mapTaskToRow(task);
   const copyStyle=copyRowStyleOn();
-  // 对齐上一行样式（默认开启）：复制行高与单元格样式，使新行与模板视觉一致
-  if(copyStyle && rowNum>1) copyRowStyle(ws, rowNum, rowNum-1);
+  // 对齐上一行样式（默认开启）：复制行高与单元格样式，使新行与模板视觉一致。
+  // 边界：模板无任何数据行时 rowNum-1 就是表头行，此时不能把表头样式复制到数据行。
+  if(copyStyle && rowNum>excelHeaderRow+1) copyRowStyle(ws, rowNum, rowNum-1);
   excelHeaders.forEach((h,c)=>{
     const col=c+1;
     let val='';
-    if(seqVal!=null && effMap(h)==='项次'){ val=seqVal; }
+    if(seqVal!=null && effMap(h)===COL.SEQ){ val=seqVal; }
     else if(h in row){ val=row[h]; }
     const cell=newRow.getCell(col);
     cell.value=val;
@@ -379,13 +377,13 @@ function writeRowVals(ws, rowNum, task, seqVal){
       cell.border=undefined; cell.fill=undefined;
     }
     // 状态列背景色：按「完成状态」取值查配置映射（空映射/未命中则不染色）
-    if(effMap(h)==='完成状态'){ const f=statusBgFill(String(val)); if(f) cell.fill=f; }
+    if(effMap(h)===COL.STATUS){ const f=statusBgFill(String(val)); if(f) cell.fill=f; }
   });
 }
 
 /* 末尾追加（现有模式）：按项次续号，从最后数据行之后追加 */
 function appendToEnd(ws, t, lastDataRow){
-  const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
+  const seqHd=excelHeaders.find(h=>effMap(h)===COL.SEQ);
   const seqCol=seqHd?excelHeaders.indexOf(seqHd)+1:0;
   let lastSeq=0;
   if(seqCol){ for(let r=excelHeaderRow+1;r<=lastDataRow;r++){ const v=ws.getRow(r).getCell(seqCol).value; const n=(typeof v==='number')?v:((typeof v==='string'&&/^\d+$/.test(String(v).trim()))?parseInt(v,10):0); if(n>lastSeq)lastSeq=n; } }
@@ -396,7 +394,7 @@ function appendToEnd(ws, t, lastDataRow){
 /* 按状态分组插入：每个任务插入到模板中同状态组的最后一条之后，后续行自动后移；项次整列重新编号。
    未知状态 / 空状态追加到整个表格末尾。 */
 function insertGrouped(ws, t, lastDataRow){
-  const stHd=excelHeaders.find(h=>effMap(h)==='完成状态');
+  const stHd=excelHeaders.find(h=>effMap(h)===COL.STATUS);
   if(!stHd) return; // 校验阶段已拦截
   const stCol=excelHeaders.indexOf(stHd)+1;
   // 扫描数据区，记录每个状态值「最后一条」所在行号（大小写不敏感）
@@ -408,7 +406,7 @@ function insertGrouped(ws, t, lastDataRow){
   }
   // 计算每个任务的插入锚点：模板有该状态→用该状态最后行；否则用表格末尾
   const items=t.map(task=>{
-    const st=String(task.values['完成状态']||'').trim().toLowerCase();
+    const st=String(task.values[COL.STATUS]||'').trim().toLowerCase();
     return {task, anchor:(lastRowOf[st]!=null?lastRowOf[st]:lastDataRow)};
   });
   // 按锚点降序稳定排序（从下往上插：下方插入不影响上方锚点行号；同锚点保持录入顺序）
@@ -421,7 +419,7 @@ function insertGrouped(ws, t, lastDataRow){
     writeRowVals(ws, pos, task, null);
   });
   // 项次整列重新编号（表头下第一行到末尾）
-  const seqHd=excelHeaders.find(h=>effMap(h)==='项次');
+  const seqHd=excelHeaders.find(h=>effMap(h)===COL.SEQ);
   if(seqHd){
     const seqCol=excelHeaders.indexOf(seqHd)+1;
     let n=1;
@@ -430,7 +428,8 @@ function insertGrouped(ws, t, lastDataRow){
   }
 }
 
-async function doExportInner(){
+/* t 可由调用方传入（doExport 复用校验阶段的结果，避免重复筛选+排序）；不传则自行计算 */
+async function doExportInner(t){
   const ws=excelSheet;
   // 找到最后一个非空数据行（模板底部可能预留空白行，避免追加后夹空行、续号基准不准）
   let lastDataRow=excelHeaderRow;
@@ -439,16 +438,21 @@ async function doExportInner(){
     ws.getRow(r).eachCell(()=>{ has=true; });
     if(has)lastDataRow=r;
   }
-  const t=getRangeTasks();
+  if(t===undefined) t=getRangeTasks();
   if(!t.length){ toast('请先设置时间范围'); return; }
   if(appendMode()==='group') insertGrouped(ws, t, lastDataRow);
   else appendToEnd(ws, t, lastDataRow);
   const out=await excelBook.xlsx.writeBuffer();
+  /* 追加产物命名：配置了文件名前缀 → 套用「前缀+日期范围」口径（与生成新周报一致）；
+     未配置前缀 → 沿用「原模板名_已追加」，保留模板辨识度（旧行为）。
+     旧实现两条通道各写各的，用户配了前缀却对追加无效。 */
   const base=(excelFileName||'周报').replace(/\.xlsx?$/i,'');
-  downloadBlob(new Blob([out],{type:'application/octet-stream'}), base+'_已追加.xlsx');
+  const pre=(loadSettings().exportFilePrefix||'').trim();
+  const fname=(pre?buildFileName($('#rangeStart').value, $('#rangeEnd').value):base)+'_已追加.xlsx';
+  downloadBlob(new Blob([out],{type:'application/octet-stream'}), fname);
   t.forEach(x=>{x.exported=true;}); save(LS_TASKS,tasks);
   lastExportedIds=t.map(x=>x.id); // 记录本次，供「撤销本次追加」
-  $('#exportMsg').textContent=`已追加 ${t.length} 条，另存为「${base}_已追加.xlsx」（已标记防重复）`;
+  $('#exportMsg').textContent=`已追加 ${t.length} 条，另存为「${fname}」（已标记防重复）`;
   renderPreview();
   toast('生成成功，已下载');
 }
@@ -473,7 +477,7 @@ async function buildNewWorkbook(){
     cols.forEach((c,i)=>{
       const cell=row.getCell(i+1);
       if(/进度/.test(c.name)&&typeof cell.value==='string'&&cell.value.includes('\n')) styleCell(cell,true); else styleCell(cell);
-      if(c.name==='完成状态'){ const f=statusBgFill(String(task.values['完成状态']||'')); if(f) cell.fill=f; } // 状态列背景色
+      if(c.name===COL.STATUS){ const f=statusBgFill(String(task.values[COL.STATUS]||'')); if(f) cell.fill=f; } // 状态列背景色
     });
   });
   return {wb,t};

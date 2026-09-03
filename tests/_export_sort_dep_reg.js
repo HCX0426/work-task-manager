@@ -30,8 +30,8 @@ global.toast = ()=>{};
 
 const bridge = `
 globalThis.__api = {
-  sortExportTasks, exportSortKey, getRangeTasks, checkCloseDependency, STATUS_DONE, loadSettings,
-  setSettings(s){ const k='wb_exportcfg'; if(s) localStorage.setItem(k, JSON.stringify(s)); else localStorage.removeItem(k); }
+  sortExportTasks, exportSortKey, getRangeTasks, checkCloseDependency, STATUS_DONE, loadSettings, normalizeStatus, normalizeDateBy,
+  DATE_BY, CRITICAL_COLS, COL, normalizeHex, setSettings(s){ const k='wb_exportcfg'; if(s) localStorage.setItem(k, JSON.stringify(s)); else localStorage.removeItem(k); }
 };`;
 try {
   (0, eval)(storeSrc + '\n' + exportSrc + '\n' + bridge);
@@ -130,10 +130,33 @@ console.log('\n=== 场景 5：checkCloseDependency 双向依赖 ===');
   const r2=api.checkCloseDependency({完成状态:'Closed', 结案日期:''});
   ok(!r2.ok && /结案日期/.test(r2.msg), '选 Closed 但无结案日期 → 拦截（msg 含 结案日期）');
   // 反向用例：取消状态可空结案日期（不受 Closed 依赖约束）
-  ok(api.checkCloseDependency({完成状态:'取消', 结案日期:''}).ok, '取消状态空结案日期 → 合法（依赖只约束 Closed）');
+  ok(api.checkCloseDependency({完成状态:'Cancelled', 结案日期:''}).ok, 'Cancelled 状态空结案日期 → 合法（依赖只约束 Closed）');
+  ok(api.checkCloseDependency({完成状态:'Testing', 结案日期:''}).ok, 'Testing 状态空结案日期 → 合法（依赖只约束 Closed）');
   // 常量一致性确认
   eq(api.STATUS_DONE, 'Closed', 'STATUS_DONE 应为 Closed（与下拉值一致）');
 }
+
+  /* 状态值归一：大小写不敏感 + 旧值映射（导入/追加即时归一） */
+  ok(api.normalizeStatus('planning')==='Planning', "normalizeStatus('planning') → Planning");
+  ok(api.normalizeStatus('PLANNING')==='Planning', "normalizeStatus('PLANNING') → Planning（大写）");
+  ok(api.normalizeStatus(' Planning ')==='Planning', "normalizeStatus(' Planning ') → Planning（去空格）");
+  ok(api.normalizeStatus('暂停')==='Paused', "normalizeStatus('暂停') → Paused");
+  ok(api.normalizeStatus('取消')==='Cancelled', "normalizeStatus('取消') → Cancelled");
+  ok(api.normalizeStatus('Closed')==='Closed', "normalizeStatus('Closed') → 原样（已是权威值）");
+  ok(api.normalizeStatus('自定义X')==='自定义X', "normalizeStatus('自定义X') → 保留自定义值（未命中映射表）");
+  ok(api.normalizeStatus('')==='', "normalizeStatus('') → 空");
+  /* 旧中文状态归一（审查项：原映射表只覆盖 暂停/取消，其余中文历史值无法归一） */
+  ok(api.normalizeStatus('测试中')==='Testing', "normalizeStatus('测试中') → Testing（旧中文值归一）");
+  ok(api.normalizeStatus('进行中')==='Ongoing', "normalizeStatus('进行中') → Ongoing（旧中文值归一）");
+  ok(api.normalizeStatus('规划中')==='Planning', "normalizeStatus('规划中') → Planning（旧中文值归一）");
+  ok(api.normalizeStatus('已结案')==='Closed', "normalizeStatus('已结案') → Closed（旧中文值归一）");
+  ok(api.normalizeStatus('已完成')==='Closed', "normalizeStatus('已完成') → Closed（旧中文值归一）");
+  ok(api.normalizeStatus('已暂停')==='Paused', "normalizeStatus('已暂停') → Paused（旧中文值归一）");
+  ok(api.normalizeStatus('已取消')==='Cancelled', "normalizeStatus('已取消') → Cancelled（旧中文值归一）");
+  /* 日期依据归一（审查项：rangeBy 曾存 'entryDate' 而 exportSortBy 存 '录入日期'，值域混用） */
+  ok(api.normalizeDateBy('entryDate')==='录入日期', "normalizeDateBy('entryDate') → 录入日期（旧值归一）");
+  ok(api.normalizeDateBy('开发日期')==='开发日期', "normalizeDateBy('开发日期') → 原样");
+  ok(api.normalizeDateBy('')==='', "normalizeDateBy('') → 空");
 
 /* ---------- 汇总 ---------- */
 console.log(`\n========== 导出排序/结案依赖回归：PASS=${pass}  FAIL=${fail} ==========`);

@@ -16,13 +16,13 @@ function getDashboardData(){
   // 逾期清单（按逾期天数升序）
   const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const overdueList=overdue.slice().sort((a,b)=>{
-    const da=parseDateAny(a.values['开发日期'])||parseDateAny(a.values['提出日期']);
-    const db=parseDateAny(b.values['开发日期'])||parseDateAny(b.values['提出日期']);
+    const da=parseDateAny(a.values[COL.DEV_DATE])||parseDateAny(a.values[COL.RAISE_DATE]);
+    const db=parseDateAny(b.values[COL.DEV_DATE])||parseDateAny(b.values[COL.RAISE_DATE]);
     return (da?da.getTime():0)-(db?db.getTime():0);
   }).map(t=>{
-    const d=parseDateAny(t.values['开发日期'])||parseDateAny(t.values['提出日期']);
+    const d=parseDateAny(t.values[COL.DEV_DATE])||parseDateAny(t.values[COL.RAISE_DATE]);
     const d0=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-    return {name:t.values['专案名称']||'未命名', cust:t.values['客户']||'', days:Math.max(1,Math.round((today0-d0)/86400000))};
+    return {name:t.values[COL.PROJECT]||'未命名', cust:t.values[COL.CUST]||'', days:Math.max(1,Math.round((today0-d0)/MS_PER_DAY))};
   });
   return {total, y, m, monthCount:monthTasks.length, closedMonth, rate, ongoing, closedAll, overdueCount, trend, byCust, bySt, overdueList, monthTasks};
 }
@@ -31,7 +31,7 @@ function getDashboardData(){
 function avgDevDays(){
   const days=[];
   tasks.forEach(t=>{
-    const n=calcDevDays(parseDateAny(t.values['开发日期']), parseDateAny(t.values['结案日期']));
+    const n=calcDevDays(parseDateAny(t.values[COL.DEV_DATE]), parseDateAny(t.values[COL.CLOSE_DATE]));
     if(n!=null) days.push(n);
   });
   if(!days.length) return null;
@@ -43,12 +43,12 @@ function getHealthIssues(){
   const issues=[];
   tasks.forEach(t=>{
     const v=t.values||{};
-    const name=String(v['专案名称']||'').trim()||'(未填专案)';
-    const st=String(v['完成状态']||'').trim();
-    if(!String(v['专案名称']||'').trim()) issues.push({name, why:'缺「专案名称」（月报无法统计）'});
-    if(st===STATUS_DONE && !String(v['结案日期']||'').trim()) issues.push({name, why:'已完成但缺「结案日期」'});
-    if(st===STATUS_DONE && !String(v['开发日期']||'').trim() && !String(v['提出日期']||'').trim()) issues.push({name, why:'已完成但缺日期'});
-    if(String(v['开发进度']||'').trim() && st==='' ) issues.push({name, why:'有进度但状态未填'});
+    const name=String(v[COL.PROJECT]||'').trim()||'(未填专案)';
+    const st=String(v[COL.STATUS]||'').trim();
+    if(!String(v[COL.PROJECT]||'').trim()) issues.push({name, why:'缺「专案名称」（月报无法统计）'});
+    if(st===STATUS_DONE && !String(v[COL.CLOSE_DATE]||'').trim()) issues.push({name, why:'已完成但缺「结案日期」'});
+    if(st===STATUS_DONE && !String(v[COL.DEV_DATE]||'').trim() && !String(v[COL.RAISE_DATE]||'').trim()) issues.push({name, why:'已完成但缺日期'});
+    if(String(v[COL.PROGRESS]||'').trim() && st==='' ) issues.push({name, why:'有进度但状态未填'});
   });
   return issues;
 }
@@ -57,7 +57,7 @@ function getHealthIssues(){
 function getStorageInfo(){
   try{
     let total=0;
-    const keys=[LS_TASKS,LS_TRASH,LS_SCHEMA,LS_DROPDOWNS,LS_EXPORTCFG,LS_MAPPING,LS_COL_TMPL,LS_LASTBACKUP,'wb_draft','wb_theme'];
+    const keys=[...LS_ALL, LS_THEME]; // 业务存储键全集（与 store.js 单一事实来源联动，新增键自动纳入统计）
     const sizes={};
     keys.forEach(k=>{ const v=localStorage.getItem(k); if(v){ sizes[k]=v.length*2; total+=v.length*2; } });
     return {total, sizes, bytes:total};
@@ -107,13 +107,13 @@ function renderDashboard(){
   // 数据健康检查
   const issues=getHealthIssues();
   $('#dashHealth').innerHTML=issues.length
-    ? `<div class="dash-overdue-empty" style="color:var(--warn);padding:6px 0 10px">发现 ${issues.length} 处可优化项：</div>`+issues.slice(0,8).map(x=>`<div class="dash-over-item"><span class="od-name">${esc(x.name)}</span><span class="od-meta">${esc(x.why)}</span></div>`).join('')+(issues.length>8?`<div class="muted" style="margin-top:6px">…还有 ${issues.length-8} 项，到任务列表补全即可</div>`:'')
+    ? `<div class="dash-overdue-empty" style="color:var(--warn);padding:6px 0 10px">发现 ${issues.length} 处可优化项：</div>`+issues.slice(0,HEALTH_SHOW_MAX).map(x=>`<div class="dash-over-item"><span class="od-name">${esc(x.name)}</span><span class="od-meta">${esc(x.why)}</span></div>`).join('')+(issues.length>HEALTH_SHOW_MAX?`<div class="muted" style="margin-top:6px">…还有 ${issues.length-HEALTH_SHOW_MAX} 项，到任务列表补全即可</div>`:'')
     : '<div class="dash-overdue-empty">✓ 数据健康，关键字段都齐</div>';
 
   // 本地存储用量
   const st=getStorageInfo();
   $('#dashStorage').innerHTML=st!=null
-    ? `<div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">${(st.total/1024).toFixed(1)} KB（约 ${st.total} 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 5MB</span><span class="od-meta">${(st.total/1048576/5*100).toFixed(1)}% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p>`
+    ? `<div class="dash-over-item"><span class="od-name">本地数据占用</span><span class="od-meta">${(st.total/1024).toFixed(1)} KB（约 ${st.total} 字节）</span></div><div class="dash-over-item"><span class="od-name">浏览器配额约 ${ASSUMED_QUOTA_MB}MB</span><span class="od-meta">${(st.total/BYTES_PER_MB/ASSUMED_QUOTA_MB*100).toFixed(1)}% 已用</span></div><p class="muted" style="margin-top:8px">占用过高时建议「任务列表 → 全量备份」后清理旧数据。</p>`
     : '<div class="dash-overdue-empty">无法读取存储用量</div>';
 
   renderYearBox();
@@ -136,7 +136,7 @@ function renderYearBox(){
   const months=[];
   for(let m=1;m<=12;m++){
     const list=tasks.filter(t=>{ const d=parseDateAny(t.entryDate); return d&&d.getFullYear()===cur&&d.getMonth()+1===m; });
-    const closed=list.filter(t=>String(t.values['完成状态']||'')===STATUS_DONE).length;
+    const closed=list.filter(t=>String(t.values[COL.STATUS]||'')===STATUS_DONE).length;
     months.push({m, n:list.length, closed, rate:list.length?Math.round(closed/list.length*100):null});
   }
   // 季度聚合
@@ -183,8 +183,8 @@ function exportReportPDF(){
   const stHtml=stArr.map(([k,n])=>`<tr><td>${esc(k)}</td><td class="c">${n}</td></tr>`).join('');
   const overdueHtml=d.overdueList.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.cust)}</td><td class="c">${x.days} 天</td></tr>`).join('');
   // 本月任务明细（按开发日期排）
-  const cols=schema.filter(c=>c.type!=='auto' && ['专案名称','客户','负责人','完成状态','开发日期','开发进度'].includes(c.name));
-  const rowHtml=d.monthTasks.slice().sort((a,b)=>String(a.values['开发日期']||'').localeCompare(String(b.values['开发日期']||''))).map(t=>{
+  const cols=schema.filter(c=>c.type!=='auto' && [COL.PROJECT,COL.CUST,COL.OWNER,COL.STATUS,COL.DEV_DATE,COL.PROGRESS].includes(c.name));
+  const rowHtml=d.monthTasks.slice().sort((a,b)=>String(a.values[COL.DEV_DATE]||'').localeCompare(String(b.values[COL.DEV_DATE]||''))).map(t=>{
     const cells=cols.map(c=>`<td>${esc(t.values[c.name]||'').replace(/\n/g,'<br>')}</td>`).join('');
     return `<tr>${cells}</tr>`;
   }).join('')||'<tr><td colspan="6" class="c muted">本月暂无任务</td></tr>';
@@ -255,10 +255,11 @@ function exportReportPDF(){
 </body></html>`;
   const w=window.open('','_blank');
   if(!w){ toast('浏览器拦截了打印窗口，请允许弹出窗口'); return; }
+  try{ w.opener=null; }catch(e){}
   w.document.write(html);
   w.document.close();
   w.document.title=title;
-  setTimeout(()=>{ w.focus(); w.print(); },350);
+  setTimeout(()=>{ w.focus(); w.print(); },PRINT_DELAY_MS);
   toast('已生成汇报文档，打印对话框选「另存为 PDF」');
 }
 $('#dashExportPdf').onclick=exportReportPDF;

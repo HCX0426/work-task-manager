@@ -84,7 +84,7 @@ console.log('\n=== 场景 4：statusBgFill 状态背景映射 ===');
 api.setSettings({exportStatusBg:{'Closed':'#C6EFCE','Ongoing':'#FFEB9C'}});
 eq(api.statusBgFill('Closed'),  {type:'pattern',pattern:'solid',fgColor:{argb:'FFC6EFCE'}}, 'Closed → #C6EFCE');
 eq(api.statusBgFill('Ongoing'), {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEB9C'}}, 'Ongoing → #FFEB9C');
-eq(api.statusBgFill('planning'), null, '未配置状态 → null（不染色）');
+eq(api.statusBgFill('Planning'), null, '未配置状态 → null（不染色）');
 api.setSettings({exportStatusBg:{}});
 eq(api.statusBgFill('Closed'), null, '空映射 → null（默认不染色）');
 

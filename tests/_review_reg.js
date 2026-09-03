@@ -340,22 +340,23 @@ console.log('\n=== P5：index.html 全部脚本 defer ===');
   const html=fs.readFileSync(path.join(PROJ,'index.html'),'utf8');
   global.URL=su;
   const scripts=[...html.matchAll(/<script\s+([^>]*?)>/g)].map(m=>m[1]).filter(s=>/src=/.test(s));
-  ok(scripts.length>=10, 'P5 识别到 >=10 个外部 script（实际 '+scripts.length+'）');
+  ok(scripts.length>=9, 'P5 识别到 >=9 个业务模块外部 script（实际 '+scripts.length+'）');
   const noDefer=scripts.filter(s=>!/defer/.test(s));
-  ok(noDefer.length===0, 'P5 所有外部脚本均含 defer（无 defer：'+JSON.stringify(noDefer)+'）');
-  ok(/defer src="exceljs\.min\.js"/.test(html), 'P5 exceljs 也带 defer');
+  ok(noDefer.length===0, 'P5 所有业务模块脚本均含 defer（无 defer：'+JSON.stringify(noDefer)+'）');
+  // #27：exceljs 改为按需动态加载（store.js loadExcelJS），不再首屏预载，避免 947KB 阻塞解析
+  ok(!/defer src="exceljs\.min\.js"/.test(html), 'P5 exceljs 已改为按需加载（不在首屏脚本列表，符合 #27 懒加载）');
 }
 
 /* === P13：列表/甘特全量重建优化（content-visibility 原生虚拟滚动 + 重建保滚动）=== */
 console.log('\n=== P13：renderList/renderGantt 全量重建优化（等价虚拟滚动，无 JS 窗口化风险）===');
 {
   const su=global.URL; global.URL=RealURL; // 还原真实 URL 构造器，避免 WorkBuddy fs-broker 的 filePath instanceof URL 抛错
-  const html=fs.readFileSync(path.join(PROJ,'index.html'),'utf8');
+  const css=fs.readFileSync(path.join(PROJ,'styles.css'),'utf8');
   global.URL=su;
-  ok(/content-visibility:auto/.test(html), 'P13 index.html 引入 content-visibility:auto（浏览器原生跳过屏外卡片布局/绘制，等价虚拟滚动）');
-  ok(/\.task-card\{[^}]*content-visibility:auto/.test(html), 'P13 .task-card 启用 content-visibility');
-  ok(/\.gantt-row\{[^}]*content-visibility:auto/.test(html), 'P13 .gantt-row 启用 content-visibility');
-  ok(/\.kanban-card\{[^}]*content-visibility:auto/.test(html), 'P13 .kanban-card 启用 content-visibility');
+  ok(/content-visibility:auto/.test(css), 'P13 styles.css 引入 content-visibility:auto（浏览器原生跳过屏外卡片布局/绘制，等价虚拟滚动）');
+  ok(/\.task-card\{[^}]*content-visibility:auto/.test(css), 'P13 .task-card 启用 content-visibility');
+  ok(/\.gantt-row\{[^}]*content-visibility:auto/.test(css), 'P13 .gantt-row 启用 content-visibility');
+  ok(/\.kanban-card\{[^}]*content-visibility:auto/.test(css), 'P13 .kanban-card 启用 content-visibility');
   // 列表渲染结构不被优化破坏：大量任务下仍生成等量卡片且带 data-id（交互不受影响）
   const many=[]; for(let i=0;i<60;i++) many.push({id:'L'+i, entryDate:'2026-08-'+String((i%28)+1).padStart(2,'0'), values:{专案名称:'任务'+i,客户:'C1',完成状态:(i%3?'Ongoing':'Closed'),开发日期:'2026-08-01'}, exported:false, exportedNew:false});
   cfg.setTasks(many);
@@ -381,11 +382,11 @@ else {
   console.log('   - P4 #addCol 唯一 id + 唯一列名；存储失败时内存不被污染');
   console.log('   - P6 无 excel 模板时预览也按列 dateFmt（与有模板分支一致）');
   console.log('   - P8/P7 saveAtomic 原子多键写入 + 失败回滚（保存列配置/删除列/新增列 共用）');
-  console.log('   - P5 index.html 全部 10 个外部脚本均带 defer');
+  console.log('   - P5 index.html 9 个业务模块脚本均带 defer（exceljs 改为按需懒加载，见 #27）');
   console.log('   - P13 content-visibility 原生虚拟滚动（.task-card/.gantt-row/.kanban-card）+ 重建保滚动；渲染结构/交互未破坏');
   console.log('  静态修复（已读代码确认，无运行时断言）：');
   console.log('   - m8 删除列/批量删除：save 成功才改内存（list.js 单删+batchDelete 走 moveToTrash 安全顺序）');
   console.log('   - m10 录入表单改由 renderEntry 运行时填充（index.html 去硬编码 2026-08-27）');
-  console.log('   - m11/P5 exceljs 与 9 个模块均加 defer，按文档顺序在解析后执行且不阻塞首屏（index.html）');
+  console.log('   - m11/P5 9 个业务模块均带 defer；exceljs 改为按需动态加载（store.js loadExcelJS），不阻塞首屏解析（#27）');
 }
 })();
