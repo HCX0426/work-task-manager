@@ -252,6 +252,30 @@ $('#addCol').onclick=()=>{
     rangeBy.value = st.rangeBy;
     rangeBy.onchange=()=>saveCfg({rangeBy:rangeBy.value});
   }
+  const exportSortBy=$('#cfgExportSortBy'); if(exportSortBy){
+    exportSortBy.value = st.exportSortBy;
+    exportSortBy.onchange=()=>saveCfg({exportSortBy:exportSortBy.value});
+  }
+  const exportSortDir=$('#cfgExportSortDir'); if(exportSortDir){
+    exportSortDir.value = st.exportSortDir;
+    exportSortDir.onchange=()=>saveCfg({exportSortDir:exportSortDir.value});
+  }
+  /* hex(#RGB/#RRGGBB) → #RRGGBB（供 color input 初始化用），非法返回 '' */
+  function toHex(c){ if(!c)return ''; let s=String(c).trim().replace(/^#/,''); if(/^[0-9a-fA-F]{3}$/.test(s)) s=s.split('').map(x=>x+x).join(''); return /^[0-9a-fA-F]{6}$/.test(s)?'#'+s.toUpperCase():''; }
+  const fp=$('#cfgExportFilePrefix'); if(fp){ fp.value=st.exportFilePrefix||''; fp.onchange=()=>saveCfg({exportFilePrefix:fp.value.trim()}); }
+  const fd=$('#cfgExportFileDateFormat'); if(fd){ fd.value=st.exportFileDateFormat; fd.onchange=()=>saveCfg({exportFileDateFormat:fd.value}); }
+  const ef=$('#cfgExportFont'); if(ef){ ef.value=st.exportFontName||''; ef.onchange=()=>saveCfg({exportFontName:ef.value.trim()}); }
+  const esz=$('#cfgExportFontSize'); if(esz){ esz.value=st.exportFontSize||''; esz.onchange=()=>saveCfg({exportFontSize:esz.value.trim()}); }
+  const hbOn=$('#cfgExportHeaderBgOn'), hb=$('#cfgExportHeaderBg');
+  if(hbOn&&hb){ hbOn.checked=!!st.exportHeaderBg; hb.value=toHex(st.exportHeaderBg)||'#D9E1F2'; const sync=()=>saveCfg({exportHeaderBg: hbOn.checked? hb.value : ''}); hbOn.onchange=sync; hb.onchange=sync; }
+  const sbWrap=$('#cfgStatusBgWrap');
+  if(sbWrap){
+    const statuses=(dropdowns['完成状态']||[]).slice();
+    const cur=st.exportStatusBg||{};
+    sbWrap.innerHTML = statuses.map(s=>`<label class="inline-check" style="gap:4px"><input type="checkbox" data-sbg-on="${esc(s)}" ${cur[s]?'checked':''}><input type="color" data-sbg="${esc(s)}" value="${toHex(cur[s])||'#C6EFCE'}"> ${esc(s)}</label>`).join('');
+    const collect=()=>{ const m={}; sbWrap.querySelectorAll('input[data-sbg-on]').forEach(cb=>{ const s=cb.dataset.sbgOn; const col=sbWrap.querySelector(`input[data-sbg="${CSS.escape(s)}"]`).value; if(cb.checked) m[s]=col; }); return m; };
+    sbWrap.querySelectorAll('input').forEach(inp=>{ inp.onchange=()=>saveCfg({exportStatusBg:collect()}); });
+  }
   const sortBy=$('#cfgListSortBy'); if(sortBy){
     sortBy.value = st.listSortBy;
     sortBy.onchange=()=>saveCfg({listSortBy:sortBy.value});

@@ -6,6 +6,14 @@ const DEF_SETTINGS={
   copyRowStyle:true,            // 导出：对齐上一行样式
   appendMode:'group',           // 导出：追加模式（末尾/分组）
   rangeBy:'开发日期',           // 导出：范围日期类型（entryDate/提出日期/开发日期）
+  exportSortBy:'开发日期',      // 导出：排序依据（录入日期/提出日期/开发日期），导出/追加/生成新周报统一按此排序
+  exportSortDir:'asc',          // 导出：排序方向（asc/desc），默认升序（周一→周五阅读更自然）
+  exportFilePrefix:'',          // 导出文件名前缀（空=无），如 DG周报
+  exportFileDateFormat:'YYYYMMDD', // 导出文件名日期格式：YYYYMMDD / YYYY-MM-DD / YYYY/MM/DD / MMDD
+  exportFontName:'',            // 导出 Excel 字体（空=不设置，沿用默认/模板）
+  exportFontSize:'',            // 导出 Excel 字号（空=不设置）
+  exportHeaderBg:'',            // 导出 Excel 表头背景色(hex，空=不设置)
+  exportStatusBg:{},            // 导出 Excel 状态列背景色映射：{状态值:hex}，空=不设置
   listSortBy:'devDate',         // 列表：排序依据（date/status/cust/devDate）
   listSortDir:'desc',           // 列表：排序方向（asc/desc）
   monthDedup:true,              // 月报：去重
@@ -79,6 +87,18 @@ const DEFAULT_DROPDOWNS={
 const STATUS_DONE='Closed';
 const STATUS_CANCEL='取消';
 const STATUS_PAUSE='暂停';
+
+/* 结案日期 ↔ 完成状态(Closed) 双向依赖校验（纯函数，录入保存与回归测试共用，单一事实来源）。
+   - 填了「结案日期」→ 完成状态必须是 Closed
+   - 完成状态是 Closed → 必须填「结案日期」
+   两者任一不满足即视为非法（不再静默补填，见 entry.js 保存拦截）。 */
+function checkCloseDependency(values){
+  const stV=String(values['完成状态']||'').trim();
+  const cdV=String(values['结案日期']||'').trim();
+  if(cdV && stV!==STATUS_DONE) return {ok:false, msg:'填了「结案日期」必须选「完成状态=Closed」'};
+  if(stV===STATUS_DONE && !cdV) return {ok:false, msg:'选「Closed」必须填写「结案日期」'};
+  return {ok:true, msg:''};
+}
 
 function guessType(name){
   if(name==='项次')return 'auto';

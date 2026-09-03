@@ -4,8 +4,45 @@ let excelFileName = ''; // 保存上传的文件名
 let lastExportedIds = []; // 最近一次导出追加/生成新周报涉及的任务 id，供「撤销本次追加」
 
 function styleCell(cell, wrap){
-  cell.font=EXCEL_FONT;
+  const st=loadSettings();
+  const font={};
+  if(st.exportFontName) font.name=st.exportFontName;
+  if(st.exportFontSize) font.size=Number(st.exportFontSize)||undefined;
+  if(Object.keys(font).length) cell.font=font; // 空配置=不设置字体/字号（沿用默认或模板）
   cell.alignment = wrap ? {wrapText:true,vertical:'top',horizontal:'left'} : {vertical:'top'};
+}
+
+/* ============ 导出样式（字体/字号/背景色，默认空=不设置） ============ */
+/* hex(#RGB/#RRGGBB) → ExcelJS ARGB(FFxxxxxx)；非法返回 null（不设置） */
+function toArgb(hex){
+  let s=String(hex||'').trim().replace(/^#/,'');
+  if(/^[0-9a-fA-F]{3}$/.test(s)) s=s.split('').map(c=>c+c).join('');
+  if(/^[0-9a-fA-F]{6}$/.test(s)) return 'FF'+s.toUpperCase();
+  return null;
+}
+/* 表头单元格：基础样式 + 配置的表头背景色 */
+function styleHeader(cell){ styleCell(cell); const bg=toArgb(loadSettings().exportHeaderBg); if(bg) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:bg}}; }
+/* 状态列背景色：按任务「完成状态」取值查配置映射，命中则返回 fill，否则 null */
+function statusBgFill(status){
+  const map=loadSettings().exportStatusBg||{};
+  const argb=toArgb(map[String(status||'')]);
+  return argb ? {type:'pattern',pattern:'solid',fgColor:{argb}} : null;
+}
+
+/* ============ 导出文件名：前缀 + 日期范围（按配置日期格式） ============ */
+function fmtFileDate(d){
+  const fmt=loadSettings().exportFileDateFormat||'YYYYMMDD';
+  const dt=parseDateAny(d); if(!dt) return '';
+  const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), day=String(dt.getDate()).padStart(2,'0');
+  if(fmt==='MMDD') return m+day;
+  if(fmt==='YYYY-MM-DD') return y+'-'+m+'-'+day;
+  if(fmt==='YYYY/MM/DD') return y+'/'+m+'/'+day;
+  return ''+y+m+day; // 默认 YYYYMMDD
+}
+function buildFileName(s,e){
+  const pre=(loadSettings().exportFilePrefix||'').trim();
+  const a=fmtFileDate(s), b=fmtFileDate(e);
+  return pre + (a&&b ? (a+'-'+b) : (a||b||'周报'));
 }
 
 $('#excelDrop').onclick=()=>{$('#excelFile').click();};
@@ -99,6 +136,41 @@ function taskRangeDate(t){
   if(by==='开发日期') return t.values['开发日期'];
   return t.entryDate;
 }
+
+/* ============ 导出排序（可配置，导出/追加/生成新周报统一生效） ============ */
+/* 排序依据：导出页下拉优先，否则用配置中心默认（exportSortBy）。
+   可选：录入日期 / 提出日期 / 开发日期（以后扩展只需在此映射加分支）。 */
+function exportSortByVal(){
+  const el=$('#exportSortBy'); const v=el&&el.value; if(v) return v;
+  return (loadSettings().exportSortBy)||'开发日期';
+}
+function exportSortDirVal(){
+  const el=$('#exportSortDir'); const v=el&&el.value; if(v) return v;
+  return (loadSettings().exportSortDir)||'asc';
+}
+/* 取单条排序键：返回时间戳（毫秒）；空日期置为 null（排序时排最后） */
+function exportSortKey(t){
+  const by=exportSortByVal();
+  const raw = by==='录入日期' ? t.entryDate
+            : by==='提出日期' ? t.values['提出日期']
+            : t.values['开发日期']; // 默认开发日期
+  const d=parseDateAny(raw);
+  return d ? d.getTime() : null;
+}
+/* 稳定排序（原数组原地排序并返回）：空日期永远排最后；同键保持原有相对顺序 */
+function sortExportTasks(arr){
+  const dir=(exportSortDirVal()==='desc') ? -1 : 1;
+  arr.sort((a,b)=>{
+    const ka=exportSortKey(a), kb=exportSortKey(b);
+    const ea=ka==null, eb=kb==null;
+    if(ea&&eb) return 0;
+    if(ea) return 1;   // 空日期排最后
+    if(eb) return -1;
+    return (ka-kb)*dir;
+  });
+  return arr;
+}
+
 function getRangeTasks(skipAppend){
   if(skipAppend===undefined) skipAppend=skipExportedChecked(); // 追加通道默认尊重「跳过已追加」；生成新周报传 false（新文件应包含全部）
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
@@ -106,7 +178,9 @@ function getRangeTasks(skipAppend){
   const st=parseDateAny(s), en=parseDateAny(e);
   if(!st||!en){ toast('日期格式无效'); return []; }
   st.setHours(0,0,0,0); en.setHours(23,59,59,999);
-  return tasks.filter(t=>{const d=parseDateAny(taskRangeDate(t));return d&&d>=st&&d<=en && (!skipAppend||!t.exported);});
+  const arr=tasks.filter(t=>{const d=parseDateAny(taskRangeDate(t));return d&&d>=st&&d<=en && (!skipAppend||!t.exported);});
+  sortExportTasks(arr); // 按配置的导出排序依据+方向稳定排序（空日期置尾）
+  return arr;
 }
 function renderPreview(){
   const t=getRangeTasks();
@@ -254,12 +328,14 @@ $('#doExport').onclick=async ()=>{
 function appendMode(){ const el=$('#appendMode'); return el?el.value:'group'; }
 function copyRowStyleOn(){ const el=$('#copyRowStyle'); return el?el.checked:true; }
 
-/* 初始化导出页「追加模式 / 对齐样式 / 范围日期类型」为配置中心默认值（导出页仍可临时调整单次） */
+/* 初始化导出页「追加模式 / 对齐样式 / 范围日期类型 / 排序依据 / 排序方向」为配置中心默认值（导出页仍可临时调整单次） */
 (function(){
   const st=loadSettings();
   const m=$('#appendMode'); if(m) m.value=st.appendMode;
   const c=$('#copyRowStyle'); if(c) c.checked=!!st.copyRowStyle;
   const r=$('#rangeBy'); if(r) r.value=st.rangeBy;
+  const sb=$('#exportSortBy'); if(sb) sb.value=st.exportSortBy;
+  const sd=$('#exportSortDir'); if(sd) sd.value=st.exportSortDir;
 })();
 
 /* 复制源行样式（行高 + 各单元格边框/填充/字体/对齐/数字格式）到目标行。
@@ -302,6 +378,8 @@ function writeRowVals(ws, rowNum, task, seqVal){
       // 关闭对齐：insertRow 会自动继承模板列样式（边框/底色），显式清除以真正不对齐
       cell.border=undefined; cell.fill=undefined;
     }
+    // 状态列背景色：按「完成状态」取值查配置映射（空映射/未命中则不染色）
+    if(effMap(h)==='完成状态'){ const f=statusBgFill(String(val)); if(f) cell.fill=f; }
   });
 }
 
@@ -383,7 +461,7 @@ async function buildNewWorkbook(){
   const ws=wb.addWorksheet('周报');
   const cols=schema; // 配置中心顺序（含 auto 项次）
   const hrow=ws.getRow(1);
-  cols.forEach((c,i)=>{ const cell=hrow.getCell(i+1); cell.value=c.name; styleCell(cell); });
+  cols.forEach((c,i)=>{ const cell=hrow.getCell(i+1); cell.value=c.name; styleHeader(cell); }); // 表头：基础样式 + 配置背景色
   t.forEach((task,idx)=>{
     const values=cols.map(c=>{
       if(c.type==='auto') return idx+1; // 项次自动续号，从 1 起
@@ -395,6 +473,7 @@ async function buildNewWorkbook(){
     cols.forEach((c,i)=>{
       const cell=row.getCell(i+1);
       if(/进度/.test(c.name)&&typeof cell.value==='string'&&cell.value.includes('\n')) styleCell(cell,true); else styleCell(cell);
+      if(c.name==='完成状态'){ const f=statusBgFill(String(task.values['完成状态']||'')); if(f) cell.fill=f; } // 状态列背景色
     });
   });
   return {wb,t};
@@ -405,9 +484,10 @@ $('#genNew').onclick=async ()=>{
   const {wb,t}=res;
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;
   const out=await wb.xlsx.writeBuffer();
-  downloadBlob(new Blob([out],{type:'application/octet-stream'}), `周报_${s}_${e}.xlsx`);
+  const fname=buildFileName(s,e)+'.xlsx';
+  downloadBlob(new Blob([out],{type:'application/octet-stream'}), fname);
   t.forEach(x=>{ x.exportedNew=true; }); save(LS_TASKS,tasks);
   lastExportedIds=t.map(x=>x.id); // 记录本次，供「撤销本次追加」
-  $('#genNewMsg').textContent=`已生成 ${t.length} 条，另存为「周报_${s}_${e}.xlsx」（已标记防重复）`;
+  $('#genNewMsg').textContent=`已生成 ${t.length} 条，另存为「${fname}」（已标记防重复）`;
   toast('已生成新周报');
 };

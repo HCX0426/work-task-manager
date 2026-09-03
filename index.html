@@ -919,8 +919,48 @@ WE01出货单查询"></textarea>
               <option value="开发日期" selected="">开发日期</option>
             </select>
           </label>
+          <label class="inline-check">排序依据：
+            <select id="cfgExportSortBy" style="width:auto">
+              <option value="录入日期">录入日期</option>
+              <option value="提出日期">提出日期</option>
+              <option value="开发日期" selected="">开发日期</option>
+            </select>
+          </label>
+          <label class="inline-check">方向：
+            <select id="cfgExportSortDir" style="width:auto">
+              <option value="asc" selected="">升序（旧→新）</option>
+              <option value="desc">降序（新→旧）</option>
+            </select>
+          </label>
         </div>
       </div>
+    </div>
+
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">导出文件名</span></div>
+      <div style="padding:4px 2px;display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+        <label class="inline-check">前缀：<input type="text" id="cfgExportFilePrefix" style="width:120px" placeholder="如 DG周报（留空=无）"></label>
+        <label class="inline-check">日期格式：
+          <select id="cfgExportFileDateFormat" style="width:auto">
+            <option value="YYYYMMDD" selected="">YYYYMMDD（20260824）</option>
+            <option value="YYYY-MM-DD">YYYY-MM-DD（2026-08-24）</option>
+            <option value="YYYY/MM/DD">YYYY/MM/DD（2026/08/24）</option>
+            <option value="MMDD">MMDD（0824）</option>
+          </select>
+        </label>
+      </div>
+      <div class="hint" style="padding:2px 2px">文件名 = 前缀 + 时间范围（起始-结束）。生成新周报时生效；追加沿用原模板名+「_已追加」。</div>
+    </div>
+
+    <div class="dd-block">
+      <div class="dd-head"><span class="dd-name">导出样式</span></div>
+      <div style="padding:4px 2px;display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+        <label class="inline-check">字体：<input type="text" id="cfgExportFont" style="width:90px" placeholder="等线（留空=不设置）"></label>
+        <label class="inline-check">字号：<input type="text" id="cfgExportFontSize" style="width:50px" placeholder="11"></label>
+        <label class="inline-check"><input type="checkbox" id="cfgExportHeaderBgOn"> 表头背景：<input type="color" id="cfgExportHeaderBg" value="#D9E1F2"></label>
+      </div>
+      <div id="cfgStatusBgWrap" style="padding:6px 2px;display:flex;flex-wrap:wrap;gap:14px;align-items:center"></div>
+      <div class="hint" style="padding:2px 2px">字体/字号/表头背景/状态背景：留空或不勾选=不设置（沿用默认或模板样式）。状态背景按「完成状态」各取值分别着色。</div>
     </div>
 
     <div class="dd-block">
@@ -1020,11 +1060,22 @@ WE01出货单查询"></textarea>
     <div id="excelInfo" class="muted"></div>
     <div id="colMap"></div>
 
-    <div class="lab" style="margin-top:14px">2. 时间范围（按所选日期类型筛选该范围内的任务） <label class="inline-check" style="margin-left:8px">按
+    <div class="lab" style="margin-top:14px">2. 时间范围（按所选日期类型筛选该范围内的任务）     <label class="inline-check" style="margin-left:8px">按
       <select id="rangeBy" style="width:auto">
         <option value="entryDate">录入日期</option>
         <option value="提出日期">提出日期</option>
         <option value="开发日期" selected="">开发日期</option>
+      </select>
+    </label>
+    <label class="inline-check" style="margin-left:8px">排序
+      <select id="exportSortBy" style="width:auto">
+        <option value="录入日期">录入日期</option>
+        <option value="提出日期">提出日期</option>
+        <option value="开发日期" selected="">开发日期</option>
+      </select>
+      <select id="exportSortDir" style="width:auto">
+        <option value="asc" selected="">升序</option>
+        <option value="desc">降序</option>
       </select>
     </label></div>
     <div class="range-grid">

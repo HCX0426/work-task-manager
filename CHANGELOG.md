@@ -33,4 +33,40 @@
 - 新增 7 个内置回归测试（`tests/`），覆盖配置、看板、导出、缺陷修复、月报、恢复、代码复查。
 - GitHub Pages 自动部署（`.github/workflows/pages.yml`），部署前运行回归测试，失败阻断发布。
 
+## [1.0.1] - 2026-09-03
+
+### 新增功能
+
+- **导出排序可配置**：导出/追加/生成新周报现在按可配置依据排序，不再依赖任务录入顺序。新增设置 `exportSortBy`（默认`开发日期`，可选`录入日期`/`提出日期`，为以后扩展留口）与 `exportSortDir`（默认`asc`）。配置中心「导出」区块与导出页筛选区均可设置，导出页可临时覆盖单次默认值。
+- **结案日期 ↔ 完成状态(Closed) 双向依赖**：填了「结案日期」必须选「完成状态=Closed」，反之选了「Closed」必须填「结案日期」；录入时实时标红提示，保存时硬拦截（不再静默把结案日期补成今天）。依赖校验抽成纯函数 `checkCloseDependency`（store.js），录入保存与回归测试共用，单一事实来源。
+
+### 修复与稳定性
+
+- 移除录入保存时「状态为 Closed 则静默把结案日期补成今天」的旧逻辑，改为显式双向依赖校验（更符合"两个是依赖的"语义；如仍需自动补填可回退）。
+
+### 工程化
+
+- 新增回归测试 `tests/_export_sort_dep_reg.js`：覆盖排序（按开发/提出/录入日期、升/降序、空日期置尾、稳定排序）与结案双向依赖（四态 + 常量一致性）。
+- 部署门禁 `pages.yml` 已纳入新测试。
+
 [1.0.0]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.0
+[1.0.1]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.1
+
+## [1.0.2] - 2026-09-03
+
+### 新增功能
+
+- **导出文件名可配置**：新增 `exportFilePrefix`（前缀，默认空）与 `exportFileDateFormat`（默认 `YYYYMMDD`，可选 `YYYY-MM-DD` / `YYYY/MM/DD` / `MMDD`）。文件名 = 前缀 + 时间范围（起始-结束），如 `DG周报20260824-20260828`。在「生成新周报」时生效；「追加」沿用原模板名 + `_已追加`（保留模板身份，避免按新范围误命名）。
+- **导出 Excel 样式可配置**（默认全部"无"=不设置，沿用默认/模板）：
+  - `exportFontName`（字体，如 等线）、`exportFontSize`（字号，如 11）——仅配置时写入，不再强制等线 11。
+  - `exportHeaderBg`（表头背景色 hex）——仅「生成新周报」的表头行应用。
+  - `exportStatusBg`（状态→背景色映射，如 `{Closed:'#C6EFCE'}`）——追加与生成新周报的「完成状态」列按取值分别着色，未命中/空映射不染色。
+
+### 工程化
+
+- 新增回归测试 `tests/_export_style_fn_reg.js`：覆盖 toArgb 颜色规整、文件名日期格式、buildFileName 前缀+范围、statusBgFill 状态映射、styleCell 仅配置时设字体、buildNewWorkbook 集成（表头/状态背景/字体实际写入及清空回退）。
+- 新增端到端回归 `tests/_export_e2e_reg.js`：在「同一真实工作簿」组合 排序+文件名+样式+状态着色 后读回校验，并验证结案依赖硬校验；首跑曾因测试桩绕过 getRangeTasks 内部排序而误报失败，已修正桩用真实 `sortExportTasks` 排序（产品代码无 bug）。
+- 部署门禁 `pages.yml` 已纳入新测试（现共 10 个回归测试）。
+
+[1.0.1]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.1
+[1.0.2]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.2

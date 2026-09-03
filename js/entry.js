@@ -162,20 +162,30 @@ function renderEntry(prefill){
 
   // 字段级实时校验
   function validateField(name){
-    // 完成状态与备注联动：状态必填；改为「暂停/取消」时必须填备注
+    // 完成状态 / 备注 / 结案日期 联动：
+    // - 完成状态必填；选「暂停/取消」须填备注
+    // - 结案日期 ↔ 完成状态=Closed 双向依赖（填了结案日期必须 Closed；选 Closed 必须填结案日期）
     const stEl=$('#entryForm').querySelector('[name="完成状态"]');
     const noteEl=$('#entryForm').querySelector('[name="备注"]');
+    const cdEl=$('#entryForm').querySelector('[name="结案日期"]');
     const stField=stEl?stEl.closest('.field'):null;
     const noteField=noteEl?noteEl.closest('.field'):null;
+    const cdField=cdEl?cdEl.closest('.field'):null;
     const stV=stEl?stEl.value.trim():'';
     const noteV=noteEl?noteEl.value.trim():'';
+    const cdV=cdEl?cdEl.value.trim():'';
     const needNote=(stV===STATUS_PAUSE||stV===STATUS_CANCEL);
-    const stMsg = !stV ? '请选择「完成状态」（不能为空）' : (needNote && !noteV ? '选择「'+stV+'」需先填写「备注」' : '');
+    const stMsg = !stV ? '请选择「完成状态」（不能为空）'
+                : (needNote && !noteV) ? '选择「'+stV+'」需先填写「备注」'
+                : (stV===STATUS_DONE && !cdV) ? '选「Closed」必须填写「结案日期」'
+                : '';
+    const cdMsg = (cdV && stV!==STATUS_DONE) ? '填了「结案日期」必须选「完成状态=Closed」' : '';
     const noteMsg = needNote && !noteV ? '「'+stV+'」状态需填写「备注」' : '';
     if(stField){ const err=stField.querySelector('.field-err'); stField.classList.toggle('invalid',!!stMsg); if(err) err.textContent=stMsg; }
+    if(cdField){ const err=cdField.querySelector('.field-err'); cdField.classList.toggle('invalid',!!cdMsg); if(err) err.textContent=cdMsg; }
     if(noteField){ const err=noteField.querySelector('.field-err'); noteField.classList.toggle('invalid',!!noteMsg); if(err) err.textContent=noteMsg; }
-    // 常规字段校验
-    if(name!=='完成状态' && name!=='备注'){
+    // 常规字段校验（不含上面三个联动字段）
+    if(name!=='完成状态' && name!=='备注' && name!=='结案日期'){
       const el=$('#entryForm').querySelector(`[name="${CSS.escape(name)}"]`);
       const field=el?el.closest('.field'):null;
       if(!el||!field)return;
@@ -211,6 +221,11 @@ function renderEntry(prefill){
   ['提出日期','开发日期','测试日期','结案日期'].forEach(n=>{
     const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
     if(el){ el.addEventListener('change',validateDates); el.addEventListener('change',autoFillDays); }
+  });
+  // 结案日期 ↔ 完成状态(Closed) 双向依赖：状态切换或填/清结案日期时即时重算联动标红
+  ['完成状态','结案日期'].forEach(n=>{
+    const el=$('#entryForm').querySelector(`[name="${CSS.escape(n)}"]`);
+    if(el){ el.addEventListener('change',()=>validateField(n)); }
   });
   $('#saveEntry').textContent = (editingId && prefill) ? '保存修改' : '保存任务';
   $('#cancelEdit').style.display = (editingId && prefill) ? 'inline-block' : 'none';
@@ -301,6 +316,9 @@ async function aiPolishField(wrap, name){
 function validateEntry(values, ed){
   // 专案名称为空 -> 硬拦截
   if(!String(values['专案名称']||'').trim()){ return {ok:false, msg:'「专案名称」不能为空（月报汇总依赖它）'}; }
+  // 结案日期 ↔ 完成状态(Closed) 双向依赖（与保存拦截、实时标红同源，单一事实来源）
+  const dep=checkCloseDependency(values);
+  if(!dep.ok) return {ok:false, msg:dep.msg};
   const pd=parseDateAny(values['提出日期']), dd=parseDateAny(values['开发日期']);
   const td=parseDateAny(values['测试日期']), cd=parseDateAny(values['结案日期']);
   const warns=[];
@@ -339,8 +357,10 @@ $('#saveEntry').onclick=()=>{
     const el=form.querySelector('[name="备注"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); }
     return;
   }
-  // 结案后补全结案日期（为空则自动填今天）
-  if(st===STATUS_DONE && !String(values['结案日期']||'').trim()) values['结案日期']=todayStr();
+  // 结案日期 ↔ 完成状态(Closed) 双向依赖（严格校验，不再静默补填结案日期）：
+  // 填了结案日期必须选 Closed；选了 Closed 必须填结案日期
+  const dep=checkCloseDependency(values);
+  if(!dep.ok){ toast(dep.msg); const el=form.querySelector('[name="'+(String(values['结案日期']||'').trim()? '完成状态':'结案日期')+'"]'); if(el){ el.focus(); el.scrollIntoView({behavior:'smooth',block:'center'}); } return; }
   // 保存前先跑一遍实时校验，若有标红字段则聚焦第一个错误项
   const firstErr=form.querySelector('.field.invalid [name]');
   if(firstErr){ firstErr.focus(); firstErr.scrollIntoView({behavior:'smooth',block:'center'}); toast('请先修正标红的字段'); return; }
