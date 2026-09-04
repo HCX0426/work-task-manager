@@ -102,7 +102,7 @@ $('#exportMonthlyXlsx').onclick=async ()=>{
   toast('已导出Excel');
 };
 
-/* H. 周报段落预览/打印 */
+/* H. 周报段落预览/导出 */
 function genWeekly(){
   const s=$('#wpStart').value,e=$('#wpEnd').value;
   if(!s||!e){$('#wpText').value='';return;}
@@ -140,7 +140,6 @@ $('#wpEnd').onchange=genWeekly;
 $('#wpThisWeek').onclick=()=>{ setDefaultRangeWp(); genWeekly(); };
 $('#wpThisMonth').onclick=()=>{ const now=new Date();const p=n=>String(n).padStart(2,'0'); const y=now.getFullYear(),m=now.getMonth()+1; const first=y+'-'+p(m)+'-01'; const last=new Date(y,m+1,0); $('#wpStart').value=first; $('#wpEnd').value=toInputDate(last); genWeekly(); };
 $('#wpCopy').onclick=()=>{ const txt=$('#wpText').value; if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('已复制'),()=>fallbackCopy(txt));}else fallbackCopy(txt); };
-$('#wpPrint').onclick=()=>{ const txt=$('#wpText').value; const w=window.open('','_blank'); if(!w){toast('浏览器拦截了打印窗口');return;} try{ w.opener=null; }catch(e){} const p=w.document.createElement('pre'); p.style.cssText='font-family:inherit;white-space:pre-wrap;padding:24px;line-height:1.7'; p.textContent=txt; w.document.body.appendChild(p); w.document.title='周报段落'; setTimeout(()=>{w.focus();w.print();},PRINT_DELAY_MS); };
 
 /* 周报段落一键导出 Word（.doc，Word/WPS 可直接打开） */
 $('#wpWord').onclick=()=>{

@@ -222,6 +222,17 @@
 - **修复 L3 自引入的线上回归：`styles.css` 404**。窄发布清单漏拷 `styles.css`（本地 30KB、`index.html:24` `<link>` 引用、且在 `sw.js` ASSETS 预缓存清单中），导致公开站点样式表 404、页面裸渲染。影响评估：SW `install` 对预缓存逐项 `try/catch` 且仅 `cache.put` `res.ok` 的响应，故 404 不会整批失败、也不会把 404 落缓存——部署修复后用户下次访问即自愈，**无需 bump 版本**（应用代码未变，bump 反而迫使用户重下 948KB exceljs）。
 - **新增 CI 护栏「Verify publish dir completeness」**：构建 `_site` 后，从 `sw.js` ASSETS 清单与 `index.html` 全部本地 `src/href` 双向提取运行时资源，逐项校验 `_site` 内存在（另校验 `js/*.js` 全量发布），缺一即 `exit 1` 阻断发布。经**变异验证**：用旧清单构建护栏必 FAIL（命中 `MISSING _site/styles.css` 两条），补 `styles.css` 后 PASS（14 项 ASSETS + 12 项 index.html 引用 + 9 个 js）。
 
+## [1.0.10] - 2026-09-04
+
+### 变更（做减法：移除冗余功能）
+
+- **移除「周报段落·打印」按钮**：与同区块「复制」「导出 Word」功能重叠，且输出质量最差——它通过 `window.open` 弹窗打印无标题/无日期范围/无排版的裸 `<pre>` 纯文本，而「导出 Word」生成排版完整的 .doc（标题、时间范围、行距、页脚），打印或另存 PDF 一律建议走导出 Word（区块提示已同步注明）。顺带消除全站第二个 `window.open` 弹窗打印点，减少弹窗被拦截的失败面。`PRINT_DELAY_MS` 常量保留（看板「导出 PDF」仍在使用）。帮助面板文案同步更新为「周报段落（复制/导出 Word）」。
+
+### 工程化
+
+- 版本号三处同源升 `1.0.10`（`sw.js` `APP_VERSION` / `manifest.json` / 本文件）。
+- 全量 13 套件回归 **PASS=306 FAIL=0**（`wpPrint` 无测试与 help 引用耦合，删除无副作用，grep 证实零残留）。
+
 ## [1.0.7] - 2026-09-04
 
 ### 新增功能
@@ -235,3 +246,4 @@
 [1.0.7]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.7
 [1.0.8]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.8
 [1.0.9]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.9
+[1.0.10]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.10

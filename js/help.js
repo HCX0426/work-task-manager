@@ -22,7 +22,7 @@ function helpHTML(){
     <div class="help-mod"><div class="hm-name">数据看板</div><div class="hm-d">KPI、6 个月趋势、年度/季度对比、客户与状态分布、逾期清单、健康检查、存储用量、导出 PDF/Word 汇报</div></div>
     <div class="help-mod"><div class="hm-name">任务列表</div><div class="hm-d">卡片/甘特/看板(拖拽改状态)/日历 4 视图、搜索筛选排序、批量操作、任务历史、回收站、备份恢复与 Excel 导入</div></div>
     <div class="help-mod"><div class="hm-name">导出追加</div><div class="hm-d">上传周报自动映射列名、按状态分组插入、对齐上一行样式、结构校验、生成新周报</div></div>
-    <div class="help-mod"><div class="hm-name">月报汇总</div><div class="hm-d">按月去重汇总、导出文本/Excel、月度复盘总结、周报段落（复制/打印/导出 Word）</div></div>
+    <div class="help-mod"><div class="hm-name">月报汇总</div><div class="hm-d">按月去重汇总、导出文本/Excel、月度复盘总结、周报段落（复制/导出 Word）</div></div>
     <div class="help-mod"><div class="hm-name">配置中心</div><div class="hm-d">列模板、列定义增删排序、常用短语、下拉选项、默认设置、AI 润色配置</div></div>
   </div>
 
