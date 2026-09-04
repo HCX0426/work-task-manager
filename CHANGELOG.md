@@ -203,7 +203,7 @@
 - **L1 状态常量一致性**：`monthly.js` `genReview` 的"进行中"判定由字面量 `'ongoing'` 改为 `STATUS_ONGOING` 常量，消除与同函数其余 `STATUS_*` 常量的风格漂移。
 - **L6 防御性 XSS**：`list.js` 卡片/看板/日历/甘特的 `data-id`、`data-edit` 属性由 `${t.id}` 改为 `${esc(t.id)}`（共 7 处），本地单用户数据风险极低，但补齐转义缺口、与全局 `esc` 防护一致。
 - **L2 状态分类口径收口**：`monthly.js` `genReview` 现已全程使用 `STATUS_*` 常量（L1 补 `STATUS_ONGOING` 后四态齐）；深度复用 `aggregateTasks` 因复盘需按状态分列任务清单、强行复用会改行为，维持现状（视为已按"用常量"路径解决漂移）。
-- **L3 Pages 发布目录收窄**：`pages.yml` 部署由 `path: '.'`（整仓发布，含 `tests/`、`vendor/`、`CHANGELOG.md` 等内部文件）改为先 `cp` 仅公开资源（index.html / sw.js / manifest.json / icon.svg / exceljs.min.js / js/）到 `_site` 再发布，避免内部文件暴露于公开站点；`.gitignore` 增加 `_site/`。
+- **L3 Pages 发布目录收窄**：`pages.yml` 部署由 `path: '.'`（整仓发布，含 `tests/`、`vendor/`、`CHANGELOG.md` 等内部文件）改为先 `cp` 仅公开资源（index.html / sw.js / manifest.json / icon.svg / styles.css / exceljs.min.js / js/）到 `_site` 再发布，避免内部文件暴露于公开站点；`.gitignore` 增加 `_site/`。
 - **L8 年汇总单次遍历**：`dashboard.js` `renderYearBox` 月度聚合由 12 次全量 `filter` 改为单次遍历分桶（与 `getDashboardData` 趋势桶同构），大数据量下减少重复遍历。
 
 ### 未改动项（按推荐评估）
@@ -216,6 +216,11 @@
 
 - 版本号随 SW 缓存联动升级（`sw.js` `APP_VERSION` 与 `manifest.json` `version` → `1.0.9`），确保上述 HTML/JS 修复在部署后失效旧缓存、生效新文件。
 - 全量 13 套件回归 **PASS=306 FAIL=0**（M2 改动由现有 H3 导入上限回归 + 全量套件覆盖，未新增测试文件）。
+
+### 部署 hotfix（tag v1.0.9 后追加，应用代码零改动）
+
+- **修复 L3 自引入的线上回归：`styles.css` 404**。窄发布清单漏拷 `styles.css`（本地 30KB、`index.html:24` `<link>` 引用、且在 `sw.js` ASSETS 预缓存清单中），导致公开站点样式表 404、页面裸渲染。影响评估：SW `install` 对预缓存逐项 `try/catch` 且仅 `cache.put` `res.ok` 的响应，故 404 不会整批失败、也不会把 404 落缓存——部署修复后用户下次访问即自愈，**无需 bump 版本**（应用代码未变，bump 反而迫使用户重下 948KB exceljs）。
+- **新增 CI 护栏「Verify publish dir completeness」**：构建 `_site` 后，从 `sw.js` ASSETS 清单与 `index.html` 全部本地 `src/href` 双向提取运行时资源，逐项校验 `_site` 内存在（另校验 `js/*.js` 全量发布），缺一即 `exit 1` 阻断发布。经**变异验证**：用旧清单构建护栏必 FAIL（命中 `MISSING _site/styles.css` 两条），补 `styles.css` 后 PASS（14 项 ASSETS + 12 项 index.html 引用 + 9 个 js）。
 
 ## [1.0.7] - 2026-09-04
 

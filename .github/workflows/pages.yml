@@ -46,8 +46,28 @@ jobs:
       - name: Build publish dir
         run: |
           rm -rf _site && mkdir -p _site
-          cp index.html sw.js manifest.json icon.svg exceljs.min.js _site/
+          cp index.html sw.js manifest.json icon.svg styles.css exceljs.min.js _site/
           cp -r js _site/
+      - name: Verify publish dir completeness
+        run: |
+          missing=0
+          # 1) sw.js ASSETS 预缓存清单逐项校验（'./' 展开为空即跳过）
+          assets=$(sed -n '/^const ASSETS=/,/^\];/p' sw.js | grep -oE "'\./[^']*'" | sed "s/'\.\///;s/'//")
+          for a in $assets; do
+            [ -z "$a" ] && continue
+            if [ ! -e "_site/$a" ]; then echo "::error::MISSING _site/$a (from sw.js ASSETS)"; missing=1; fi
+          done
+          # 2) index.html 引用的本地资源（src/href）逐项校验
+          refs=$(grep -oE '(src|href)="[^"]+"' index.html | sed -E 's/.*="//;s/"$//' | grep -vE '^(https?:|//|#|data:|javascript:|mailto:)' | sort -u)
+          for r in $refs; do
+            if [ ! -e "_site/$r" ]; then echo "::error::MISSING _site/$r (referenced by index.html)"; missing=1; fi
+          done
+          # 3) js/ 下每个文件都必须发布
+          for f in js/*.js; do
+            if [ ! -e "_site/$f" ]; then echo "::error::MISSING _site/$f"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "OK: _site 运行时资源完整"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
