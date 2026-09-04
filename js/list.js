@@ -148,6 +148,7 @@ $('#batchExport').onclick=async ()=>{
   const ids=[...document.querySelectorAll('.tcheck:checked')].map(c=>c.dataset.id);
   if(!ids.length){toast('请先勾选任务');return;}
   const sel=tasks.filter(t=>ids.includes(t.id));
+  try{ await loadExcelJS(); }catch(err){ toast('导出失败：'+err.message); return; } // 按需注入 ExcelJS（同型漏点修复）
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet('选中任务');
   const cols=schema;

@@ -461,6 +461,7 @@ async function doExportInner(t){
 async function buildNewWorkbook(){
   const t=getRangeTasks(false); // 新文件：包含范围内全部任务（含已追加的，因是全新文件）
   if(!t.length) return null;
+  await loadExcelJS(); // 按需注入 ExcelJS（懒加载；未加载即引用会 ReferenceError——线上 v1.0.5 实测踩坑）
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet('周报');
   const cols=schema; // 配置中心顺序（含 auto 项次）
@@ -483,7 +484,8 @@ async function buildNewWorkbook(){
   return {wb,t};
 }
 $('#genNew').onclick=async ()=>{
-  const res=await buildNewWorkbook();
+  let res;
+  try{ res=await buildNewWorkbook(); }catch(err){ toast('生成失败：'+err.message); return; } // ExcelJS 懒加载失败等给明确提示
   if(!res){ toast('该时间范围内没有任务，无法生成新周报'); return; }
   const {wb,t}=res;
   const s=$('#rangeStart').value, e=$('#rangeEnd').value;

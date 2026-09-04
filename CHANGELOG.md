@@ -159,3 +159,13 @@
 回归：10 套件 PASS=226 FAIL=0；改动文件 `node --check` 通过。
 
 [1.0.5]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.5
+
+## [1.0.6] - 2026-09-04
+
+修复线上报错（由全局错误捕获捕获到的 `unhandledrejection: ReferenceError: ExcelJS is not defined`）：
+
+- **生成新周报崩溃（v1.0.3 引入）**：`buildNewWorkbook()` 在 ExcelJS 改为按需懒加载后漏了 `await loadExcelJS()`，会话内未先上传过 Excel 就点「生成新周报」即抛 `ReferenceError` → 已补，并在 `#genNew` 入口加 try/catch，加载失败时提示「生成失败：<原因>」（如离线且缓存未命中）而非静默。
+- **同型漏点预防**：全量排查所有 `new ExcelJS.Workbook()` 引用，确认「选中任务批量导出 xlsx」（list.js）同样漏注 → 已补同款守卫；其余 4 处（上传解析/Excel 导入/列模板/月报）复核无误。「追加到模板」路径经 `validateExportStructure` 未上传拦截，无此问题。
+- 回归 10 套件 PASS=226 FAIL=0（含 buildNewWorkbook 端到端）。
+
+[1.0.6]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.6
