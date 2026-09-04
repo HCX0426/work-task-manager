@@ -249,6 +249,7 @@ $('#addCol').onclick=()=>{
     {sel:'#cfgRangeBy', key:'rangeBy'},
     {sel:'#cfgExportSortBy', key:'exportSortBy'},
     {sel:'#cfgExportSortDir', key:'exportSortDir'},
+    {sel:'#cfgExportStatusPriority', key:'exportStatusPriority', trim:true},
     {sel:'#cfgExportFilePrefix', key:'exportFilePrefix', trim:true},
     {sel:'#cfgExportFileDateFormat', key:'exportFileDateFormat'},
     {sel:'#cfgExportFont', key:'exportFontName', trim:true},

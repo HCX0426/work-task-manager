@@ -158,6 +158,38 @@ console.log('\n=== 场景 5：checkCloseDependency 双向依赖 ===');
   ok(api.normalizeDateBy('开发日期')==='开发日期', "normalizeDateBy('开发日期') → 原样");
   ok(api.normalizeDateBy('')==='', "normalizeDateBy('') → 空");
 
+/* ---------- 场景 6：状态导出优先级（exportStatusPriority，配置后分块导出） ---------- */
+console.log('\n=== 场景 6：状态导出优先级（配置后分块，块内按排序依据）===');
+{
+  const base = [
+    mkTask('a', {开发日期:'2026-08-22', 完成状态:'Closed'}),
+    mkTask('b', {开发日期:'2026-08-18', 完成状态:'Ongoing'}),
+    mkTask('c', {开发日期:'2026-08-20', 完成状态:'Closed'}),
+    mkTask('d', {开发日期:'2026-08-19', 完成状态:'Ongoing'}),
+    mkTask('e', {开发日期:'2026-08-21', 完成状态:'Planning'}),  // 未列入优先级 → 排最后
+    mkTask('f', {开发日期:'2026-08-17', 完成状态:'ongoing'}),   // 小写 → 归一 Ongoing，进 Ongoing 块
+  ];
+  api.setSettings({exportSortBy:'开发日期', exportSortDir:'asc', exportStatusPriority:'Ongoing,Closed'});
+  const arr = base.map(t=>({...t, values:{...t.values}}));
+  api.sortExportTasks(arr);
+  eq(arr.map(t=>t.id), ['f','b','d','c','a','e'], '优先级 Ongoing,Closed：Ongoing块(f,b,d 按日期) → Closed块(c,a) → 未列入(e)');
+
+  const arr2 = base.map(t=>({...t, values:{...t.values}}));
+  api.setSettings({exportSortBy:'开发日期', exportSortDir:'asc', exportStatusPriority:'进行中、已结案'});
+  api.sortExportTasks(arr2);
+  eq(arr2.map(t=>t.id), ['f','b','d','c','a','e'], '优先级用中文旧值（进行中、已结案）→ 归一后同序');
+
+  const arr3 = base.map(t=>({...t, values:{...t.values}}));
+  api.setSettings({exportSortBy:'开发日期', exportSortDir:'desc', exportStatusPriority:'Ongoing,Closed'});
+  api.sortExportTasks(arr3);
+  eq(arr3.map(t=>t.id), ['d','b','f','a','c','e'], '降序：块序不随方向反转（Ongoing→Closed→未列入），块内日期降序');
+
+  const arr4 = base.map(t=>({...t, values:{...t.values}}));
+  api.setSettings({exportSortBy:'开发日期', exportSortDir:'asc', exportStatusPriority:''});
+  api.sortExportTasks(arr4);
+  eq(arr4.map(t=>t.id), ['f','b','d','c','e','a'], '留空=不启用：纯按开发日期升序，无状态分块');
+}
+
 /* ---------- 汇总 ---------- */
 console.log(`\n========== 导出排序/结案依赖回归：PASS=${pass}  FAIL=${fail} ==========`);
 if(fail){ console.log('失败项：'); fails.forEach(f=>console.log(' - '+f)); process.exit(1); }

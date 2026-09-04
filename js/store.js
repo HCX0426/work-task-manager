@@ -103,6 +103,7 @@ const DEF_SETTINGS={
   rangeBy:DATE_BY.DEV,          // 导出：范围日期类型（录入日期/提出日期/开发日期）
   exportSortBy:DATE_BY.DEV,     // 导出：排序依据，导出/追加/生成新周报统一按此排序
   exportSortDir:SORT_ASC,       // 导出：排序方向，默认升序（周一→周五阅读更自然）
+  exportStatusPriority:'',      // 导出：状态导出优先级（如 "Ongoing,Closed"＝先 Ongoing 块后 Closed 块，块内按排序依据；未列入的状态排最后；空=不启用）
   exportFilePrefix:'',          // 导出文件名前缀（空=无），如 DG周报
   exportFileDateFormat:'YYYYMMDD', // 导出文件名日期格式：YYYYMMDD / YYYY-MM-DD / YYYY/MM/DD / MMDD
   exportFontName:'',            // 导出 Excel 字体（空=不设置，沿用默认/模板）

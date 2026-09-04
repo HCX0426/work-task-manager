@@ -169,3 +169,15 @@
 - 回归 10 套件 PASS=226 FAIL=0（含 buildNewWorkbook 端到端）。
 
 [1.0.6]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.6
+
+## [1.0.7] - 2026-09-04
+
+### 新增功能
+
+- **完成状态导出优先级**：配置中心「导出」区块新增「状态导出优先级」文本项（如 `Ongoing,Closed`）。配置后，导出/追加/生成新周报先按此状态顺序**分块**（如先 Ongoing 块、再 Closed 块），**块内仍按「排序依据 + 方向」**（默认开发日期升序）；未列入优先级的状态统一排在最后（也按排序依据）。**留空 = 不启用**，维持原有纯日期排序。状态名中英文均可（经 `normalizeStatus` 自动归一，如「进行中」→Ongoing、小写 ongoing→Ongoing），分隔符兼容英文/中文逗号、顿号、大于号。实现于 `sortExportTasks`（三条导出路径单一入口），配置项接入 `CFG_CONTROLS` 表驱动。
+
+### 工程化
+
+- 回归 `tests/_export_sort_dep_reg.js` 新增场景 6（4 条断言）：分块+块内日期序、中文归一等价、降序时块序不反转、留空旧行为；全量 10 套件 PASS=230 FAIL=0。
+
+[1.0.7]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.7

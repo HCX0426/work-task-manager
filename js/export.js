@@ -153,10 +153,22 @@ function exportSortKey(t){
   const d=parseDateAny(raw);
   return d ? d.getTime() : null;
 }
-/* 稳定排序（原数组原地排序并返回）：空日期永远排最后；同键保持原有相对顺序 */
+/* 状态导出优先级：配置了 exportStatusPriority（如 "Ongoing,Closed"）→ 先按此顺序分块，块内按「排序依据+方向」排；
+   未列入优先级的状态统一排块后；状态名支持中文旧值/大小写（normalizeStatus 归一）；留空=不启用（纯排序依据，旧行为）。
+   分隔符兼容英文逗号/中文逗号/顿号/大于号。 */
+function exportStatusPriority(){
+  return (loadSettings().exportStatusPriority||'').split(/[,，、>]/).map(s=>normalizeStatus(s.trim())).filter(Boolean);
+}
+/* 稳定排序（原数组原地排序并返回）：优先级分块（若启用，块序恒按优先级正序）→ 空日期排最后；同键保持原有相对顺序 */
 function sortExportTasks(arr){
   const dir=(exportSortDirVal()===SORT_DESC) ? -1 : 1;
+  const pr=exportStatusPriority();
+  const pIdx=v=>{ const i=pr.indexOf(normalizeStatus(v)); return i<0?pr.length:i; };
   arr.sort((a,b)=>{
+    if(pr.length){
+      const pa=pIdx(a.values[COL.STATUS]), pb=pIdx(b.values[COL.STATUS]);
+      if(pa!==pb) return pa-pb; // 块序不随日期方向反转（优先级语义）
+    }
     const ka=exportSortKey(a), kb=exportSortKey(b);
     const ea=ka==null, eb=kb==null;
     if(ea&&eb) return 0;

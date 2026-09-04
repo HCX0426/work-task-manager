@@ -517,6 +517,10 @@ WE01出货单查询"></textarea>
               <option value="desc">降序（新→旧）</option>
             </select>
           </label>
+          <label class="inline-check">状态导出优先级：
+            <input type="text" id="cfgExportStatusPriority" placeholder="如 Ongoing,Closed（留空=不启用）" style="width:200px" spellcheck="false">
+          </label>
+          <div class="muted" style="flex-basis:100%;font-size:12px">状态优先级：填写后导出/追加/生成新周报先按此状态顺序分块（块内仍按「排序依据+方向」），未列入的状态排在最后；状态名中英文均可（自动归一），留空=不启用。</div>
         </div>
       </div>
     </div>
