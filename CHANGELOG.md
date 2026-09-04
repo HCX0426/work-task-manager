@@ -189,7 +189,10 @@
 
 ### 工程化
 
-- 新增回归 `tests/_csv_injection_reg.js`（11 断言，直接抽取 `escCsv` 运行验证）；全量 11 套件 PASS=241 FAIL=0。
+- 新增回归 `tests/_csv_injection_reg.js`（11 断言，直接抽取 `escCsv` 运行验证）。
+- 新增回归 `tests/_close_date_guard_reg.js`（28 断言）：驱动真实的 `#batchApply.onclick` 与看板 `drop` 监听器，覆盖批量补录/拖拽到 Closed 的结案日期强制填写，含「取消不落 today」「已有日期不覆盖」「非 Closed 不打扰」等分支。
+- 新增回归 `tests/_import_limit_reg.js`（37 断言）：覆盖三个导入入口的 20MB 上限拦截、读取失败兜底、边界值（恰好 20MB 放行 / size=0 不误拦 / 未选文件静默返回）。
+- 上述两个回归均通过**变异验证**（临时把源码改回旧行为后分别失败 11 / 12 条断言），确认非空洞测试。全量 **13 套件 PASS=306 FAIL=0**。
 
 ## [1.0.7] - 2026-09-04
 
