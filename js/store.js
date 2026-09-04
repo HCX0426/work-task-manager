@@ -147,6 +147,7 @@ const STATUS_DONE='Closed';
 const STATUS_CANCEL='Cancelled';
 const STATUS_PAUSE='Paused';
 const STATUS_ONGOING='Ongoing';
+const STATUS_PLANNING='Planning';
 /* 语义查询（统一走 STATUS_DEFS，避免散落字面量/大小写 bug） */
 function statusDef(v){ return STATUS_DEFS.find(s=>s.value===String(v||'').trim()); }
 function isStatusOverdueExempt(v){ const d=statusDef(v); return !!(d&&d.overdueExempt); }

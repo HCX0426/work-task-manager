@@ -20,9 +20,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - name: Run regression tests
         run: |
-          for f in tests/_cfg_reg.js tests/_dash_reg.js tests/_export_reg.js tests/_export_sort_dep_reg.js tests/_export_style_fn_reg.js tests/_export_e2e_reg.js tests/_fix_ab_reg.js tests/_monthly_reg.js tests/_restore_reg.js tests/_review_reg.js; do
+          shopt -s nullglob
+          for f in tests/*.js; do
             echo "==> $f"
             node "$f" || exit 1
           done

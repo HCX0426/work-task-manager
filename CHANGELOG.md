@@ -170,6 +170,27 @@
 
 [1.0.6]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.6
 
+## [1.0.8] - 2026-09-04
+
+### 修复（全量代码复查 HIGH/MEDIUM/LOW 清单）
+
+- **H1 状态→Closed 不再静默补填结案日期**：看板拖拽、批量补录两条路径原先绕过 `checkCloseDependency` 直接写入 `today`，与录入页「选 Closed 必须填结案日期」硬校验不一致。现两条路径统一改为弹窗要求填写结案日期，未填则本次不改（与录入页同源）；同步更新帮助文案。
+- **H2 CSV 公式注入防护**：导出 CSV 的 `escCsv` 原仅转义引号/逗号/换行，现对行首 `= + - @ 制表符 回车` 前缀单引号，防 Excel/WPS 误执行公式。新增回归 `tests/_csv_injection_reg.js`（11 断言）。
+- **H3 导入文件读取健壮化**：全量备份(.json)/加密备份(.wbe)/任务导入(.json) 三个 `FileReader` 补 `onerror` 处理与 `MAX_UPLOAD_BYTES`(20MB) 大小上限，超限/读取失败明确提示。
+- **M1 批量录入默认状态**：从「下拉第一项」改为 SSOT 的 `Ongoing`（与录入表单默认一致），下拉无 Ongoing 才退回首项，保证有值且语义正确。
+- **M2 完成状态语义统一**：卡片/看板/日历的「已完成」样式改用 `isStatusDone`（Closed 与 Cancelled 均视为已了结）；其余「精确=Closed」用途（结案依赖、Closed 计数、导出优先级）保留原字面量，避免口径漂移。
+- **M3 恢复/导入字段保全**：`restoreAll` 还原 schema 时补回 `required` 标志；任务导入补回 `exportedNew` 标志，避免恢复后丢失。
+- **M4 看板列优先级去硬编码**：`['Planning','Ongoing','Closed']` 改为 `STATUS_PLANNING/STATUS_ONGOING/STATUS_DONE` 常量（新增 `STATUS_PLANNING`）。
+- **M5 数据看板性能**：近 6 月趋势改为单次遍历分桶（原 6 次全量 filter）；逾期清单用 Schwartzian 变换，避免比较器内重复 `parseDateAny`。
+- **M6 CI 测试矩阵**：`pages.yml` 测试步骤由硬编码 10 个文件改为 `tests/*.js` 全量，并 `setup-node@v4` 锁定 Node 20。
+- **M7 第三方依赖溯源**：新增 `vendor/exceljs.README.md`，记录 ExcelJS 版本(3.33.0)/构建日期(2023-10-19)/MIT 许可/来源与维护约定（含 SRI 暂不启用说明）。
+- **L1–L10 一致性/健壮性**：搜索防抖改用 `LIST_SEARCH_DEBOUNCE_MS`；排序默认改用 `LIST_SORT_BY.DEV_DATE`/`SORT_DESC`；录入页列名查询改用 `COL.*` 常量；帮助遮罩点击加空值保护；加密备份密码加 ≥6 位下限；SW 注册失败改 `console.warn`（不再静默）；移除冗余 `batchSel` 初始化。
+- 复查中 L4/L5/L9 经核对为误报（搜索匹配唯一、看板空态本就用 `tasks`、回滚写入已校验 `save` 返回值），未改动；L11 CSP `unsafe-inline` 因动态内联样式必需而保留；L12 部署含 `tests/` 属无害冗余文件，未处理。
+
+### 工程化
+
+- 新增回归 `tests/_csv_injection_reg.js`（11 断言，直接抽取 `escCsv` 运行验证）；全量 11 套件 PASS=241 FAIL=0。
+
 ## [1.0.7] - 2026-09-04
 
 ### 新增功能
@@ -181,3 +202,4 @@
 - 回归 `tests/_export_sort_dep_reg.js` 新增场景 6（4 条断言）：分块+块内日期序、中文归一等价、降序时块序不反转、留空旧行为；全量 10 套件 PASS=230 FAIL=0。
 
 [1.0.7]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.7
+[1.0.8]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.8

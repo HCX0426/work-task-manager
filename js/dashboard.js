@@ -5,25 +5,20 @@ function getDashboardData(){
   const agg=aggregateTasks(tasks);
   const {total, y, m, monthTasks, closedMonth, rate, ongoing, closedAll, overdueCount, overdue, byCust, bySt}=agg;
   const now=new Date();
-  // 近 6 个月趋势
+  // 近 6 个月趋势：单次遍历按 年-月 分桶，避免对每个月份各做一次全量 filter
   const trend=[];
-  for(let i=5;i>=0;i--){
-    const d=new Date(y,m-1-i,1);
-    const yy=d.getFullYear(), mm=d.getMonth()+1;
-    const n=tasks.filter(t=>{const x=parseDateAny(t.entryDate);return x&&x.getFullYear()===yy&&x.getMonth()+1===mm;}).length;
-    trend.push({mm,n});
-  }
-  // 逾期清单（按逾期天数升序）
+  const base=new Date(y,m-1,1);
+  const buckets=new Map();
+  for(let i=5;i>=0;i--){ const d=new Date(base.getFullYear(), base.getMonth()-i, 1); buckets.set(d.getFullYear()+'-'+(d.getMonth()+1), 0); }
+  tasks.forEach(t=>{ const x=parseDateAny(t.entryDate); if(!x)return; const k=x.getFullYear()+'-'+(x.getMonth()+1); if(buckets.has(k)) buckets.set(k, buckets.get(k)+1); });
+  for(let i=5;i>=0;i--){ const d=new Date(base.getFullYear(), base.getMonth()-i, 1); trend.push({mm:d.getMonth()+1, n:buckets.get(d.getFullYear()+'-'+(d.getMonth()+1))||0}); }
+  // 逾期清单（按逾期天数升序）：Schwartzian 变换，parseDateAny 只算一次，避免比较器内重复解析
   const today0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const overdueList=overdue.slice().sort((a,b)=>{
-    const da=parseDateAny(a.values[COL.DEV_DATE])||parseDateAny(a.values[COL.RAISE_DATE]);
-    const db=parseDateAny(b.values[COL.DEV_DATE])||parseDateAny(b.values[COL.RAISE_DATE]);
-    return (da?da.getTime():0)-(db?db.getTime():0);
-  }).map(t=>{
+  const overdueList=overdue.map(t=>{
     const d=parseDateAny(t.values[COL.DEV_DATE])||parseDateAny(t.values[COL.RAISE_DATE]);
-    const d0=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-    return {name:t.values[COL.PROJECT]||'未命名', cust:t.values[COL.CUST]||'', days:Math.max(1,Math.round((today0-d0)/MS_PER_DAY))};
-  });
+    const d0=d?new Date(d.getFullYear(),d.getMonth(),d.getDate()):null;
+    return {t, ts:d0?d0.getTime():0, days:d0?Math.max(1,Math.round((today0-d0)/MS_PER_DAY)):0};
+  }).sort((a,b)=>a.ts-b.ts).map(({t,days})=>({name:t.values[COL.PROJECT]||'未命名', cust:t.values[COL.CUST]||'', days}));
   return {total, y, m, monthCount:monthTasks.length, closedMonth, rate, ongoing, closedAll, overdueCount, trend, byCust, bySt, overdueList, monthTasks};
 }
 

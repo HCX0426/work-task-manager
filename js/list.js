@@ -46,8 +46,8 @@ function renderList(){
   const cf=$('#listCustFilter').value;
   const sf=$('#listStatusFilter').value;
   const ef=$('#listExportFilter').value;
-  const sortBy=$('#listSortBy') ? $('#listSortBy').value : 'devDate';
-  const sortDir=$('#listSortDir') ? $('#listSortDir').value : 'desc';
+  const sortBy=$('#listSortBy') ? $('#listSortBy').value : LIST_SORT_BY.DEV_DATE;
+  const sortDir=$('#listSortDir') ? $('#listSortDir').value : SORT_DESC;
   let list=tasks.slice();
   // 排序：依据 + 方向（空值排最后）
   const sortKey=t=>{
@@ -79,7 +79,7 @@ function renderList(){
   const cols=schema.filter(c=>c.type!=='auto').map(c=>c.name);
   let h='<div class="task-list'+(batchOn?' list-batch':'')+'">';
   list.forEach(t=>{
-    const done=String(t.values[COL.STATUS]||'')===STATUS_DONE;
+    const done=isStatusDone(t.values[COL.STATUS]);
     const overdue=isTaskOverdue(t);
     const checked=batchSel && batchSel.has(t.id)?'checked':'';
     h+=`<div class="task-card${done?' done':''}" data-id="${t.id}">
@@ -126,7 +126,6 @@ function renderList(){
   });
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openTaskEdit(b.dataset.edit));
   wrap.querySelectorAll('.tcheck').forEach(c=>c.onchange=()=>{
-    batchSel=batchSel||new Set();
     if(c.checked)batchSel.add(c.dataset.id); else batchSel.delete(c.dataset.id);
   });
 }
@@ -215,6 +214,16 @@ $('#batchApply').onclick=async ()=>{
     note=(await uiPrompt('改状态为「'+st+'」需填写备注（必填）——将应用到全部选中任务，说明原因：')||'').trim();
     if(!note){ toast('已取消：改状态为「'+st+'」需先填写「备注」'); return; }
   }
+  // 批量改为「Closed」必须填结案日期（与录入页一致，不再静默补填 today）。
+  // 优先用批量「结案日期」框；未填且选中任务里存在缺结案日期的，则提示单次输入，应用到全部选中任务。
+  let batchCloseDate=null;
+  if(st===STATUS_DONE){
+    const anyMissingClose=tasks.some(t2=>ids.includes(t2.id) && !String(t2.values[COL.CLOSE_DATE]||'').trim());
+    if(!close && anyMissingClose){
+      batchCloseDate=(await uiPrompt('批量改为「Closed」必须填写「结案日期」（将应用到全部选中任务）：')||'').trim();
+      if(!batchCloseDate){ toast('已取消：批量改「Closed」前需先填写「结案日期」'); return; }
+    }
+  }
   const parts=[]; if(test)parts.push('测试日期='+test); if(close)parts.push('结案日期='+close); if(st)parts.push('状态='+st);
   // 构建改动后的任务副本并整体保存，成功后才替换内存（存储失败时列表与数据保持不变）
   const next=tasks.map(t2=>{
@@ -224,7 +233,7 @@ $('#batchApply').onclick=async ()=>{
     if(close) nv[COL.CLOSE_DATE]=close;
     if(st===STATUS_DONE){
       nv[COL.STATUS]=st;
-      if(!String(nv[COL.CLOSE_DATE]||'').trim()) nv[COL.CLOSE_DATE]=close||todayStr();
+      if(!String(nv[COL.CLOSE_DATE]||'').trim()) nv[COL.CLOSE_DATE]=close||batchCloseDate;
     }else if(st){
       nv[COL.STATUS]=st;
       if(st===STATUS_PAUSE || st===STATUS_CANCEL) nv[COL.NOTE]=note;
@@ -287,7 +296,7 @@ function renderTrash(){
   });
 }
 
-$('#listSearch').oninput=debounce(renderList,200); // m4 修复：搜索输入防抖，避免每次按键全量重渲染
+$('#listSearch').oninput=debounce(renderList,LIST_SEARCH_DEBOUNCE_MS); // m4 修复：搜索输入防抖，避免每次按键全量重渲染
 $('#listCustFilter').onchange=renderList;
 $('#listStatusFilter').onchange=renderList;
 $('#listExportFilter').onchange=renderList;
@@ -325,7 +334,7 @@ $('#exportAll').onclick=()=>{
 function restoreAll(d, okMsg){
   const nTasks=d.tasks.filter(t=>t&&typeof t==='object').map(t=>({id:String(t.id), entryDate:String(t.entryDate), values:(t.values&&typeof t.values==='object')?t.values:{}, exported:!!t.exported, exportedNew:!!t.exportedNew, subtasks:Array.isArray(t.subtasks)?t.subtasks:[], history:Array.isArray(t.history)?t.history:[]}));
   const nTrash=Array.isArray(d.trash)?d.trash:[];
-  const nSchema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||''), id:(c.id||('col_'+String(c.name))), dateFmt:(String(c.type||'text')==='date'?(c.dateFmt==='md'?'md':'ymd'):undefined)}));
+  const nSchema=d.schema.map(c=>({name:String(c.name), type:String(c.type||'text'), def:String(c.def||''), required:!!c.required, id:(c.id||('col_'+String(c.name))), dateFmt:(String(c.type||'text')==='date'?(c.dateFmt==='md'?'md':'ymd'):undefined)}));
   const nDropdowns=(d.dropdowns&&typeof d.dropdowns==='object')?d.dropdowns:{};
   const nMap=(d.colMapping&&typeof d.colMapping==='object'&&!Array.isArray(d.colMapping))?d.colMapping:null;
   const nSettings=(d.settings&&typeof d.settings==='object')?d.settings:null;
@@ -359,7 +368,10 @@ function restoreAll(d, okMsg){
 $('#importAll').onclick=()=>$('#importAllFile').click();
 $('#importAllFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader(); r.onload=()=>{
+  if(f.size && f.size>MAX_UPLOAD_BYTES){ toast('文件超过 '+MAX_UPLOAD_MB+'MB 上限，无法导入'); e.target.value=''; return; }
+  const r=new FileReader();
+  r.onerror=()=>{ toast('文件读取失败，无法导入'); e.target.value=''; };
+  r.onload=()=>{
     try{
       const d=JSON.parse(r.result);
       if(d.type!=='wb_full' || !Array.isArray(d.tasks)) throw new Error('不是有效的全量备份文件');
@@ -376,6 +388,7 @@ $('#encryptBackup').onclick=async ()=>{
   const pwd=await uiPrompt('设置加密备份的密码（用于以后恢复，请牢记）：');
   if(pwd==null) return;
   if(!pwd.trim()){ toast('密码不能为空'); return; }
+  if(pwd.trim().length<6){ toast('密码至少 6 位，以提升加密备份强度'); return; }
   const pwd2=await uiPrompt('再次输入密码确认：');
   if(pwd2!==pwd){ toast('两次密码不一致，已取消'); return; }
   const obj={type:'wb_full', tasks, trash, schema, dropdowns, colMapping, settings:settingsForBackup()}; // P3：同样剔除 aiKey
@@ -388,7 +401,10 @@ $('#encryptBackup').onclick=async ()=>{
 $('#restoreEncBackup').onclick=()=>$('#restoreEncFile').click();
 $('#restoreEncFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader(); r.onload=async ()=>{
+  if(f.size && f.size>MAX_UPLOAD_BYTES){ toast('文件超过 '+MAX_UPLOAD_MB+'MB 上限，无法导入'); e.target.value=''; return; }
+  const r=new FileReader();
+  r.onerror=()=>{ toast('文件读取失败，无法导入'); e.target.value=''; };
+  r.onload=async ()=>{
     const pwd=await uiPrompt('输入该加密备份的密码：');
     if(pwd==null){ e.target.value=''; return; }
     try{
@@ -407,7 +423,7 @@ $('#exportTasks').onclick=()=>{ downloadJSON({tasks},'周报任务库备份.json
 $('#exportCsv').onclick=()=>{
   if(!tasks.length){toast('没有任务可导出');return;}
   const cols=schema.filter(c=>c.type!=='auto').map(c=>c.name);
-  const escCsv=s=>{ s=String(s==null?'':s); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const escCsv=s=>{ s=String(s==null?'':s); if(/^[\t\r=+\-@]/.test(s)) s="'"+s; return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
   const rows=[['录入日期',...cols].join(',')];
   tasks.forEach(t=>{ rows.push([escCsv(t.entryDate),...cols.map(c=>escCsv(t.values[c]||''))].join(',')); });
   const blob=new Blob(['\ufeff'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
@@ -419,7 +435,10 @@ $('#importTasks').onclick=()=>{ importMode='overwrite'; $('#importTasksFile').cl
 $('#mergeTasks').onclick=()=>{ importMode='merge'; $('#importTasksFile').click(); };
 $('#importTasksFile').onchange=e=>{
   const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader();r.onload=()=>{
+  if(f.size && f.size>MAX_UPLOAD_BYTES){ toast('文件超过 '+MAX_UPLOAD_MB+'MB 上限，无法导入'); e.target.value=''; return; }
+  const r=new FileReader();
+  r.onerror=()=>{ toast('文件读取失败，无法导入'); e.target.value=''; };
+  r.onload=()=>{
     try{
       const d=JSON.parse(r.result);
       if(!d.tasks || !Array.isArray(d.tasks)) throw new Error('缺少有效的 tasks 数组');
@@ -438,6 +457,7 @@ $('#importTasksFile').onchange=e=>{
           entryDate:String(t.entryDate),
           values,
           exported:!!t.exported,
+          exportedNew:!!t.exportedNew,
           subtasks:Array.isArray(t.subtasks)?t.subtasks.map(s=>({text:String(s&&s.text!=null?s.text:''), done:!!(s&&s.done)})):[],
           history:Array.isArray(t.history)?t.history:[]
         };
@@ -712,7 +732,7 @@ function renderGantt(){
 /* ============ 看板视图：按完成状态分列，拖动卡片直接改状态 ============ */
 function kanbanColumns(){
   const cfg=dropdowns[COL.STATUS]||[];
-  const priority=['Planning','Ongoing','Closed'];
+  const priority=[STATUS_PLANNING, STATUS_ONGOING, STATUS_DONE];
   const cols=[];
   // 状态已必填，默认不显示「未填」列；仅当存在历史空状态任务时才保留，避免列堆叠
   const hasEmpty=tasks.some(t=>!String(t.values[COL.STATUS]||'').trim());
@@ -752,7 +772,7 @@ function renderKanban(){
           const desc=String(t.values[COL.REQ]||'').trim();
           const dev=String(t.values[COL.DEV_DATE]||'').trim();
           const cust=String(t.values[COL.CUST]||'').trim();
-          const done=String(t.values[COL.STATUS]||'').trim()===STATUS_DONE;
+          const done=isStatusDone(t.values[COL.STATUS]);
           const overdue=isTaskOverdue(t);
           const prog=devProgressOf(t);
           return `<div class="kanban-card${done?' done':''}${overdue?' overdue':''}" draggable="true" data-id="${t.id}" title="点击编辑：${esc(name)}">
@@ -812,7 +832,11 @@ function renderKanban(){
     // 构建改动后的任务副本并整体保存，成功后才替换内存（存储失败时看板与数据保持不变）
     const nv=Object.assign({}, t.values, {[COL.STATUS]:ns});
     if(ns===STATUS_PAUSE || ns===STATUS_CANCEL) nv[COL.NOTE]=note;
-    if(ns===STATUS_DONE && !String(nv[COL.CLOSE_DATE]||'').trim()) nv[COL.CLOSE_DATE]=todayStr();
+    if(ns===STATUS_DONE && !String(nv[COL.CLOSE_DATE]||'').trim()){
+      const cd=(await uiPrompt('拖到「Closed」必须填写「结案日期」：')||'').trim();
+      if(!cd){ toast('已取消：拖到「Closed」需先填写「结案日期」'); return; }
+      nv[COL.CLOSE_DATE]=cd;
+    }
     const nt=Object.assign({}, t, {values:nv});
     if(nv[COL.CLOSE_DATE]!==t.values[COL.CLOSE_DATE]) autoCalcDays(nt);
     nt.history=(nt.history||[]).slice();
@@ -838,8 +862,8 @@ $('#ganttRange').onchange = renderGantt;
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
 function calItemHtml(t){
   const name=String(t.values[COL.PROJECT]||'').trim()||'未命名';
-  const closed=String(t.values[COL.STATUS]||'').trim()===STATUS_DONE;
-  return `<span class="cal-item${closed?' closed':''}" data-id="${t.id}" title="${esc(name)}（点击编辑）">${esc(name)}</span>`;
+  const done=isStatusDone(t.values[COL.STATUS]);
+  return `<span class="cal-item${done?' closed':''}" data-id="${t.id}" title="${esc(name)}（点击编辑）">${esc(name)}</span>`;
 }
 function renderCalendar(){
   const grid=$('#calGrid'); if(!grid) return;

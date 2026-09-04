@@ -29,7 +29,7 @@ function helpHTML(){
   <h3>❓ 常见问题</h3>
   <div class="help-faq">
     <details><summary>三种 Word/PDF 汇报怎么选？</summary><div class="faq-a">① 数据看板「导出 PDF/Word」= 完整月度汇报（封面+图表+明细），要上交用这个；② 月报页「周报段落 → 导出 Word」= 本周一小段正文，日常周报用；③ 月报页「生成月度复盘 → 导出 Word」= 月度复盘总结，自查或写月报大纲用。</div></details>
-    <details><summary>看板/日历/进度/历史怎么用？</summary><div class="faq-a">看板在任务列表点「🗂 看板」，直接拖动卡片到其他列即改完成状态（拖到「Paused/Cancelled」会弹出窗口要你填「备注」，不填备注则本次不改；拖到 Closed 会自动补结案日期）；日历点「📅 日历」，按录入日期回看当天记录，点日期上的「补录」可直接补那天的任务。进度：在「开发进度」里每行写一个推进节点，行首加「✓ 」视为已完成，卡片和看板自动显示进度条；卡片底部「🕘 历史」能回看每次改动。</div></details>
+    <details><summary>看板/日历/进度/历史怎么用？</summary><div class="faq-a">看板在任务列表点「🗂 看板」，直接拖动卡片到其他列即改完成状态（拖到「Paused/Cancelled」会弹出窗口要你填「备注」，不填备注则本次不改；拖到「Closed」会要求先填「结案日期」，未填则本次不改（与录入页一致，不自动补））；日历点「📅 日历」，按录入日期回看当天记录，点日期上的「补录」可直接补那天的任务。进度：在「开发进度」里每行写一个推进节点，行首加「✓ 」视为已完成，卡片和看板自动显示进度条；卡片底部「🕘 历史」能回看每次改动。</div></details>
     <details><summary>常用短语怎么管理？</summary><div class="faq-a">录入页「开发进度」下方点「+ 新增」可直接加；也可在配置中心「常用短语」统一管理（增删、去重排序）。会存到本地，换模板不影响。</div></details>
     <details><summary>数据存在哪里？会上传吗？</summary><div class="faq-a">所有数据只存在你自己的浏览器本地（localStorage），不经过任何服务器、无需登录；AI 润色仅在你填写了自己的 API Key 时，才把进度文本发往你填写的服务商。</div></details>
     <details><summary>怎么备份 / 换电脑迁移？</summary><div class="faq-a">任务列表 →「🗄 备份/导入/导出」→「全量备份」导出 .json（或「🔐 加密备份」.wbe，需密码）。新电脑打开工具 →「全量恢复」选择备份文件即可。</div></details>
@@ -52,7 +52,7 @@ function openHelp(){
   if(got) got.onclick=closeHelp;
   // 关闭按钮与遮罩点击
   $('#helpClose').onclick=closeHelp;
-  ov.querySelector('.help-mask').onclick=closeHelp;
+  const mask=ov.querySelector('.help-mask'); if(mask) mask.onclick=closeHelp;
 }
 function closeHelp(){
   $('#helpOverlay').classList.add('hidden');

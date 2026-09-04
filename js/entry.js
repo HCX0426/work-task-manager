@@ -66,9 +66,9 @@ $('#draftDiscard').onclick=()=>{ clearDraft(); toast('已丢弃草稿'); };
 
 /* 自动计算开发天数：开发日期~结案日期（含首尾）；两个日期任一为空则不动 */
 function autoFillDays(){
-  const dev=$('#entryForm').querySelector('[name="开发日期"]');
-  const close=$('#entryForm').querySelector('[name="结案日期"]');
-  const days=$('#entryForm').querySelector('[name="开发天数"]');
+  const dev=$('#entryForm').querySelector('[name="'+COL.DEV_DATE+'"]');
+  const close=$('#entryForm').querySelector('[name="'+COL.CLOSE_DATE+'"]');
+  const days=$('#entryForm').querySelector('[name="'+COL.DEV_DAYS+'"]');
   if(!dev||!close||!days)return;
   const n=calcDevDays(parseDateAny(dev.value), parseDateAny(close.value));
   if(n!=null) days.value=n+'天';
@@ -165,9 +165,9 @@ function renderEntry(prefill){
     // 完成状态 / 备注 / 结案日期 联动：
     // - 完成状态必填；选「暂停/取消」须填备注
     // - 结案日期 ↔ 完成状态=Closed 双向依赖（填了结案日期必须 Closed；选 Closed 必须填结案日期）
-    const stEl=$('#entryForm').querySelector('[name="完成状态"]');
-    const noteEl=$('#entryForm').querySelector('[name="备注"]');
-    const cdEl=$('#entryForm').querySelector('[name="结案日期"]');
+    const stEl=$('#entryForm').querySelector('[name="'+COL.STATUS+'"]');
+    const noteEl=$('#entryForm').querySelector('[name="'+COL.NOTE+'"]');
+    const cdEl=$('#entryForm').querySelector('[name="'+COL.CLOSE_DATE+'"]');
     const stField=stEl?stEl.closest('.field'):null;
     const noteField=noteEl?noteEl.closest('.field'):null;
     const cdField=cdEl?cdEl.closest('.field'):null;
@@ -440,10 +440,11 @@ $('#bulkSave').onclick=()=>{
     });
     if(line.includes('|')){ const i=line.indexOf('|'); values[COL.PROJECT]=line.slice(0,i).trim(); values[COL.REQ]=line.slice(i+1).trim(); }
     else { values[COL.REQ]=line; }
-    // 状态必填：批量录入默认取「完成状态」下拉第一项（通常为 Ongoing），避免产生无状态任务
+    // 状态必填：批量录入默认取「Ongoing」（与录入表单 COL.STATUS 默认值一致，见 store.js STATUS_DEFS），
+    // 避免产生无状态任务；下拉里没有 Ongoing 时才退回第一项，仍保证有值
     if(!String(values[COL.STATUS]||'').trim()){
       const stArr=dropdowns[COL.STATUS]||[];
-      if(stArr.length) values[COL.STATUS]=stArr[0];
+      values[COL.STATUS]= stArr.includes(STATUS_ONGOING) ? STATUS_ONGOING : (stArr[0]||STATUS_ONGOING);
     }
     newTasks.push({id:uid(),entryDate:d,values,exported:false, exportedNew:false});
   });

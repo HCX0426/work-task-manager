@@ -59,7 +59,7 @@ document.addEventListener('keydown',e=>{
 /* PWA：注册 Service Worker（离线可用），仅 https/localhost 生效 */
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register(SW_PATH).catch(()=>{ /* 不支持的环境静默跳过 */ });
+    navigator.serviceWorker.register(SW_PATH).catch(err=>{ console.warn('Service Worker 注册失败（离线能力将不可用）：',err); });
   });
   /* 已被旧 SW 控制的页面：新版本激活接管（controllerchange）时自动刷新，让开了很久的旧标签页也强制拿到最新代码。
      首次访问（无旧控制器）不触发，避免多刷新一次。 */
