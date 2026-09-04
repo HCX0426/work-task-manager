@@ -162,6 +162,20 @@ function renderYearBox(){
 }
 $('#dashYearSel').onchange=renderYearBox;
 
+/* 报告表格行构建：PDF 与 Word 两条导出路径共用（原各写一遍，易漂移；审计 #14 dashboard 半边） */
+function custStatRows(d){
+  return Object.entries(d.byCust).sort((a,b)=>b[1].total-a[1].total).map(([k,v])=>{
+    const r=v.total?Math.round(v.closed/v.total*100):0;
+    return `<tr><td>${esc(k)}</td><td class="c">${v.total}</td><td class="c">${v.closed}</td><td class="c">${r}%</td></tr>`;
+  }).join('');
+}
+function statusStatRows(d){
+  return Object.entries(d.bySt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<tr><td>${esc(k)}</td><td class="c">${n}</td></tr>`).join('');
+}
+function overdueRows(d){
+  return d.overdueList.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.cust)}</td><td class="c">${x.days} 天</td></tr>`).join('');
+}
+
 /* ============ 导出 PDF 汇报（打印成 PDF，中文渲染完美、零外部依赖） ============ */
 function exportReportPDF(){
   const d=getDashboardData();
@@ -174,14 +188,9 @@ function exportReportPDF(){
     const pct=t.n?Math.round(t.n/maxN*100):2;
     return `<div class="trend-col"><div class="trend-val">${t.n}</div><div class="trend-bar" style="height:${pct}%"></div><div class="trend-lab">${t.mm}月</div></div>`;
   }).join('');
-  const custArr=Object.entries(d.byCust).sort((a,b)=>b[1].total-a[1].total);
-  const custHtml=custArr.map(([k,v])=>{
-    const r=v.total?Math.round(v.closed/v.total*100):0;
-    return `<tr><td>${esc(k)}</td><td class="c">${v.total}</td><td class="c">${v.closed}</td><td class="c">${r}%</td></tr>`;
-  }).join('');
-  const stArr=Object.entries(d.bySt).sort((a,b)=>b[1]-a[1]);
-  const stHtml=stArr.map(([k,n])=>`<tr><td>${esc(k)}</td><td class="c">${n}</td></tr>`).join('');
-  const overdueHtml=d.overdueList.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.cust)}</td><td class="c">${x.days} 天</td></tr>`).join('');
+  const custHtml=custStatRows(d);
+  const stHtml=statusStatRows(d);
+  const overdueHtml=overdueRows(d);
   // 本月任务明细（按开发日期排）
   const cols=schema.filter(c=>c.type!=='auto' && [COL.PROJECT,COL.CUST,COL.OWNER,COL.STATUS,COL.DEV_DATE,COL.PROGRESS].includes(c.name));
   const rowHtml=d.monthTasks.slice().sort((a,b)=>String(a.values[COL.DEV_DATE]||'').localeCompare(String(b.values[COL.DEV_DATE]||''))).map(t=>{
@@ -271,11 +280,9 @@ function exportReportWord(){
   const dateStr=d.y+'-'+p(d.m)+'-'+p(new Date().getDate());
   const avg=avgDevDays();
   const issues=getHealthIssues();
-  const custArr=Object.entries(d.byCust).sort((a,b)=>b[1].total-a[1].total);
-  const custRows=custArr.map(([k,v])=>{ const r=v.total?Math.round(v.closed/v.total*100):0; return `<tr><td>${esc(k)}</td><td class="c">${v.total}</td><td class="c">${v.closed}</td><td class="c">${r}%</td></tr>`; }).join('');
-  const stArr=Object.entries(d.bySt).sort((a,b)=>b[1]-a[1]);
-  const stRows=stArr.map(([k,n])=>`<tr><td>${esc(k)}</td><td class="c">${n}</td></tr>`).join('');
-  const odRows=d.overdueList.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.cust)}</td><td class="c">${x.days} 天</td></tr>`).join('');
+  const custRows=custStatRows(d);
+  const stRows=statusStatRows(d);
+  const odRows=overdueRows(d);
   const healthRows=issues.length?issues.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.why)}</td></tr>`).join(''):'<tr><td colspan="2" class="c muted">✓ 数据健康</td></tr>';
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
 <head><meta charset="utf-8"><title>月度汇报</title></head>

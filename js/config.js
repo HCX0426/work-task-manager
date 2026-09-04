@@ -266,6 +266,8 @@ $('#addCol').onclick=()=>{
     if(type==='chk'){ el.checked=!!st[key]; el.onchange=()=>saveCfg({[key]:el.checked}); }
     else { el.value=st[key]||''; el.onchange=()=>saveCfg({[key]: trim?el.value.trim():el.value}); }
   });
+  // AI 默认服务地址 placeholder 由脚本填充（消除 HTML 里的 URL 字面量重复，审计低项）
+  const aiBase=$('#cfgAiBaseUrl'); if(aiBase) aiBase.placeholder=AI_DEF_BASE_URL;
   /* hex(#RGB/#RRGGBB) → #RRGGBB（供 color input 初始化用），非法返回 ''；统一复用 store.js normalizeHex */
   const toHex=(c)=>normalizeHex(c,false);
   // 表头背景色（开关 + 取色器），未配置时兜底默认色
