@@ -82,11 +82,11 @@ function renderList(){
     const done=isStatusDone(t.values[COL.STATUS]);
     const overdue=isTaskOverdue(t);
     const checked=batchSel && batchSel.has(t.id)?'checked':'';
-    h+=`<div class="task-card${done?' done':''}" data-id="${t.id}">
-      ${batchOn?`<label class="tcheck-wrap"><input type="checkbox" class="tcheck" data-id="${t.id}" ${checked}></label>`:''}
+    h+=`<div class="task-card${done?' done':''}" data-id="${esc(t.id)}">
+      ${batchOn?`<label class="tcheck-wrap"><input type="checkbox" class="tcheck" data-id="${esc(t.id)}" ${checked}></label>`:''}
       <div class="tc-date"><span class="tc-pill">📅 ${esc(t.entryDate)}${(t.exported?'<span class="tc-exported">已追加</span>':(t.exportedNew?'<span class="tc-exported">已生成新周报</span>':''))}${overdue?'<span class="tc-exported" style="color:var(--del)">⏰ 逾期</span>':''}</span>
         <span class="tc-actions">
-          <button class="btn sec sm" data-edit="${t.id}">编辑</button>
+          <button class="btn sec sm" data-edit="${esc(t.id)}">编辑</button>
           <button class="btn del sm" data-del="${t.id}">删除</button>
         </span>
       </div>
@@ -265,7 +265,7 @@ function renderTrash(){
   if(!trash.length){wrap.innerHTML='<p class="muted">回收站为空。</p>';return;}
   let h='<div class="task-list">';
   trash.slice().reverse().forEach(t=>{
-    h+=`<div class="task-card" data-id="${t.id}">
+    h+=`<div class="task-card" data-id="${esc(t.id)}">
       <div class="tc-date"><span class="tc-pill">📅 ${esc(t.entryDate)} <span class="tc-exported">已删除</span></span>
         <span class="tc-actions">
           <button class="btn sec sm" data-restore="${t.id}">恢复</button>
@@ -466,13 +466,14 @@ $('#importTasksFile').onchange=e=>{
         // 合并：备份中有而本地没有的任务加入；两边都有的保留本地
         const map=new Map(tasks.map(t=>[t.id,t]));
         validTasks.forEach(t=>{ if(!map.has(t.id)) map.set(t.id,t); });
-        tasks=[...map.values()];
-        if(!save(LS_TASKS,tasks)){ toast('合并导入失败（本地存储可能已满）'); return; }
+        const next=[...map.values()];
+        if(!save(LS_TASKS,next)){ toast('合并导入失败（本地存储可能已满）'); return; }
+        tasks=next;
         renderList();toast('合并导入完成，现有 '+tasks.length+' 条');
       }else{
         if(confirm(`导入将覆盖当前全部 ${tasks.length} 条任务数据，且不可撤销。\n建议先「导出任务库(备份)」。\n仍要导入？`)){
+          if(!save(LS_TASKS,validTasks)){ toast('导入失败（本地存储可能已满）'); return; }
           tasks=validTasks;
-          if(!save(LS_TASKS,tasks)){ toast('导入失败（本地存储可能已满）'); return; }
           renderList();toast('任务库已导入');
         }
       }
@@ -529,8 +530,9 @@ $('#importExcelFile').onchange=async e=>{
     if(!newTasks.length){ toast('表格里没有可导入的数据行'); e.target.value=''; return; }
     const merged=confirm(`读取到 ${newTasks.length} 条任务。\n「确定」= 合并进现有任务库（当前 ${tasks.length} 条）；\n「取消」= 不导入。`);
     if(!merged){ e.target.value=''; return; }
-    tasks=tasks.concat(newTasks);
-    if(!save(LS_TASKS,tasks)){ toast('导入失败（本地存储可能已满）'); e.target.value=''; return; }
+    const next=tasks.concat(newTasks);
+    if(!save(LS_TASKS,next)){ toast('导入失败（本地存储可能已满）'); e.target.value=''; return; }
+    tasks=next;
     renderList();
     toast(`已从 Excel 导入 ${newTasks.length} 条任务，现有 ${tasks.length} 条`+(noDate?`（其中 ${noDate} 条缺录入日期，已按今天录入，可在日历里改）`:''));
   }catch(err){ toast('导入失败：'+err.message); }
@@ -684,7 +686,7 @@ function renderGantt(){
         <div class="gantt-bar-col">
           <div class="gantt-bar ${statusClass}" style="left:${left}%;width:${width}%" 
                title="${esc(name)}\n${dateRange}\n状态: ${esc(status || '未填')}"
-               data-edit="${t.id}">
+               data-edit="${esc(t.id)}">
             <span class="bar-label">${esc(name)}</span>
           </div>
         </div>
@@ -775,7 +777,7 @@ function renderKanban(){
           const done=isStatusDone(t.values[COL.STATUS]);
           const overdue=isTaskOverdue(t);
           const prog=devProgressOf(t);
-          return `<div class="kanban-card${done?' done':''}${overdue?' overdue':''}" draggable="true" data-id="${t.id}" title="点击编辑：${esc(name)}">
+          return `<div class="kanban-card${done?' done':''}${overdue?' overdue':''}" draggable="true" data-id="${esc(t.id)}" title="点击编辑：${esc(name)}">
             <span class="kc-name">${esc(name)}</span>
             ${prog?`<div class="tc-progress" style="margin:0"><span class="sp-bar"><i style="width:${prog.pct}%"></i></span><span class="sp-txt">${prog.done}/${prog.total}</span></div>`:''}
             ${desc?`<span class="kc-desc">${esc(desc)}</span>`:''}
@@ -863,7 +865,7 @@ let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
 function calItemHtml(t){
   const name=String(t.values[COL.PROJECT]||'').trim()||'未命名';
   const done=isStatusDone(t.values[COL.STATUS]);
-  return `<span class="cal-item${done?' closed':''}" data-id="${t.id}" title="${esc(name)}（点击编辑）">${esc(name)}</span>`;
+  return `<span class="cal-item${done?' closed':''}" data-id="${esc(t.id)}" title="${esc(name)}（点击编辑）">${esc(name)}</span>`;
 }
 function renderCalendar(){
   const grid=$('#calGrid'); if(!grid) return;

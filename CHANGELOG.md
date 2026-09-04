@@ -194,6 +194,29 @@
 - 新增回归 `tests/_import_limit_reg.js`（37 断言）：覆盖三个导入入口的 20MB 上限拦截、读取失败兜底、边界值（恰好 20MB 放行 / size=0 不误拦 / 未选文件静默返回）。
 - 上述两个回归均通过**变异验证**（临时把源码改回旧行为后分别失败 11 / 12 条断言），确认非空洞测试。全量 **13 套件 PASS=306 FAIL=0**。
 
+## [1.0.9] - 2026-09-04
+
+### 修复（全量审计阶段二：M1/M2/L1/L6）
+
+- **M1 看板提示文案纠错**：`index.html` 看板 hint 原写"拖到 Closed 未填结案日期会自动补今天"，与 v1.0.8 H1 修复（必须手动填、取消不改）矛盾；已改为与帮助文案一致的表述（不自动补）。
+- **M2 导入写入顺序统一**：`importTasks`（覆盖/合并）与 `importExcelBtn` 三处原为"先改内存 `tasks` 再 `save`"，配额满时内存与磁盘短暂不一致；已改为"先 `save` 成功再赋值内存"（与 `restoreAll` 同构），保存失败即中止、不污染内存。
+- **L1 状态常量一致性**：`monthly.js` `genReview` 的"进行中"判定由字面量 `'ongoing'` 改为 `STATUS_ONGOING` 常量，消除与同函数其余 `STATUS_*` 常量的风格漂移。
+- **L6 防御性 XSS**：`list.js` 卡片/看板/日历/甘特的 `data-id`、`data-edit` 属性由 `${t.id}` 改为 `${esc(t.id)}`（共 7 处），本地单用户数据风险极低，但补齐转义缺口、与全局 `esc` 防护一致。
+- **L2 状态分类口径收口**：`monthly.js` `genReview` 现已全程使用 `STATUS_*` 常量（L1 补 `STATUS_ONGOING` 后四态齐）；深度复用 `aggregateTasks` 因复盘需按状态分列任务清单、强行复用会改行为，维持现状（视为已按"用常量"路径解决漂移）。
+- **L3 Pages 发布目录收窄**：`pages.yml` 部署由 `path: '.'`（整仓发布，含 `tests/`、`vendor/`、`CHANGELOG.md` 等内部文件）改为先 `cp` 仅公开资源（index.html / sw.js / manifest.json / icon.svg / exceljs.min.js / js/）到 `_site` 再发布，避免内部文件暴露于公开站点；`.gitignore` 增加 `_site/`。
+- **L8 年汇总单次遍历**：`dashboard.js` `renderYearBox` 月度聚合由 12 次全量 `filter` 改为单次遍历分桶（与 `getDashboardData` 趋势桶同构），大数据量下减少重复遍历。
+
+### 未改动项（按推荐评估）
+
+- **L4 CSP `unsafe-inline`**：推荐即"暂不改"——首帧防闪内联脚本 + 约 1170 行内联样式所必需，移除需重构样式层，维持现状并在 `index.html` 注释文档化。
+- **L5 `document.execCommand('copy')`**：仅作 `navigator.clipboard` 降级 fallback，保持现状。
+- **L7 ExcelJS 升级（实测结论：维持现状）**：经 `npm pack exceljs@4.4.0`（registry 完整性校验：shasum `cfb1cb8dcc82c760a9fc9faa9e52dadab66b0156`）提取官方 `dist/exceljs.min.js` 比对——其 sha256 与仓库现行 `exceljs.min.js` **完全一致**（`7e49da68588e250dbb8bba190d2caa8ab3787cc0284bda1d8b2f805c4df742c9`，947702 字节，文件头 `/*! ExcelJS 19-10-2023 */`）。即 ExcelJS 官方发布的 minified UMD 浏览器包自 3.33.0 起构建冻结，4.4.0 不再更新该文件。**替换 vendor 文件为零字节变化、无功能收益、且会无谓触发 SW 缓存失效**，故本批不替换、不升 `APP_VERSION`。SRI `sha384-` 已记入 `vendor/exceljs.README.md` 供后续换包核验。若未来需要真正更新，须改用 `dist/es5/exceljs.browser.js`（ES5 构建，不同模块格式）并重做 `loadExcelJS()`，超出本轮范围、标记为后续选项。
+
+### 工程化
+
+- 版本号随 SW 缓存联动升级（`sw.js` `APP_VERSION` 与 `manifest.json` `version` → `1.0.9`），确保上述 HTML/JS 修复在部署后失效旧缓存、生效新文件。
+- 全量 13 套件回归 **PASS=306 FAIL=0**（M2 改动由现有 H3 导入上限回归 + 全量套件覆盖，未新增测试文件）。
+
 ## [1.0.7] - 2026-09-04
 
 ### 新增功能
@@ -206,3 +229,4 @@
 
 [1.0.7]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.7
 [1.0.8]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.8
+[1.0.9]: https://github.com/HCX0426/work-task-manager/releases/tag/v1.0.9

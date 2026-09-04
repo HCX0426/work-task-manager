@@ -186,7 +186,7 @@ function genReview(){
     if(s===STATUS_DONE) closed.push(t);
     else if(s===STATUS_CANCEL) cancelled.push(t);
     else if(s===STATUS_PAUSE) paused.push(t);
-    else if(s.toLowerCase()==='ongoing') doing.push(t);
+    else if(s===STATUS_ONGOING) doing.push(t);
     else pending.push(t);
   });
   const overdue=pending.filter(t=>{ const d=parseDateAny(t.values[COL.DEV_DATE])||parseDateAny(t.values[COL.RAISE_DATE]); return d && d<today0; }).length;

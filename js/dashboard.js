@@ -127,13 +127,16 @@ function renderYearBox(){
   sel.innerHTML=years.map(y=>`<option value="${y}"${y===cur?' selected':''}>${y}年</option>`).join('');
   const body=$('#dashYearBody');
   if(!tasks.length){ body.innerHTML='<p class="muted" style="padding:14px 0;text-align:center">暂无任务数据</p>'; return; }
-  // 月度聚合
-  const months=[];
-  for(let m=1;m<=12;m++){
-    const list=tasks.filter(t=>{ const d=parseDateAny(t.entryDate); return d&&d.getFullYear()===cur&&d.getMonth()+1===m; });
-    const closed=list.filter(t=>String(t.values[COL.STATUS]||'')===STATUS_DONE).length;
-    months.push({m, n:list.length, closed, rate:list.length?Math.round(closed/list.length*100):null});
-  }
+  // 月度聚合（单次遍历分桶，避免 12 次全量 filter；与 getDashboardData 趋势桶同构）
+  const months=Array.from({length:12},(_,i)=>({m:i+1,n:0,closed:0,rate:null}));
+  tasks.forEach(t=>{
+    const d=parseDateAny(t.entryDate);
+    if(!d||d.getFullYear()!==cur) return;
+    const mi=d.getMonth();
+    months[mi].n++;
+    if(String(t.values[COL.STATUS]||'')===STATUS_DONE) months[mi].closed++;
+  });
+  months.forEach(o=>{ o.rate=o.n?Math.round(o.closed/o.n*100):null; });
   // 季度聚合
   const qDefs=[['Q1',1,2,3],['Q2',4,5,6],['Q3',7,8,9],['Q4',10,11,12]];
   const qRows=qDefs.map(([label,a,b,c])=>{

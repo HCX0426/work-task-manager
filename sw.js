@@ -3,7 +3,7 @@
    - 业务资源（index.html + js/*）→ 网络优先（绕过HTTP缓存强制走网络）：每次打开都拉最新代码，自动更新生效；断网回退缓存
    - 大文件/静态资源（exceljs.min.js、manifest、icon）→ 缓存优先：避免每次下载拖慢启动 */
 /* 版本单一事实来源：sw 缓存键、manifest.json version、CHANGELOG 三处须与本常量保持一致（无构建步骤，写死一处供引用） */
-const APP_VERSION='1.0.8';
+const APP_VERSION='1.0.9';
 const CACHE='wb-'+APP_VERSION;
 /* 资源清单：须与 index.html 底部 <script defer> 列表保持一致，新增/重命名 js 须同步此处，否则离线时该文件 404 */
 const ASSETS=[
